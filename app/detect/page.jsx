@@ -4,9 +4,21 @@ import { useState } from "react";
 
 export default function DetectPage() {
   const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  function handleFileChange(e) {
+    const selected = e.target.files[0];
+    setFile(selected);
+    setResult(null);
+    setError("");
+
+    if (selected) {
+      setPreview(URL.createObjectURL(selected));
+    }
+  }
 
   async function analyzeImage(e) {
     e.preventDefault();
@@ -23,20 +35,41 @@ export default function DetectPage() {
     const formData = new FormData();
     formData.append("image", file);
 
-    const res = await fetch("/api/analyze", {
-      method: "POST",
-      body: formData,
-    });
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        body: formData,
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      setError(data.error || "Something went wrong.");
-    } else {
-      setResult(data);
+      if (!res.ok) {
+        setError(data.error || "Something went wrong.");
+      } else {
+        setResult(data);
+      }
+    } catch {
+      setError("Unable to analyze image. Please try again.");
     }
 
     setLoading(false);
+  }
+
+  const percent = result?.percent ?? 0;
+
+  let confidence = "Moderate";
+  if (percent >= 85 || percent <= 15) confidence = "High";
+  if (percent >= 40 && percent <= 60) confidence = "Low";
+
+  let explanation =
+    "The image returned mixed signals. Treat the result as informational, not definitive.";
+
+  if (percent >= 70) {
+    explanation =
+      "This image shows signals commonly associated with AI-generated content.";
+  } else if (percent <= 30) {
+    explanation =
+      "This image shows fewer indicators commonly associated with AI-generated content.";
   }
 
   return (
@@ -44,30 +77,80 @@ export default function DetectPage() {
       <section className="hero">
         <div className="badge">ProofOrigin Detector</div>
 
-        <h1>Analyze an Image</h1>
+        <h1>AI Image Authenticity Report</h1>
 
         <p>
-          Upload an image and receive an AI-generation probability report.
+          Upload an image and receive a professional AI-generation probability
+          report.
         </p>
 
-        <form onSubmit={analyzeImage} className="card">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setFile(e.target.files[0])}
-          />
+        <form onSubmit={analyzeImage} className="detector-card">
+          <label className="upload-box">
+            <input type="file" accept="image/*" onChange={handleFileChange} />
+            <span>{file ? file.name : "Choose an image to analyze"}</span>
+          </label>
+
+          {preview && (
+            <img src={preview} alt="Preview" className="image-preview" />
+          )}
 
           <button className="primary" type="submit" disabled={loading}>
-            {loading ? "Analyzing..." : "Run Detection"}
+            {loading ? "Analyzing Image..." : "Run Detection"}
           </button>
         </form>
 
-        {error && <p>{error}</p>}
+        {error && <div className="error-box">{error}</div>}
 
         {result && (
-          <div className="card">
-            <h2>{result.verdict}</h2>
-            <p>AI Probability: {result.percent}%</p>
+          <div className="report-card">
+            <div className="report-header">
+              <div>
+                <p className="report-label">Final Verdict</p>
+                <h2>{result.verdict}</h2>
+              </div>
+
+              <div className="score-circle">
+                <span>{percent}%</span>
+                <small>AI Probability</small>
+              </div>
+            </div>
+
+            <div className="score-bar">
+              <div style={{ width: `${percent}%` }} />
+            </div>
+
+            <div className="report-grid">
+              <div>
+                <p className="report-label">Confidence</p>
+                <h3>{confidence}</h3>
+              </div>
+
+              <div>
+                <p className="report-label">Media Type</p>
+                <h3>Image</h3>
+              </div>
+
+              <div>
+                <p className="report-label">Status</p>
+                <h3>Complete</h3>
+              </div>
+            </div>
+
+            <div className="explanation-box">
+              <p className="report-label">Explanation</p>
+              <p>{explanation}</p>
+            </div>
+
+            <button
+              className="secondary"
+              onClick={() => {
+                setFile(null);
+                setPreview("");
+                setResult(null);
+              }}
+            >
+              Analyze Another Image
+            </button>
           </div>
         )}
       </section>
