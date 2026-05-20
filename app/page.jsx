@@ -21,8 +21,8 @@ export default function Home() {
             rel="noopener noreferrer" className="primary">
             Join the Waitlist
           </a>
-          <a href="#how-it-works" className="secondary">
-            How It Works
+          <a href="/detect" className="secondary">
+          Try the Detector
           </a>
         </div>
       </section>
