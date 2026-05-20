@@ -15,7 +15,10 @@ export default function Home() {
         </p>
 
         <div className="buttons">
-          <a href="mailto:hello@prooforigin.org" className="primary">
+          <a 
+            href="https://tally.so/r/vGJQYX"
+            target="_blank" 
+            rel="noopener noreferrer" className="primary">
             Join the Waitlist
           </a>
           <a href="#how-it-works" className="secondary">
