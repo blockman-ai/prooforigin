@@ -1,77 +1,53 @@
 export default function Home() {
   return (
-    <main style={{
-      minHeight: "100vh",
-      background: "#0a0a0a",
-      color: "white",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "2rem",
-      fontFamily: "Arial, sans-serif",
-      textAlign: "center"
-    }}>
-      <div style={{ maxWidth: "900px" }}>
-        <h1 style={{
-          fontSize: "4rem",
-          fontWeight: "bold",
-          marginBottom: "1rem"
-        }}>
-          ProofOrigin
-        </h1>
+    <main className="page">
+      <section className="hero">
+        <div className="badge">AI Content Detection • Authenticity Reports</div>
 
-        <p style={{
-          fontSize: "1.5rem",
-          color: "#a0a0a0",
-          marginBottom: "2rem"
-        }}>
-          Prove what’s real.
+        <h1>ProofOrigin</h1>
+
+        <h2>Find out if content was created by AI.</h2>
+
+        <p>
+          Upload images, videos, documents, or media files and receive a clear
+          authenticity analysis showing whether content is likely human-made,
+          AI-generated, or manipulated.
         </p>
 
-        <p style={{
-          fontSize: "1.1rem",
-          lineHeight: "1.8",
-          marginBottom: "3rem"
-        }}>
-          Bitcoin-backed proof of authenticity for digital content
-          in the age of AI.
-        </p>
-
-        <div style={{
-          display: "flex",
-          gap: "1rem",
-          justifyContent: "center",
-          flexWrap: "wrap"
-        }}>
-          <a
-            href="mailto:hello@prooforigin.org"
-            style={{
-              background: "#f7931a",
-              color: "white",
-              padding: "14px 28px",
-              borderRadius: "10px",
-              textDecoration: "none",
-              fontWeight: "bold"
-            }}
-          >
+        <div className="buttons">
+          <a href="mailto:hello@prooforigin.org" className="primary">
             Join the Waitlist
           </a>
-
-          <a
-            href="#"
-            style={{
-              border: "1px solid #333",
-              color: "white",
-              padding: "14px 28px",
-              borderRadius: "10px",
-              textDecoration: "none",
-              fontWeight: "bold"
-            }}
-          >
-            Learn More
+          <a href="#how-it-works" className="secondary">
+            How It Works
           </a>
         </div>
-      </div>
+      </section>
+
+      <section id="how-it-works" className="cards">
+        <div className="card">
+          <h3>1. Upload Content</h3>
+          <p>Submit an image, video, document, or audio file for analysis.</p>
+        </div>
+
+        <div className="card">
+          <h3>2. Run AI Detection</h3>
+          <p>ProofOrigin checks for AI-generation signals, metadata clues, and manipulation risk.</p>
+        </div>
+
+        <div className="card">
+          <h3>3. Get a Report</h3>
+          <p>Receive a simple authenticity score with a clear explanation.</p>
+        </div>
+      </section>
+
+      <section className="mission">
+        <h2>Built for the age of synthetic media.</h2>
+        <p>
+          As AI content becomes harder to recognize, ProofOrigin helps creators,
+          businesses, educators, and everyday users verify what they are looking at.
+        </p>
+      </section>
     </main>
   );
 }
