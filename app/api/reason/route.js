@@ -8,48 +8,45 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    const {
-      percent,
-      classification,
-      manipulationRisk,
-      confidence,
-      signals,
-    } = body;
+    const percent = body.percent ?? 0;
+    const classification = body.classification || "Unknown";
+    const manipulationRisk = body.manipulationRisk || "Unknown";
+    const confidence = body.confidence || "Unknown";
+    const signals = Array.isArray(body.signals) ? body.signals : [];
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.5",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are ProofOrigin's forensic report assistant. Write cautious, professional authenticity analysis. Never claim certainty. Explain results as probabilistic.",
-        },
-        {
-          role: "user",
-          content: `
-Create a short forensic summary for this image scan.
+    if (!process.env.OPENAI_API_KEY) {
+      return Response.json(
+        { error: "OPENAI_API_KEY is missing." },
+        { status: 500 }
+      );
+    }
 
+    const response = await openai.responses.create({
+      model: "gpt-4.1-mini",
+      instructions:
+        "You are ProofOrigin's forensic report assistant. Write cautious, professional authenticity analysis. Never claim certainty. Explain results as probabilistic.",
+      input: `
 AI Probability: ${percent}%
 Classification: ${classification}
 Manipulation Risk: ${manipulationRisk}
 Confidence: ${confidence}
-Detected Signals: ${signals?.join(", ")}
+Detected Signals: ${signals.join(", ")}
 
-Return 2-3 clear sentences only.
-          `,
-        },
-      ],
-      max_tokens: 180,
+Write 2 clear sentences for a forensic summary.
+      `,
+      max_output_tokens: 150,
     });
 
-    const summary =
-      response.choices?.[0]?.message?.content ||
-      "Forensic summary unavailable.";
-
-    return Response.json({ summary });
+    return Response.json({
+      summary:
+        response.output_text ||
+        "The media shows mixed authenticity signals. This result should be treated as probabilistic, not definitive.",
+    });
   } catch (error) {
     return Response.json(
-      { error: "Unable to generate forensic summary." },
+      {
+        error: error.message || "Unable to generate forensic summary.",
+      },
       { status: 500 }
     );
   }
