@@ -73,7 +73,43 @@ export default function DetectPage() {
     classification = "Fully AI-Generated";
     manipulationRisk = "Very High";
   }
+let signals = [];
 
+if (classification === "Human-Made") {
+  signals = [
+    "Low AI-generation probability",
+    "Natural image structure detected",
+    "No strong synthetic-generation indicators found",
+  ];
+} else if (classification === "Human-Made with Minor Edits") {
+  signals = [
+    "Mostly human-made image signals",
+    "Possible light retouching or enhancement",
+    "Some minor authenticity uncertainty detected",
+  ];
+} else if (classification === "Heavily Manipulated") {
+  signals = [
+    "Elevated synthetic or manipulation signals",
+    "Mixed authenticity indicators",
+    "Manual review recommended",
+  ];
+} else if (classification === "Fully AI-Generated") {
+  signals = [
+    "High AI-generation probability",
+    "Strong synthetic-media indicators detected",
+    "Content should be treated with caution",
+  ];
+}
+
+let statusClass = "status-human";
+
+if (classification === "Human-Made with Minor Edits") {
+  statusClass = "status-edited";
+} else if (classification === "Heavily Manipulated") {
+  statusClass = "status-manipulated";
+} else if (classification === "Fully AI-Generated") {
+  statusClass = "status-ai";
+}
   let confidence = "Moderate";
   if (percent >= 85 || percent <= 15) confidence = "High";
   if (percent >= 40 && percent <= 60) confidence = "Low";
