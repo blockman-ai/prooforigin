@@ -95,9 +95,7 @@ export default function DetectPage() {
       );
     }
 
-    const updatedData = JSON.parse(
-      localStorage.getItem("prooforigin_limit")
-    );
+    const updatedData = JSON.parse(localStorage.getItem("prooforigin_limit"));
 
     const urlParams = new URLSearchParams(window.location.search);
     const isDev = urlParams.get("test") === "ski2026";
@@ -179,6 +177,36 @@ export default function DetectPage() {
     }
 
     setLoading(false);
+  }
+
+  async function shareResult() {
+    if (!result) return;
+
+    const shareText = `ProofOrigin Analysis: ${result.percent}% AI probability. Classification: ${classification}.`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "ProofOrigin Analysis",
+          text: shareText,
+          url: window.location.href,
+        });
+      } catch {
+        // User cancelled share sheet.
+      }
+    } else {
+      await navigator.clipboard.writeText(`${shareText} ${window.location.href}`);
+      alert("Report link copied!");
+    }
+  }
+
+  async function copyLink() {
+    await navigator.clipboard.writeText(window.location.href);
+    alert("Link copied!");
+  }
+
+  function downloadReport() {
+    window.print();
   }
 
   const percent = result?.percent ?? 0;
@@ -302,6 +330,12 @@ export default function DetectPage() {
                   <li key={index}>{signal}</li>
                 ))}
               </ul>
+            </div>
+
+            <div className="share-buttons">
+              <button onClick={shareResult}>Share Report</button>
+              <button onClick={copyLink}>Copy Link</button>
+              <button onClick={downloadReport}>Download Report</button>
             </div>
 
             <button
