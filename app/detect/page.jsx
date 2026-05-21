@@ -44,9 +44,29 @@ export default function DetectPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Something went wrong.");
-      } else {
-        setResult(data);
+  setError(data.error || "Something went wrong.");
+} else {
+
+  const reasonRes = await fetch("/api/reason", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      percent: percent,
+      classification,
+      manipulationRisk,
+      confidence,
+      signals,
+    }),
+  });
+
+  const reasonData = await reasonRes.json();
+
+  setResult({
+    ...data,
+    forensicSummary: reasonData.summary,
+  });
       }
     } catch {
       setError("Unable to analyze image. Please try again.");
