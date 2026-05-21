@@ -4,26 +4,111 @@ import { useEffect, useRef, useState } from "react";
 
 export default function DogGamePage() {
   const canvasRef = useRef(null);
+  const gameRef = useRef(null);
+
   const [score, setScore] = useState(0);
-  const [started, setStarted] = useState(false);
+  const [best, setBest] = useState(0);
+  const [status, setStatus] = useState("ready");
+
+  function startGame() {
+    setScore(0);
+    setStatus("playing");
+  }
+
+  function restartGame() {
+    setScore(0);
+    setStatus("playing");
+  }
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
+    const savedBest = localStorage.getItem("dogboost_best");
+    if (savedBest) setBest(Number(savedBest));
+  }, []);
 
-    let dog = { x: 60, y: 180, size: 34, velocity: 0 };
-    let coins = [];
+  useEffect(() => {
+    if (status !== "playing") return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animationId;
     let frame = 0;
-    let gameOver = false;
     let currentScore = 0;
 
+    const dog = {
+      x: 70,
+      y: 200,
+      size: 34,
+      velocity: 0,
+    };
+
+    let coins = [];
+    let bots = [];
+    let stars = Array.from({ length: 40 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: Math.random() * 2 + 1,
+    }));
+
     function jump() {
-      if (!started) setStarted(true);
-      dog.velocity = -7;
+      dog.velocity = -7.8;
     }
 
-    window.addEventListener("click", jump);
-    window.addEventListener("touchstart", jump);
+    gameRef.current = { jump };
+
+    function endGame() {
+      setStatus("gameover");
+
+      if (currentScore > best) {
+        localStorage.setItem("dogboost_best", String(currentScore));
+        setBest(currentScore);
+      }
+
+      cancelAnimationFrame(animationId);
+    }
+
+    function drawBackground() {
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      gradient.addColorStop(0, "#061923");
+      gradient.addColorStop(0.5, "#07111f");
+      gradient.addColorStop(1, "#02050a");
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      stars.forEach((star) => {
+        ctx.fillStyle = "rgba(255,255,255,0.7)";
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        star.x -= 0.3;
+        if (star.x < 0) star.x = canvas.width;
+      });
+
+      ctx.fillStyle = "#ffcc00";
+      ctx.beginPath();
+      ctx.arc(305, 70, 34, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(255,255,255,0.15)";
+      ctx.beginPath();
+      ctx.arc(294, 60, 7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawHud() {
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.roundRect(14, 12, 190, 42, 14);
+      ctx.fill();
+
+      ctx.fillStyle = "#00e5ff";
+      ctx.font = "bold 16px Arial";
+      ctx.fillText(`DOG BOOST: ${currentScore}`, 26, 39);
+    }
 
     function drawDog() {
       ctx.font = "34px Arial";
@@ -35,131 +120,142 @@ export default function DogGamePage() {
       ctx.fillText("🟡", coin.x, coin.y);
     }
 
-    function drawObstacle(obstacle) {
+    function drawBot(bot) {
       ctx.font = "34px Arial";
-      ctx.fillText("🤖", obstacle.x, obstacle.y);
+      ctx.fillText("🤖", bot.x, bot.y);
     }
 
-    let obstacles = [];
+    function collide(a, b, range = 32) {
+      return Math.abs(a.x - b.x) < range && Math.abs(a.y - b.y) < range;
+    }
 
     function loop() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBackground();
+      drawHud();
 
-      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      gradient.addColorStop(0, "#061923");
-      gradient.addColorStop(1, "#02050a");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      dog.velocity += 0.38;
+      dog.y += dog.velocity;
 
-      ctx.fillStyle = "#00f5ff";
-      ctx.font = "18px Arial";
-      ctx.fillText(`DOG BOOST SCORE: ${currentScore}`, 18, 28);
-
-      if (!started) {
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "22px Arial";
-        ctx.fillText("Tap to fly 🐶", 115, 170);
-        requestAnimationFrame(loop);
+      if (dog.y > canvas.height - 20 || dog.y < 25) {
+        endGame();
         return;
       }
 
-      dog.velocity += 0.35;
-      dog.y += dog.velocity;
-
-      if (dog.y > canvas.height - 20 || dog.y < 30) {
-        gameOver = true;
-      }
-
-      if (frame % 90 === 0) {
+      if (frame % 85 === 0) {
         coins.push({
-          x: canvas.width,
-          y: 60 + Math.random() * 230,
+          x: canvas.width + 20,
+          y: 70 + Math.random() * 270,
         });
       }
 
-      if (frame % 140 === 0) {
-        obstacles.push({
-          x: canvas.width,
-          y: 70 + Math.random() * 240,
+      if (frame % 135 === 0) {
+        bots.push({
+          x: canvas.width + 30,
+          y: 75 + Math.random() * 270,
         });
       }
 
-      coins = coins.map((coin) => ({ ...coin, x: coin.x - 3 }));
-      obstacles = obstacles.map((obs) => ({ ...obs, x: obs.x - 4 }));
+      coins = coins
+        .map((coin) => ({ ...coin, x: coin.x - 3.2 }))
+        .filter((coin) => coin.x > -40);
+
+      bots = bots
+        .map((bot) => ({ ...bot, x: bot.x - 4.1 }))
+        .filter((bot) => bot.x > -50);
 
       coins.forEach((coin) => {
         drawCoin(coin);
 
-        if (
-          Math.abs(dog.x - coin.x) < 30 &&
-          Math.abs(dog.y - coin.y) < 30
-        ) {
+        if (collide(dog, coin, 34)) {
           currentScore += 10;
           setScore(currentScore);
           coin.x = -999;
         }
       });
 
-      obstacles.forEach((obs) => {
-        drawObstacle(obs);
+      bots.forEach((bot) => {
+        drawBot(bot);
 
-        if (
-          Math.abs(dog.x - obs.x) < 30 &&
-          Math.abs(dog.y - obs.y) < 30
-        ) {
-          gameOver = true;
+        if (collide(dog, bot, 32)) {
+          endGame();
+          return;
         }
       });
 
       drawDog();
 
-      if (gameOver) {
-        ctx.fillStyle = "#ff4d5a";
-        ctx.font = "30px Arial";
-        ctx.fillText("GAME OVER", 95, 160);
-
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "18px Arial";
-        ctx.fillText("Refresh to play again", 100, 195);
-        return;
-      }
-
       frame++;
-      requestAnimationFrame(loop);
+      animationId = requestAnimationFrame(loop);
     }
 
     loop();
 
+    function handleTap() {
+      jump();
+    }
+
+    window.addEventListener("click", handleTap);
+    window.addEventListener("touchstart", handleTap);
+
     return () => {
-      window.removeEventListener("click", jump);
-      window.removeEventListener("touchstart", jump);
+      cancelAnimationFrame(animationId);
+      window.removeEventListener("click", handleTap);
+      window.removeEventListener("touchstart", handleTap);
     };
-  }, [started]);
+  }, [status, best]);
 
   return (
     <main className="page">
       <section className="hero">
         <div className="badge">DOG BOOST Mini Game</div>
 
-        <h1>Flappy DOG</h1>
+        <h1>DOG BOOST Flight</h1>
 
-        <p>Tap to fly. Collect DOG coins. Dodge AI bots.</p>
+        <p>
+          Tap to fly. Collect DOG coins. Dodge AI bots. Chase the Bitcoin moon.
+        </p>
 
-        <canvas
-          ref={canvasRef}
-          width={360}
-          height={420}
-          style={{
-            width: "100%",
-            maxWidth: "420px",
-            borderRadius: "24px",
-            border: "1px solid rgba(0, 245, 255, 0.35)",
-            boxShadow: "0 0 35px rgba(0, 245, 255, 0.2)",
-            background: "#02050a",
-          }}
-        />
+        <div className="game-shell">
+          <canvas
+            ref={canvasRef}
+            width={360}
+            height={430}
+            className="dog-canvas"
+          />
 
-        <h2>Score: {score}</h2>
+          {status === "ready" && (
+            <div className="game-overlay">
+              <h2>Ready?</h2>
+              <p>Tap start and keep DOG flying.</p>
+              <button className="primary" onClick={startGame}>
+                Start Game
+              </button>
+            </div>
+          )}
+
+          {status === "gameover" && (
+            <div className="game-overlay">
+              <h2>Game Over</h2>
+              <p>Score: {score}</p>
+              <p>Best: {best}</p>
+              <button className="primary" onClick={restartGame}>
+                Play Again
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="game-stats">
+          <div>
+            <span>Score</span>
+            <strong>{score}</strong>
+          </div>
+
+          <div>
+            <span>Best</span>
+            <strong>{best}</strong>
+          </div>
+        </div>
       </section>
     </main>
   );
