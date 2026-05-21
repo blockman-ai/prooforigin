@@ -104,29 +104,30 @@ export default function DetectPage() {
         let forensicSummary = "";
 
         try {
+          const reasonForm = new FormData();
+
+          reasonForm.append("image", file);
+          reasonForm.append("percent", String(data.percent ?? 0));
+          reasonForm.append("classification", analysis.classification);
+          reasonForm.append("manipulationRisk", analysis.manipulationRisk);
+          reasonForm.append("confidence", analysis.confidence);
+          reasonForm.append("signals", JSON.stringify(analysis.signals));
+
           const reasonRes = await fetch("/api/reason", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              percent: data.percent,
-              classification: analysis.classification,
-              manipulationRisk: analysis.manipulationRisk,
-              confidence: analysis.confidence,
-              signals: analysis.signals,
-            }),
+            body: reasonForm,
           });
 
           const reasonData = await reasonRes.json();
 
-if (!reasonRes.ok) {
-  forensicSummary = `OpenAI reasoning error: ${reasonData.error}`;
-} else {
-  forensicSummary = reasonData.summary || "No forensic summary returned.";
-};
+          if (!reasonRes.ok) {
+            forensicSummary = `OpenAI vision error: ${reasonData.error}`;
+          } else {
+            forensicSummary =
+              reasonData.summary || "No forensic summary returned.";
+          }
         } catch {
-          forensicSummary = "";
+          forensicSummary = "Unable to generate forensic summary.";
         }
 
         setResult({
@@ -247,7 +248,7 @@ if (!reasonRes.ok) {
             </div>
 
             <div className="explanation-box">
-              <p className="report-label">Forensic Summary</p>
+              <p className="report-label">Forensic Vision Summary</p>
               <p>
                 {result?.forensicSummary ||
                   "This media analysis is based on probability signals and should not be treated as absolute certainty."}
