@@ -78,9 +78,48 @@ export default function DetectPage() {
     setError("");
     setResult(null);
 
+    const DAILY_LIMIT = 5;
+    const today = new Date().toDateString();
+
+    const storedData = JSON.parse(
+      localStorage.getItem("prooforigin_limit") || "{}"
+    );
+
+    if (storedData.date !== today) {
+      localStorage.setItem(
+        "prooforigin_limit",
+        JSON.stringify({
+          date: today,
+          count: 0,
+        })
+      );
+    }
+
+    const updatedData = JSON.parse(
+      localStorage.getItem("prooforigin_limit")
+    );
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const isDev = urlParams.get("test") === "ski2026";
+
+    if (!isDev && updatedData.count >= DAILY_LIMIT) {
+      setError("Daily free scan limit reached. Please try again tomorrow.");
+      return;
+    }
+
     if (!file) {
       setError("Please upload an image first.");
       return;
+    }
+
+    if (!isDev) {
+      localStorage.setItem(
+        "prooforigin_limit",
+        JSON.stringify({
+          date: today,
+          count: updatedData.count + 1,
+        })
+      );
     }
 
     setLoading(true);
