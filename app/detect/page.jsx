@@ -233,8 +233,6 @@ export default function DetectPage() {
     {result?.forensicSummary ||
   "This media analysis is based on probability signals and should not be treated as absolute certainty."}
 
-    {classification === "Fully AI-Generated" &&
-      "This media shows strong synthetic-generation characteristics commonly associated with AI-generated content."}
   </p>
 </div>
 
