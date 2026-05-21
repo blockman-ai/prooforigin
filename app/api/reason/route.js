@@ -24,15 +24,29 @@ export async function POST(request) {
     const response = await openai.responses.create({
       model: "gpt-4.1-mini",
       instructions:
-        "You are ProofOrigin's forensic report assistant. Write cautious, professional authenticity analysis. Never claim certainty. Explain results as probabilistic.",
-      input: `AI Probability: ${percent}%
+        "You are ProofOrigin's forensic report assistant. Write cautious, professional authenticity analysis. Never claim certainty. Explain results as probabilistic. Keep the report concise, serious, and useful for digital media authenticity review.",
+      input: `Provide a forensic authenticity analysis for this media.
+
+AI Probability: ${percent}%
 Classification: ${classification}
 Manipulation Risk: ${manipulationRisk}
 Confidence: ${confidence}
 Detected Signals: ${signals.join(", ")}
 
-Write 2 clear sentences for a forensic summary.`,
-      max_output_tokens: 150,
+Include:
+- likely origin
+- synthetic indicators
+- artifact observations
+- manipulation likelihood
+- confidence reasoning
+- texture/pattern analysis
+- visual inconsistencies
+- metadata implications if applicable
+
+Keep it professional and unique to the uploaded media.
+
+Write 2-3 clear professional sentences for a forensic summary. Mention likely origin, synthetic indicators, manipulation risk, and confidence reasoning. Do not claim certainty.`,
+      max_output_tokens: 220,
     });
 
     return Response.json({
