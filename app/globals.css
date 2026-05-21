@@ -215,8 +215,74 @@ p {
     width: 120px;
     height: 120px;
   }
-
+  
   .score-circle span {
     font-size: 30px;
   }
+
+  .game-shell {
+  position: relative;
+  max-width: 430px;
+  margin: 36px auto 22px;
+}
+
+.dog-canvas {
+  width: 100%;
+  max-width: 430px;
+  border-radius: 28px;
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  box-shadow: 0 0 45px rgba(0, 229, 255, 0.25);
+  background: #02050a;
+}
+
+.game-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 28px;
+  background: rgba(2, 5, 10, 0.78);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  padding: 24px;
+}
+
+.game-overlay h2 {
+  font-size: 42px;
+  margin-bottom: 12px;
+}
+
+.game-overlay p {
+  margin: 6px 0;
+}
+
+.game-stats {
+  max-width: 430px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.game-stats div {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.game-stats span {
+  color: #00e5ff;
+  display: block;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.game-stats strong {
+  font-size: 32px;
+  color: #ffcc00;
+}
 }
