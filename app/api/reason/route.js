@@ -1,11 +1,18 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(request) {
   try {
+    if (!process.env.OPENAI_API_KEY) {
+      return Response.json(
+        { error: "OPENAI_API_KEY is missing in Vercel." },
+        { status: 500 }
+      );
+    }
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
     const body = await request.json();
 
     const percent = body.percent ?? 0;
@@ -14,33 +21,22 @@ export async function POST(request) {
     const confidence = body.confidence || "Unknown";
     const signals = Array.isArray(body.signals) ? body.signals : [];
 
-    if (!process.env.OPENAI_API_KEY) {
-      return Response.json(
-        { error: "OPENAI_API_KEY is missing." },
-        { status: 500 }
-      );
-    }
-
     const response = await openai.responses.create({
       model: "gpt-4.1-mini",
       instructions:
         "You are ProofOrigin's forensic report assistant. Write cautious, professional authenticity analysis. Never claim certainty. Explain results as probabilistic.",
-      input: `
-AI Probability: ${percent}%
+      input: `AI Probability: ${percent}%
 Classification: ${classification}
 Manipulation Risk: ${manipulationRisk}
 Confidence: ${confidence}
 Detected Signals: ${signals.join(", ")}
 
-Write 2 clear sentences for a forensic summary.
-      `,
+Write 2 clear sentences for a forensic summary.`,
       max_output_tokens: 150,
     });
 
     return Response.json({
-      summary:
-        response.output_text ||
-        "The media shows mixed authenticity signals. This result should be treated as probabilistic, not definitive.",
+      summary: response.output_text || "No OpenAI summary returned.",
     });
   } catch (error) {
     return Response.json(
