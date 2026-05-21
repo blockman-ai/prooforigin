@@ -2,6 +2,59 @@
 
 import { useState } from "react";
 
+function getAnalysisValues(percent) {
+  let classification = "Human-Made";
+  let manipulationRisk = "Low";
+
+  if (percent <= 15) {
+    classification = "Human-Made";
+    manipulationRisk = "Low";
+  } else if (percent > 15 && percent <= 40) {
+    classification = "Human-Made with Minor Edits";
+    manipulationRisk = "Moderate";
+  } else if (percent > 40 && percent < 75) {
+    classification = "Heavily Manipulated";
+    manipulationRisk = "High";
+  } else {
+    classification = "Fully AI-Generated";
+    manipulationRisk = "Very High";
+  }
+
+  let confidence = "Moderate";
+  if (percent >= 85 || percent <= 15) confidence = "High";
+  if (percent >= 40 && percent <= 60) confidence = "Low";
+
+  let signals = [];
+
+  if (classification === "Human-Made") {
+    signals = [
+      "Low AI-generation probability",
+      "Natural image structure detected",
+      "No strong synthetic-generation indicators found",
+    ];
+  } else if (classification === "Human-Made with Minor Edits") {
+    signals = [
+      "Mostly human-made image signals",
+      "Possible light retouching or enhancement",
+      "Some minor authenticity uncertainty detected",
+    ];
+  } else if (classification === "Heavily Manipulated") {
+    signals = [
+      "Elevated synthetic or manipulation signals",
+      "Mixed authenticity indicators",
+      "Manual review recommended",
+    ];
+  } else {
+    signals = [
+      "High AI-generation probability",
+      "Strong synthetic-media indicators detected",
+      "Content should be treated with caution",
+    ];
+  }
+
+  return { classification, manipulationRisk, confidence, signals };
+}
+
 export default function DetectPage() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState("");
@@ -44,29 +97,37 @@ export default function DetectPage() {
       const data = await res.json();
 
       if (!res.ok) {
-  setError(data.error || "Something went wrong.");
-} else {
+        setError(data.error || "Something went wrong.");
+      } else {
+        const analysis = getAnalysisValues(data.percent ?? 0);
 
-  const reasonRes = await fetch("/api/reason", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      percent: percent,
-      classification,
-      manipulationRisk,
-      confidence,
-      signals,
-    }),
-  });
+        let forensicSummary = "";
 
-  const reasonData = await reasonRes.json();
+        try {
+          const reasonRes = await fetch("/api/reason", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              percent: data.percent,
+              classification: analysis.classification,
+              manipulationRisk: analysis.manipulationRisk,
+              confidence: analysis.confidence,
+              signals: analysis.signals,
+            }),
+          });
 
-  setResult({
-    ...data,
-    forensicSummary: reasonData.summary,
-  });
+          const reasonData = await reasonRes.json();
+          forensicSummary = reasonData.summary || "";
+        } catch {
+          forensicSummary = "";
+        }
+
+        setResult({
+          ...data,
+          forensicSummary,
+        });
       }
     } catch {
       setError("Unable to analyze image. Please try again.");
@@ -76,51 +137,8 @@ export default function DetectPage() {
   }
 
   const percent = result?.percent ?? 0;
-
-  let classification = "Human-Made";
-  let manipulationRisk = "Low";
-
-  if (percent <= 15) {
-    classification = "Human-Made";
-    manipulationRisk = "Low";
-  } else if (percent > 15 && percent <= 40) {
-    classification = "Human-Made with Minor Edits";
-    manipulationRisk = "Moderate";
-  } else if (percent > 40 && percent < 75) {
-    classification = "Heavily Manipulated";
-    manipulationRisk = "High";
-  } else {
-    classification = "Fully AI-Generated";
-    manipulationRisk = "Very High";
-  }
-
-  let signals = [];
-
-  if (classification === "Human-Made") {
-    signals = [
-      "Low AI-generation probability",
-      "Natural image structure detected",
-      "No strong synthetic-generation indicators found",
-    ];
-  } else if (classification === "Human-Made with Minor Edits") {
-    signals = [
-      "Mostly human-made image signals",
-      "Possible light retouching or enhancement",
-      "Some minor authenticity uncertainty detected",
-    ];
-  } else if (classification === "Heavily Manipulated") {
-    signals = [
-      "Elevated synthetic or manipulation signals",
-      "Mixed authenticity indicators",
-      "Manual review recommended",
-    ];
-  } else if (classification === "Fully AI-Generated") {
-    signals = [
-      "High AI-generation probability",
-      "Strong synthetic-media indicators detected",
-      "Content should be treated with caution",
-    ];
-  }
+  const { classification, manipulationRisk, confidence, signals } =
+    getAnalysisValues(percent);
 
   let statusClass = "status-human";
 
@@ -131,10 +149,6 @@ export default function DetectPage() {
   } else if (classification === "Fully AI-Generated") {
     statusClass = "status-ai";
   }
-
-  let confidence = "Moderate";
-  if (percent >= 85 || percent <= 15) confidence = "High";
-  if (percent >= 40 && percent <= 60) confidence = "Low";
 
   let explanation =
     "The image returned mixed signals. Treat the result as informational, not definitive.";
@@ -226,15 +240,14 @@ export default function DetectPage() {
               <p className="report-label">Explanation</p>
               <p>{explanation}</p>
             </div>
+
             <div className="explanation-box">
-  <p className="report-label">Forensic Summary</p>
-
-  <p>
-    {result?.forensicSummary ||
-  "This media analysis is based on probability signals and should not be treated as absolute certainty."}
-
-  </p>
-</div>
+              <p className="report-label">Forensic Summary</p>
+              <p>
+                {result?.forensicSummary ||
+                  "This media analysis is based on probability signals and should not be treated as absolute certainty."}
+              </p>
+            </div>
 
             <div className="signals-box">
               <p className="report-label">Detected Signals</p>
