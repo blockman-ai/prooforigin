@@ -230,14 +230,8 @@ export default function DetectPage() {
   <p className="report-label">Forensic Summary</p>
 
   <p>
-    {classification === "Human-Made" &&
-      "This media appears to originate from an authentic photographic source with minimal synthetic indicators detected."}
-
-    {classification === "Human-Made with Minor Edits" &&
-      "This media appears authentic but may contain light enhancement, retouching, or AI-assisted modifications."}
-
-    {classification === "Heavily Manipulated" &&
-      "This media contains elevated manipulation indicators and may include synthetic alterations or composite editing."}
+    {result?.forensicSummary ||
+  "This media analysis is based on probability signals and should not be treated as absolute certainty."}
 
     {classification === "Fully AI-Generated" &&
       "This media shows strong synthetic-generation characteristics commonly associated with AI-generated content."}
