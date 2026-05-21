@@ -119,7 +119,12 @@ export default function DetectPage() {
           });
 
           const reasonData = await reasonRes.json();
-          forensicSummary = reasonData.summary || "";
+
+if (!reasonRes.ok) {
+  forensicSummary = `OpenAI reasoning error: ${reasonData.error}`;
+} else {
+  forensicSummary = reasonData.summary || "No forensic summary returned.";
+};
         } catch {
           forensicSummary = "";
         }
