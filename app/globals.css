@@ -147,6 +147,100 @@ p {
   transition: all 0.25s ease;
 }
 
+.upload-box:hover {
+  border-color: #00e5ff;
+  background: rgba(0, 229, 255, 0.08);
+}
+
+.upload-box input {
+  display: none;
+}
+
+.image-preview {
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+  border-radius: 20px;
+  margin-bottom: 24px;
+  background: #000;
+}
+
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.report-label {
+  color: #00e5ff;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.score-circle {
+  width: 145px;
+  height: 145px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #00e5ff, #00e676);
+  color: #061018;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.score-circle span {
+  font-size: 38px;
+  font-weight: 900;
+}
+
+.score-bar {
+  width: 100%;
+  height: 15px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.score-bar div {
+  height: 100%;
+  background: linear-gradient(135deg, #00e5ff, #00e676);
+}
+
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.report-grid div,
+.explanation-box,
+.signals-box {
+  background: rgba(0,0,0,0.3);
+  border-radius: 18px;
+  padding: 18px;
+  text-align: left;
+}
+
+.signals-box ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.signals-box li {
+  color: #dbeafe;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
 .signals-box li::before {
   content: "• ";
   color: #00e5ff;
@@ -183,44 +277,33 @@ p {
   color: #ff4d4d;
 }
 
-@media (max-width: 700px) {
-  .page {
-    padding: 50px 18px;
-  }
+.share-buttons {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  margin-bottom: 24px;
+}
 
-  h1 {
-    font-size: 56px;
-  }
+.share-buttons button {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: white;
+  padding: 14px 18px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: 0.2s ease;
+}
 
-  p {
-    font-size: 18px;
-  }
+.share-buttons button:hover {
+  background: rgba(255,255,255,0.15);
+  transform: translateY(-2px);
+}
 
-  .report-header {
-    flex-direction: column;
-    text-align: center;
-  }
+/* DOG BOOST GAME */
 
-  .report-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .primary,
-  .secondary,
-  .game-button {
-    width: 100%;
-  }
-
-  .score-circle {
-    width: 120px;
-    height: 120px;
-  }
-  
-  .score-circle span {
-    font-size: 30px;
-  }
-
-  .game-shell {
+.game-shell {
   position: relative;
   max-width: 430px;
   margin: 36px auto 22px;
@@ -285,4 +368,45 @@ p {
   font-size: 32px;
   color: #ffcc00;
 }
+
+@media (max-width: 700px) {
+  .page {
+    padding: 50px 18px;
+  }
+
+  h1 {
+    font-size: 56px;
+  }
+
+  p {
+    font-size: 18px;
+  }
+
+  .report-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .report-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .primary,
+  .secondary,
+  .game-button {
+    width: 100%;
+  }
+
+  .score-circle {
+    width: 120px;
+    height: 120px;
+  }
+
+  .score-circle span {
+    font-size: 30px;
+  }
+
+  .share-buttons {
+    flex-direction: column;
+  }
 }
