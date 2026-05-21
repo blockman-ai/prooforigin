@@ -70,6 +70,7 @@ p {
   font-size: 18px;
   font-weight: 800;
   cursor: pointer;
+  transition: all 0.25s ease;
 }
 
 .primary {
@@ -77,10 +78,19 @@ p {
   color: #031018;
 }
 
+.primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 25px rgba(0, 229, 255, 0.35);
+}
+
 .secondary {
   background: rgba(255, 255, 255, 0.06);
   color: white;
   border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .cards,
@@ -122,6 +132,12 @@ p {
   background: rgba(0, 229, 255, 0.05);
   font-size: 20px;
   font-weight: 700;
+  transition: all 0.25s ease;
+}
+
+.upload-box:hover {
+  border-color: #00e5ff;
+  background: rgba(0, 229, 255, 0.09);
 }
 
 .upload-box input {
@@ -164,6 +180,7 @@ p {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 0 40px rgba(0, 229, 255, 0.35);
 }
 
 .score-circle span {
@@ -187,17 +204,48 @@ p {
 
 .report-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 14px;
   margin-bottom: 24px;
 }
 
 .report-grid div,
-.explanation-box {
+.explanation-box,
+.signals-box {
   background: rgba(0,0,0,0.3);
   border-radius: 18px;
   padding: 18px;
   text-align: left;
+}
+
+.explanation-box {
+  margin-bottom: 24px;
+}
+
+.signals-box {
+  margin-bottom: 24px;
+}
+
+.signals-box ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.signals-box li {
+  color: #dbeafe;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.signals-box li::before {
+  content: "• ";
+  color: #00e5ff;
+  font-weight: bold;
+}
+
+.signals-box li:last-child {
+  border-bottom: none;
 }
 
 .error-box {
@@ -210,9 +258,33 @@ p {
   border-radius: 14px;
 }
 
+.status-human {
+  color: #00e676;
+}
+
+.status-edited {
+  color: #facc15;
+}
+
+.status-manipulated {
+  color: #fb923c;
+}
+
+.status-ai {
+  color: #ff4d4d;
+}
+
 @media (max-width: 700px) {
   .page {
     padding: 50px 18px;
+  }
+
+  h1 {
+    font-size: 56px;
+  }
+
+  p {
+    font-size: 18px;
   }
 
   .report-header {
@@ -227,5 +299,14 @@ p {
   .primary,
   .secondary {
     width: 100%;
+  }
+
+  .score-circle {
+    width: 120px;
+    height: 120px;
+  }
+
+  .score-circle span {
+    font-size: 30px;
   }
 }
