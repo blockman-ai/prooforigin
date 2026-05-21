@@ -15,14 +15,21 @@ export default function Home() {
         </p>
 
         <div className="buttons">
-          <a 
+          <a
             href="https://tally.so/r/vGJQYX"
-            target="_blank" 
-            rel="noopener noreferrer" className="primary">
+            target="_blank"
+            rel="noopener noreferrer"
+            className="primary"
+          >
             Join the Waitlist
           </a>
+
           <a href="/detect" className="secondary">
-          Try the Detector
+            Try the Detector
+          </a>
+
+          <a href="/dog-game" className="game-button">
+            Play DOG BOOST 🎮
           </a>
         </div>
       </section>
@@ -35,20 +42,27 @@ export default function Home() {
 
         <div className="card">
           <h3>2. Run AI Detection</h3>
-          <p>ProofOrigin checks for AI-generation signals, metadata clues, and manipulation risk.</p>
+          <p>
+            ProofOrigin checks for AI-generation signals, metadata clues, and
+            manipulation risk.
+          </p>
         </div>
 
         <div className="card">
           <h3>3. Get a Report</h3>
-          <p>Receive a simple authenticity score with a clear explanation.</p>
+          <p>
+            Receive a simple authenticity score with a clear explanation.
+          </p>
         </div>
       </section>
 
       <section className="mission">
         <h2>Built for the age of synthetic media.</h2>
+
         <p>
           As AI content becomes harder to recognize, ProofOrigin helps creators,
-          businesses, educators, and everyday users verify what they are looking at.
+          businesses, educators, and everyday users verify what they are
+          looking at.
         </p>
       </section>
     </main>
