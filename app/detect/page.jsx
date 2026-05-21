@@ -57,6 +57,23 @@ export default function DetectPage() {
 
   const percent = result?.percent ?? 0;
 
+  let classification = "Human-Made";
+  let manipulationRisk = "Low";
+
+  if (percent <= 15) {
+    classification = "Human-Made";
+    manipulationRisk = "Low";
+  } else if (percent > 15 && percent <= 40) {
+    classification = "Human-Made with Minor Edits";
+    manipulationRisk = "Moderate";
+  } else if (percent > 40 && percent < 75) {
+    classification = "Heavily Manipulated";
+    manipulationRisk = "High";
+  } else {
+    classification = "Fully AI-Generated";
+    manipulationRisk = "Very High";
+  }
+
   let confidence = "Moderate";
   if (percent >= 85 || percent <= 15) confidence = "High";
   if (percent >= 40 && percent <= 60) confidence = "Low";
@@ -64,12 +81,18 @@ export default function DetectPage() {
   let explanation =
     "The image returned mixed signals. Treat the result as informational, not definitive.";
 
-  if (percent >= 70) {
+  if (classification === "Human-Made") {
     explanation =
-      "This image shows signals commonly associated with AI-generated content.";
-  } else if (percent <= 30) {
+      "This image shows few indicators commonly associated with AI-generated content. It appears likely to be human-made.";
+  } else if (classification === "Human-Made with Minor Edits") {
     explanation =
-      "This image shows fewer indicators commonly associated with AI-generated content.";
+      "This image appears mostly human-made, but it may contain light editing, enhancement, or retouching signals.";
+  } else if (classification === "Heavily Manipulated") {
+    explanation =
+      "This image returned mixed but elevated signals. It may contain significant editing, manipulation, or synthetic elements.";
+  } else if (classification === "Fully AI-Generated") {
+    explanation =
+      "This image shows strong signals commonly associated with AI-generated or synthetic content.";
   }
 
   return (
@@ -105,8 +128,8 @@ export default function DetectPage() {
           <div className="report-card">
             <div className="report-header">
               <div>
-                <p className="report-label">Final Verdict</p>
-                <h2>{result.verdict}</h2>
+                <p className="report-label">Final Classification</p>
+                <h2>{classification}</h2>
               </div>
 
               <div className="score-circle">
@@ -123,6 +146,11 @@ export default function DetectPage() {
               <div>
                 <p className="report-label">Confidence</p>
                 <h3>{confidence}</h3>
+              </div>
+
+              <div>
+                <p className="report-label">Manipulation Risk</p>
+                <h3>{manipulationRisk}</h3>
               </div>
 
               <div>
