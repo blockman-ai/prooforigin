@@ -149,7 +149,7 @@ p {
 
 .upload-box:hover {
   border-color: #00e5ff;
-  background: rgba(0, 229, 255, 0.08);
+  background: rgba(0, 229, 255, 0.09);
 }
 
 .upload-box input {
@@ -192,6 +192,7 @@ p {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 0 40px rgba(0, 229, 255, 0.35);
 }
 
 .score-circle span {
@@ -202,7 +203,7 @@ p {
 .score-bar {
   width: 100%;
   height: 15px;
-  background: rgba(255,255,255,0.12);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   overflow: hidden;
   margin-bottom: 24px;
@@ -223,10 +224,15 @@ p {
 .report-grid div,
 .explanation-box,
 .signals-box {
-  background: rgba(0,0,0,0.3);
+  background: rgba(0, 0, 0, 0.3);
   border-radius: 18px;
   padding: 18px;
   text-align: left;
+}
+
+.explanation-box,
+.signals-box {
+  margin-bottom: 24px;
 }
 
 .signals-box ul {
@@ -238,7 +244,7 @@ p {
 .signals-box li {
   color: #dbeafe;
   padding: 10px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .signals-box li::before {
@@ -279,29 +285,30 @@ p {
 
 .share-buttons {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
-  margin-top: 24px;
-  margin-bottom: 24px;
+  margin-bottom: 22px;
 }
 
 .share-buttons button {
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.12);
+  flex: 1;
+  min-width: 150px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.07);
   color: white;
-  padding: 14px 18px;
   border-radius: 14px;
+  padding: 14px 18px;
+  font-weight: 800;
   cursor: pointer;
-  font-weight: 700;
-  transition: 0.2s ease;
+  transition: all 0.25s ease;
 }
 
 .share-buttons button:hover {
-  background: rgba(255,255,255,0.15);
+  background: rgba(255, 255, 255, 0.13);
   transform: translateY(-2px);
 }
 
-/* DOG BOOST GAME */
+/* DOG BOOST / SNAKE BOOST GAME */
 
 .game-shell {
   position: relative;
@@ -369,6 +376,67 @@ p {
   color: #ffcc00;
 }
 
+.compact-stats {
+  max-width: 430px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.compact-stats div {
+  padding: 10px 6px;
+  border-radius: 14px;
+}
+
+.compact-stats span {
+  font-size: 9px;
+  letter-spacing: 0.7px;
+}
+
+.compact-stats strong {
+  font-size: 18px;
+}
+
+.snake-joystick {
+  max-width: 160px;
+  height: 160px;
+  margin: 24px auto 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  background: radial-gradient(
+    circle,
+    rgba(0, 229, 255, 0.16),
+    rgba(255, 255, 255, 0.04)
+  );
+  box-shadow: 0 0 35px rgba(0, 229, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+}
+
+.joystick-ring {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 204, 0, 0.45);
+  box-shadow: 0 0 24px rgba(255, 204, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.joystick-ring span {
+  color: #ffcc00;
+  font-weight: 900;
+  font-size: 14px;
+}
+
+.snake-controls {
+  display: none !important;
+}
+
 @media (max-width: 700px) {
   .page {
     padding: 50px 18px;
@@ -397,6 +465,10 @@ p {
     width: 100%;
   }
 
+  .share-buttons {
+    flex-direction: column;
+  }
+
   .score-circle {
     width: 120px;
     height: 120px;
@@ -406,41 +478,35 @@ p {
     font-size: 30px;
   }
 
-  .share-buttons {
-    flex-direction: column;
+  .game-overlay h2 {
+    font-size: 34px;
   }
-}
 
-.snake-joystick {
-  max-width: 170px;
-  height: 170px;
-  margin: 26px auto 10px;
-  border-radius: 50%;
-  border: 1px solid rgba(0, 229, 255, 0.35);
-  background:
-    radial-gradient(circle, rgba(0,229,255,0.16), rgba(255,255,255,0.04));
-  box-shadow: 0 0 35px rgba(0, 229, 255, 0.18);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  touch-action: none;
-  user-select: none;
-}
+  .compact-stats {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
 
-.joystick-ring {
-  width: 92px;
-  height: 92px;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.35);
-  border: 1px solid rgba(255, 204, 0, 0.45);
-  box-shadow: 0 0 24px rgba(255, 204, 0, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+  .compact-stats div {
+    padding: 8px 4px;
+  }
 
-.joystick-ring span {
-  color: #ffcc00;
-  font-weight: 900;
-  font-size: 14px;
-}
+  .compact-stats strong {
+    font-size: 16px;
+  }
+
+  .compact-stats span {
+    font-size: 8px;
+  }
+
+  .snake-joystick {
+    max-width: 150px;
+    height: 150px;
+    margin-top: 20px;
+  }
+
+  .joystick-ring {
+    width: 82px;
+    height: 82px;
+  }
+  }
