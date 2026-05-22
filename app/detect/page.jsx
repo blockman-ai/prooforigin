@@ -55,6 +55,33 @@ function getAnalysisValues(percent) {
   return { classification, manipulationRisk, confidence, signals };
 }
 
+function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 4) {
+  const words = text.split(" ");
+  let line = "";
+  let lines = 0;
+
+  for (let i = 0; i < words.length; i++) {
+    const testLine = line + words[i] + " ";
+    const metrics = ctx.measureText(testLine);
+
+    if (metrics.width > maxWidth && i > 0) {
+      ctx.fillText(line, x, y);
+      line = words[i] + " ";
+      y += lineHeight;
+      lines++;
+
+      if (lines >= maxLines - 1) {
+        ctx.fillText(line.trim() + "...", x, y);
+        return;
+      }
+    } else {
+      line = testLine;
+    }
+  }
+
+  ctx.fillText(line, x, y);
+}
+
 export default function DetectPage() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState("");
@@ -194,10 +221,10 @@ export default function DetectPage() {
     if (!result) return;
 
     const reportUrl = getReportUrl(result.reportId);
-    const percent = result?.percent ?? 0;
-    const { classification } = getAnalysisValues(percent);
+    const percentValue = result?.percent ?? 0;
+    const analysis = getAnalysisValues(percentValue);
 
-    const shareText = `ProofOrigin Analysis: ${percent}% AI probability. Classification: ${classification}. View report: ${reportUrl}`;
+    const shareText = `ProofOrigin Analysis: ${percentValue}% AI probability. Classification: ${analysis.classification}. View report: ${reportUrl}`;
 
     if (navigator.share) {
       try {
@@ -233,6 +260,115 @@ export default function DetectPage() {
 
   function downloadReport() {
     window.print();
+  }
+
+  async function createReportImageBlob() {
+    if (!result) return null;
+
+    const percentValue = result?.percent ?? 0;
+    const analysis = getAnalysisValues(percentValue);
+    const reportUrl = getReportUrl(result.reportId);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1350;
+
+    const ctx = canvas.getContext("2d");
+
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, "#063845");
+    gradient.addColorStop(0.45, "#07111f");
+    gradient.addColorStop(1, "#030712");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "#00e5ff";
+    ctx.font = "bold 42px Arial";
+    ctx.fillText("ProofOrigin Authenticity Report", 70, 90);
+
+    ctx.fillStyle = "white";
+    ctx.font = "bold 78px Arial";
+    ctx.fillText(`${percentValue}% AI Probability`, 70, 210);
+
+    ctx.fillStyle = "#ffcc00";
+    ctx.font = "bold 52px Arial";
+    ctx.fillText(analysis.classification, 70, 290);
+
+    ctx.fillStyle = "#b8c2d6";
+    ctx.font = "32px Arial";
+    ctx.fillText(`Confidence: ${analysis.confidence}`, 70, 370);
+    ctx.fillText(`Manipulation Risk: ${analysis.manipulationRisk}`, 70, 420);
+    ctx.fillText(`Report ID: ${result.reportId}`, 70, 470);
+
+    if (preview) {
+      const img = new Image();
+      img.src = preview;
+
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = resolve;
+      });
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(70, 530, 940, 470, 28);
+      ctx.clip();
+      ctx.drawImage(img, 70, 530, 940, 470);
+      ctx.restore();
+    }
+
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.beginPath();
+    ctx.roundRect(70, 1040, 940, 180, 28);
+    ctx.fill();
+
+    ctx.fillStyle = "#dbeafe";
+    ctx.font = "30px Arial";
+
+    const summary =
+      result?.forensicSummary ||
+      "This media analysis is probabilistic and should not be treated as absolute certainty.";
+
+    wrapText(ctx, summary, 100, 1105, 860, 38, 4);
+
+    ctx.fillStyle = "#00e5ff";
+    ctx.font = "bold 30px Arial";
+    ctx.fillText(reportUrl, 100, 1265);
+
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), "image/png");
+    });
+  }
+
+  async function downloadReportImage() {
+    const blob = await createReportImageBlob();
+    if (!blob) return;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `prooforigin-report-${result.reportId}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function shareReportImage() {
+    const blob = await createReportImageBlob();
+    if (!blob) return;
+
+    const file = new File([blob], `prooforigin-report-${result.reportId}.png`, {
+      type: "image/png",
+    });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        title: "ProofOrigin Report",
+        text: `ProofOrigin Analysis: ${percent}% AI probability.`,
+        files: [file],
+      });
+    } else {
+      await downloadReportImage();
+    }
   }
 
   const percent = result?.percent ?? 0;
@@ -364,10 +500,12 @@ export default function DetectPage() {
             </div>
 
             <div className="share-buttons">
-              <button onClick={shareResult}>Share Report</button>
+              <button onClick={shareResult}>Share Link</button>
               <button onClick={copyLink}>Copy Link</button>
               <button onClick={viewReport}>View Report</button>
-              <button onClick={downloadReport}>Download Report</button>
+              <button onClick={shareReportImage}>Share Image</button>
+              <button onClick={downloadReportImage}>Download Image</button>
+              <button onClick={downloadReport}>Download PDF</button>
             </div>
 
             <button
@@ -385,4 +523,4 @@ export default function DetectPage() {
       </section>
     </main>
   );
-      }
+}
