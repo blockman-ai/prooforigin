@@ -204,11 +204,23 @@ export default function DetectPage() {
 
         const reportId = createReportId();
 
-        setResult({
-          ...data,
-          forensicSummary,
-          reportId,
-        });
+const savedReport = {
+  id: reportId,
+  percent: data.percent ?? 0,
+  forensicSummary,
+  createdAt: new Date().toISOString(),
+};
+
+localStorage.setItem(
+  `prooforigin_report_${reportId}`,
+  JSON.stringify(savedReport)
+);
+
+setResult({
+  ...data,
+  forensicSummary,
+  reportId,
+});
       }
     } catch {
       setError("Unable to analyze image. Please try again.");
