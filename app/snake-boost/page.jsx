@@ -6,13 +6,20 @@ const GRID_SIZE = 20;
 const TILE_COUNT = 18;
 const START_SNAKE = [{ x: 8, y: 8 }];
 
+function getSpeed(score) {
+  return Math.max(70, 170 - Math.floor(score / 100) * 6);
+}
+
 export default function SnakeBoostPage() {
   const canvasRef = useRef(null);
   const intervalRef = useRef(null);
+
   const snakeRef = useRef([...START_SNAKE]);
   const directionRef = useRef({ x: 1, y: 0 });
   const nextDirectionRef = useRef({ x: 1, y: 0 });
   const foodRef = useRef({ x: 12, y: 10 });
+
+  const joystickRef = useRef(null);
 
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
@@ -65,6 +72,37 @@ export default function SnakeBoostPage() {
     if (dir === "right" && current.x !== -1) {
       nextDirectionRef.current = { x: 1, y: 0 };
     }
+  }
+
+  function handleJoystickMove(clientX, clientY) {
+    const joystick = joystickRef.current;
+    if (!joystick) return;
+
+    const rect = joystick.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    const dx = clientX - centerX;
+    const dy = clientY - centerY;
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+      if (dx > 14) changeDirection("right");
+      if (dx < -14) changeDirection("left");
+    } else {
+      if (dy > 14) changeDirection("down");
+      if (dy < -14) changeDirection("up");
+    }
+  }
+
+  function handleTouchMove(e) {
+    const touch = e.touches[0];
+    if (!touch) return;
+    handleJoystickMove(touch.clientX, touch.clientY);
+  }
+
+  function handleMouseMove(e) {
+    if (e.buttons !== 1) return;
+    handleJoystickMove(e.clientX, e.clientY);
   }
 
   useEffect(() => {
@@ -148,11 +186,7 @@ export default function SnakeBoostPage() {
       ctx.shadowBlur = 0;
       ctx.fillStyle = "#031018";
       ctx.font = "bold 10px Arial";
-      ctx.fillText(
-        "B",
-        food.x * GRID_SIZE + 7,
-        food.y * GRID_SIZE + 14
-      );
+      ctx.fillText("B", food.x * GRID_SIZE + 7, food.y * GRID_SIZE + 14);
     }
 
     function drawSnake() {
@@ -179,7 +213,7 @@ export default function SnakeBoostPage() {
 
     function drawHud(currentScore, currentBoost) {
       ctx.fillStyle = "rgba(0,0,0,0.45)";
-      ctx.fillRect(8, 8, 190, 42);
+      ctx.fillRect(8, 8, 210, 42);
 
       ctx.fillStyle = "#00e5ff";
       ctx.font = "bold 14px Arial";
@@ -227,8 +261,10 @@ export default function SnakeBoostPage() {
       if (newHead.x === foodRef.current.x && newHead.y === foodRef.current.y) {
         nextScore += 100;
         nextBoost += 100;
+
         setScore(nextScore);
         setBoostEarned(nextBoost);
+
         randomFood();
       } else {
         snake.pop();
@@ -245,7 +281,7 @@ export default function SnakeBoostPage() {
     drawSnake();
     drawHud(score, boostEarned);
 
-    intervalRef.current = setInterval(step, 115);
+    intervalRef.current = setInterval(step, getSpeed(score));
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -311,8 +347,19 @@ export default function SnakeBoostPage() {
           </div>
 
           <div>
-            <span>Reward Rate</span>
-            <strong>100</strong>
+            <span>Speed</span>
+            <strong>{getSpeed(score)}ms</strong>
+          </div>
+        </div>
+
+        <div
+          ref={joystickRef}
+          className="snake-joystick"
+          onTouchMove={handleTouchMove}
+          onMouseMove={handleMouseMove}
+        >
+          <div className="joystick-ring">
+            <span>Drag</span>
           </div>
         </div>
 
