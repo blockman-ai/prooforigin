@@ -95,6 +95,7 @@ export default function SnakeBoostPage() {
   }
 
   function handleTouchMove(e) {
+    e.preventDefault();
     const touch = e.touches[0];
     if (!touch) return;
     handleJoystickMove(touch.clientX, touch.clientY);
@@ -212,15 +213,15 @@ export default function SnakeBoostPage() {
     }
 
     function drawHud(currentScore, currentBoost) {
-      ctx.fillStyle = "rgba(0,0,0,0.45)";
-      ctx.fillRect(8, 8, 210, 42);
+      ctx.fillStyle = "rgba(0,0,0,0.22)";
+      ctx.fillRect(8, 8, 104, 28);
 
       ctx.fillStyle = "#00e5ff";
-      ctx.font = "bold 14px Arial";
-      ctx.fillText(`Score: ${currentScore}`, 18, 26);
+      ctx.font = "bold 10px Arial";
+      ctx.fillText(`S ${currentScore}`, 15, 20);
 
       ctx.fillStyle = "#ffcc00";
-      ctx.fillText(`BOOST: ${currentBoost}`, 18, 44);
+      ctx.fillText(`B ${currentBoost}`, 62, 20);
     }
 
     function step() {
@@ -330,7 +331,7 @@ export default function SnakeBoostPage() {
           )}
         </div>
 
-        <div className="game-stats">
+        <div className="game-stats compact-stats">
           <div>
             <span>Score</span>
             <strong>{score}</strong>
@@ -342,7 +343,7 @@ export default function SnakeBoostPage() {
           </div>
 
           <div>
-            <span>BOOST Earned</span>
+            <span>BOOST</span>
             <strong>{boostEarned}</strong>
           </div>
 
@@ -362,17 +363,7 @@ export default function SnakeBoostPage() {
             <span>Drag</span>
           </div>
         </div>
-
-        <div className="snake-controls">
-          <button onClick={() => changeDirection("up")}>↑</button>
-
-          <div>
-            <button onClick={() => changeDirection("left")}>←</button>
-            <button onClick={() => changeDirection("down")}>↓</button>
-            <button onClick={() => changeDirection("right")}>→</button>
-          </div>
-        </div>
       </section>
     </main>
   );
-}
+          }
