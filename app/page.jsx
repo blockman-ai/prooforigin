@@ -2,7 +2,9 @@ export default function Home() {
   return (
     <main className="page">
       <section className="hero">
-        <div className="badge">AI Content Detection • Authenticity Reports</div>
+        <div className="badge">
+          AI Content Detection • Authenticity Reports
+        </div>
 
         <h1>ProofOrigin</h1>
 
@@ -29,7 +31,11 @@ export default function Home() {
           </a>
 
           <a href="/dog-game" className="game-button">
-            Play DOG BOOST 🎮
+            🚀 DOG BOOST Flight
+          </a>
+
+          <a href="/snake-boost" className="game-button">
+            🐍 Snake BOOST
           </a>
         </div>
       </section>
@@ -37,7 +43,9 @@ export default function Home() {
       <section id="how-it-works" className="cards">
         <div className="card">
           <h3>1. Upload Content</h3>
-          <p>Submit an image, video, document, or audio file for analysis.</p>
+          <p>
+            Submit an image, video, document, or audio file for analysis.
+          </p>
         </div>
 
         <div className="card">
