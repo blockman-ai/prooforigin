@@ -62,6 +62,14 @@ export default function DetectPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  function createReportId() {
+    return Math.random().toString(36).substring(2, 10);
+  }
+
+  function getReportUrl(reportId) {
+    return `${window.location.origin}/report/${reportId}`;
+  }
+
   function handleFileChange(e) {
     const selected = e.target.files[0];
     setFile(selected);
@@ -167,9 +175,12 @@ export default function DetectPage() {
           forensicSummary = "Unable to generate forensic summary.";
         }
 
+        const reportId = createReportId();
+
         setResult({
           ...data,
           forensicSummary,
+          reportId,
         });
       }
     } catch {
@@ -182,27 +193,42 @@ export default function DetectPage() {
   async function shareResult() {
     if (!result) return;
 
-    const shareText = `ProofOrigin Analysis: ${result.percent}% AI probability. Classification: ${classification}.`;
+    const reportUrl = getReportUrl(result.reportId);
+    const percent = result?.percent ?? 0;
+    const { classification } = getAnalysisValues(percent);
+
+    const shareText = `ProofOrigin Analysis: ${percent}% AI probability. Classification: ${classification}. View report: ${reportUrl}`;
 
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "ProofOrigin Analysis",
+          title: "ProofOrigin Report",
           text: shareText,
-          url: window.location.href,
+          url: reportUrl,
         });
       } catch {
         // User cancelled share sheet.
       }
     } else {
-      await navigator.clipboard.writeText(`${shareText} ${window.location.href}`);
+      await navigator.clipboard.writeText(shareText);
       alert("Report link copied!");
     }
   }
 
   async function copyLink() {
-    await navigator.clipboard.writeText(window.location.href);
-    alert("Link copied!");
+    if (!result) return;
+
+    const reportUrl = getReportUrl(result.reportId);
+
+    await navigator.clipboard.writeText(reportUrl);
+    alert("Report link copied!");
+  }
+
+  function viewReport() {
+    if (!result) return;
+
+    const reportUrl = getReportUrl(result.reportId);
+    window.open(reportUrl, "_blank");
   }
 
   function downloadReport() {
@@ -310,6 +336,11 @@ export default function DetectPage() {
             </div>
 
             <div className="explanation-box">
+              <p className="report-label">Report ID</p>
+              <p>{result.reportId}</p>
+            </div>
+
+            <div className="explanation-box">
               <p className="report-label">Explanation</p>
               <p>{explanation}</p>
             </div>
@@ -335,6 +366,7 @@ export default function DetectPage() {
             <div className="share-buttons">
               <button onClick={shareResult}>Share Report</button>
               <button onClick={copyLink}>Copy Link</button>
+              <button onClick={viewReport}>View Report</button>
               <button onClick={downloadReport}>Download Report</button>
             </div>
 
@@ -353,4 +385,4 @@ export default function DetectPage() {
       </section>
     </main>
   );
-}
+      }
