@@ -31,7 +31,6 @@ export default function DogHuntPage() {
     frame: 0,
     wave: 1,
     running: false,
-    lastSpawnFrame: 0,
   });
 
   const [status, setStatus] = useState("ready");
@@ -128,7 +127,6 @@ export default function DogHuntPage() {
       frame: 0,
       wave: 1,
       running: true,
-      lastSpawnFrame: 0,
     };
 
     targetsRef.current = [];
@@ -168,89 +166,34 @@ export default function DogHuntPage() {
   }
 
   function shoot(clientX, clientY) {
-  if (status !== "playing") return;
+    if (status !== "playing") return;
 
-  const canvas = canvasRef.current;
-  if (!canvas) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-  const rect = canvas.getBoundingClientRect();
+    const rect = canvas.getBoundingClientRect();
 
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
 
-  const x = (clientX - rect.left) * scaleX;
-  const y = (clientY - rect.top) * scaleY;
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
 
-  let hitTarget = null;
+    let hitTarget = null;
 
-  for (const target of targetsRef.current) {
-    const visualY = target.y + Math.sin(target.wobble) * 5;
+    for (const target of targetsRef.current) {
+      const visualY = target.y + Math.sin(target.wobble) * 5;
 
-    const dx = x - target.x;
-    const dy = y - visualY;
+      const dx = x - target.x;
+      const dy = y - visualY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const hitRadius = target.size + 45;
 
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    const hitRadius = target.size + 45;
-
-    if (distance <= hitRadius) {
-      hitTarget = target;
-      break;
+      if (distance <= hitRadius) {
+        hitTarget = target;
+        break;
+      }
     }
-  }
-
-  if (!hitTarget) {
-    registerMiss(x, y);
-    return;
-  }
-
-  targetsRef.current = targetsRef.current.filter(
-    (target) => target.id !== hitTarget.id
-  );
-
-  let base = 100;
-  let color = "#00e5ff";
-  let label = "+100";
-
-  if (hitTarget.type === "deepfake") {
-    base = 250;
-    color = "#ff4d4d";
-    label = "DEEPFAKE +250";
-  }
-
-  if (hitTarget.type === "boost") {
-    base = 400;
-    color = "#ffcc00";
-    label = "BOOST BIRD +400";
-  }
-
-  const earned = base * gameRef.current.combo;
-
-  gameRef.current.score += earned;
-  gameRef.current.boost += earned;
-  gameRef.current.combo = Math.min(12, gameRef.current.combo + 1);
-
-  if (gameRef.current.combo % 5 === 0) {
-    gameRef.current.boost += 500;
-    addPopup("COMBO BONUS +500", hitTarget.x - 70, hitTarget.y - 30, "#00e676");
-  }
-
-  addExplosion(
-    hitTarget.x,
-    hitTarget.y,
-    color,
-    hitTarget.type === "boost" ? 30 : 20
-  );
-
-  addPopup(
-    `${label} x${gameRef.current.combo}`,
-    hitTarget.x - 50,
-    hitTarget.y,
-    color
-  );
-
-  syncState();
-  }
 
     if (!hitTarget) {
       registerMiss(x, y);
@@ -288,8 +231,19 @@ export default function DogHuntPage() {
       addPopup("COMBO BONUS +500", hitTarget.x - 70, hitTarget.y - 30, "#00e676");
     }
 
-    addExplosion(hitTarget.x, hitTarget.y, color, hitTarget.type === "boost" ? 30 : 20);
-    addPopup(`${label} x${gameRef.current.combo}`, hitTarget.x - 50, hitTarget.y, color);
+    addExplosion(
+      hitTarget.x,
+      hitTarget.y,
+      color,
+      hitTarget.type === "boost" ? 30 : 20
+    );
+
+    addPopup(
+      `${label} x${gameRef.current.combo}`,
+      hitTarget.x - 50,
+      hitTarget.y,
+      color
+    );
 
     syncState();
   }
@@ -531,8 +485,9 @@ export default function DogHuntPage() {
             width={GAME_WIDTH}
             height={GAME_HEIGHT}
             className="dog-canvas dog-hunt-canvas"
+            style={{ touchAction: "manipulation" }}
             onClick={(e) => shoot(e.clientX, e.clientY)}
-            onTouchStart={(e) => {
+            onTouchEnd={(e) => {
               e.preventDefault();
               const touch = e.changedTouches[0];
               if (touch) shoot(touch.clientX, touch.clientY);
