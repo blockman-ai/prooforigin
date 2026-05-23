@@ -4,10 +4,15 @@ import { useEffect, useRef, useState } from "react";
 
 const GAME_WIDTH = 360;
 const GAME_HEIGHT = 430;
-const ROUND_TIME = 45;
+const ROUND_TIME = 60;
+const START_LIVES = 5;
 
 function randomBetween(min, max) {
   return Math.random() * (max - min) + min;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
 export default function DogHuntPage() {
@@ -15,13 +20,18 @@ export default function DogHuntPage() {
   const animationRef = useRef(null);
   const targetsRef = useRef([]);
   const particlesRef = useRef([]);
+  const popupsRef = useRef([]);
+
   const gameRef = useRef({
     score: 0,
     boost: 0,
     combo: 1,
     timeLeft: ROUND_TIME,
+    lives: START_LIVES,
     frame: 0,
+    wave: 1,
     running: false,
+    lastSpawnFrame: 0,
   });
 
   const [status, setStatus] = useState("ready");
@@ -30,25 +40,81 @@ export default function DogHuntPage() {
   const [combo, setCombo] = useState(1);
   const [best, setBest] = useState(0);
   const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
+  const [lives, setLives] = useState(START_LIVES);
+  const [wave, setWave] = useState(1);
 
   useEffect(() => {
     const savedBest = localStorage.getItem("doghunt_best");
     if (savedBest) setBest(Number(savedBest));
   }, []);
 
-  function spawnTarget() {
+  function syncState() {
+    setScore(gameRef.current.score);
+    setBoost(gameRef.current.boost);
+    setCombo(gameRef.current.combo);
+    setTimeLeft(gameRef.current.timeLeft);
+    setLives(gameRef.current.lives);
+    setWave(gameRef.current.wave);
+  }
+
+  function addPopup(text, x, y, color = "#ffcc00") {
+    popupsRef.current.push({
+      text,
+      x,
+      y,
+      color,
+      life: 42,
+    });
+  }
+
+  function addExplosion(x, y, color = "#ffcc00", amount = 18) {
+    for (let i = 0; i < amount; i++) {
+      particlesRef.current.push({
+        x,
+        y,
+        vx: randomBetween(-3.8, 3.8),
+        vy: randomBetween(-3.8, 3.8),
+        life: randomBetween(18, 34),
+        color,
+      });
+    }
+  }
+
+  function spawnTarget(forceType = null) {
     const side = Math.random() > 0.5 ? "left" : "right";
-    const speed = randomBetween(1.8, 3.8) + gameRef.current.score / 2500;
+    const difficulty = clamp(gameRef.current.wave, 1, 12);
+
+    const typeRoll = Math.random();
+    let type = forceType || "bot";
+
+    if (!forceType) {
+      if (typeRoll > 0.9) type = "boost";
+      else if (typeRoll > 0.72) type = "deepfake";
+      else type = "bot";
+    }
+
+    const baseSpeed =
+      type === "boost"
+        ? randomBetween(2.4, 3.8)
+        : type === "deepfake"
+        ? randomBetween(2.0, 3.5)
+        : randomBetween(1.5, 3.0);
+
+    const speed = baseSpeed + difficulty * 0.12;
 
     targetsRef.current.push({
-      id: crypto.randomUUID(),
-      x: side === "left" ? -50 : GAME_WIDTH + 50,
-      y: randomBetween(80, 300),
+      id:
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : String(Date.now() + Math.random()),
+      x: side === "left" ? -60 : GAME_WIDTH + 60,
+      y: randomBetween(86, 305),
       vx: side === "left" ? speed : -speed,
-      vy: randomBetween(-0.5, 0.5),
-      size: randomBetween(30, 42),
-      type: Math.random() > 0.75 ? "deepfake" : "bot",
+      vy: randomBetween(-0.45, 0.45),
+      size: type === "boost" ? 34 : type === "deepfake" ? 40 : 34,
+      type,
       wobble: randomBetween(0, Math.PI * 2),
+      missed: false,
     });
   }
 
@@ -58,18 +124,19 @@ export default function DogHuntPage() {
       boost: 0,
       combo: 1,
       timeLeft: ROUND_TIME,
+      lives: START_LIVES,
       frame: 0,
+      wave: 1,
       running: true,
+      lastSpawnFrame: 0,
     };
 
     targetsRef.current = [];
     particlesRef.current = [];
+    popupsRef.current = [];
 
-    setScore(0);
-    setBoost(0);
-    setCombo(1);
-    setTimeLeft(ROUND_TIME);
     setStatus("playing");
+    syncState();
   }
 
   function endGame() {
@@ -86,6 +153,20 @@ export default function DogHuntPage() {
     }
   }
 
+  function registerMiss(x, y) {
+    gameRef.current.combo = 1;
+    gameRef.current.lives -= 1;
+
+    addPopup("MISS", x, y, "#ffffff");
+    addExplosion(x, y, "#ffffff", 6);
+
+    syncState();
+
+    if (gameRef.current.lives <= 0) {
+      endGame();
+    }
+  }
+
   function shoot(clientX, clientY) {
     if (status !== "playing") return;
 
@@ -93,65 +174,66 @@ export default function DogHuntPage() {
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-
     const scaleX = GAME_WIDTH / rect.width;
     const scaleY = GAME_HEIGHT / rect.height;
 
     const x = (clientX - rect.left) * scaleX;
     const y = (clientY - rect.top) * scaleY;
 
-    let hit = false;
+    let hitTarget = null;
 
-    targetsRef.current = targetsRef.current.filter((target) => {
+    for (const target of targetsRef.current) {
+      const renderedY = target.y + Math.sin(target.wobble) * 5;
       const dx = x - target.x;
-      const dy = y - target.y;
+      const dy = y - renderedY;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      if (distance < target.size) {
-        hit = true;
-
-        const base = target.type === "deepfake" ? 300 : 100;
-        const earned = base * gameRef.current.combo;
-
-        gameRef.current.score += earned;
-        gameRef.current.boost += earned;
-        gameRef.current.combo = Math.min(10, gameRef.current.combo + 1);
-
-        setScore(gameRef.current.score);
-        setBoost(gameRef.current.boost);
-        setCombo(gameRef.current.combo);
-
-        for (let i = 0; i < 18; i++) {
-          particlesRef.current.push({
-            x: target.x,
-            y: target.y,
-            vx: randomBetween(-3, 3),
-            vy: randomBetween(-3, 3),
-            life: randomBetween(16, 32),
-            color: target.type === "deepfake" ? "#ff4d4d" : "#ffcc00",
-          });
-        }
-
-        return false;
+      if (distance < target.size + 8) {
+        hitTarget = target;
+        break;
       }
-
-      return true;
-    });
-
-    if (!hit) {
-      gameRef.current.combo = 1;
-      setCombo(1);
-
-      particlesRef.current.push({
-        x,
-        y,
-        vx: 0,
-        vy: -1,
-        life: 16,
-        color: "#ffffff",
-        miss: true,
-      });
     }
+
+    if (!hitTarget) {
+      registerMiss(x, y);
+      return;
+    }
+
+    targetsRef.current = targetsRef.current.filter(
+      (target) => target.id !== hitTarget.id
+    );
+
+    let base = 100;
+    let color = "#00e5ff";
+    let label = "+100";
+
+    if (hitTarget.type === "deepfake") {
+      base = 250;
+      color = "#ff4d4d";
+      label = "DEEPFAKE +250";
+    }
+
+    if (hitTarget.type === "boost") {
+      base = 400;
+      color = "#ffcc00";
+      label = "BOOST BIRD +400";
+    }
+
+    const earned = base * gameRef.current.combo;
+
+    gameRef.current.score += earned;
+    gameRef.current.boost += earned;
+    gameRef.current.combo = Math.min(12, gameRef.current.combo + 1);
+
+    if (gameRef.current.combo % 5 === 0) {
+      gameRef.current.boost += 500;
+      addPopup("COMBO BONUS +500", hitTarget.x - 70, hitTarget.y - 30, "#00e676");
+    }
+
+    addExplosion(hitTarget.x, hitTarget.y, color, hitTarget.type === "boost" ? 30 : 20);
+    addPopup(`${label} x${gameRef.current.combo}`, hitTarget.x - 50, hitTarget.y, color);
+
+    syncState();
   }
 
   useEffect(() => {
@@ -168,7 +250,7 @@ export default function DogHuntPage() {
     function drawBackground() {
       const gradient = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
       gradient.addColorStop(0, "#071f2b");
-      gradient.addColorStop(0.48, "#07111f");
+      gradient.addColorStop(0.5, "#07111f");
       gradient.addColorStop(1, "#02050a");
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
@@ -178,7 +260,7 @@ export default function DogHuntPage() {
       ctx.arc(295, 65, 34, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.strokeStyle = "rgba(0,229,255,0.07)";
+      ctx.strokeStyle = "rgba(0,229,255,0.065)";
       for (let i = 0; i < GAME_WIDTH; i += 28) {
         ctx.beginPath();
         ctx.moveTo(i - (gameRef.current.frame % 28), 0);
@@ -189,32 +271,35 @@ export default function DogHuntPage() {
       ctx.fillStyle = "rgba(0,229,255,0.08)";
       ctx.fillRect(0, 330, GAME_WIDTH, 2);
 
-      ctx.fillStyle = "rgba(255,255,255,0.06)";
+      ctx.fillStyle = "rgba(255,255,255,0.055)";
       ctx.fillRect(0, 360, GAME_WIDTH, 70);
     }
 
     function drawHud() {
-      ctx.fillStyle = "rgba(0,0,0,0.36)";
-      ctx.roundRect(10, 10, 170, 52, 14);
+      ctx.fillStyle = "rgba(0,0,0,0.34)";
+      ctx.roundRect(8, 8, 168, 52, 14);
       ctx.fill();
 
       ctx.fillStyle = "#00e5ff";
-      ctx.font = "bold 12px Arial";
-      ctx.fillText(`SCORE ${gameRef.current.score}`, 20, 30);
+      ctx.font = "bold 11px Arial";
+      ctx.fillText(`S ${gameRef.current.score}`, 18, 28);
 
       ctx.fillStyle = "#ffcc00";
-      ctx.fillText(`BOOST ${gameRef.current.boost}`, 20, 48);
+      ctx.fillText(`B ${gameRef.current.boost}`, 18, 46);
 
-      ctx.fillStyle = "rgba(0,0,0,0.36)";
-      ctx.roundRect(230, 10, 116, 52, 14);
+      ctx.fillStyle = "rgba(0,0,0,0.34)";
+      ctx.roundRect(218, 8, 134, 52, 14);
       ctx.fill();
 
       ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 12px Arial";
-      ctx.fillText(`TIME ${gameRef.current.timeLeft}s`, 244, 30);
+      ctx.font = "bold 11px Arial";
+      ctx.fillText(`T ${gameRef.current.timeLeft}s`, 230, 28);
 
       ctx.fillStyle = "#ff4d4d";
-      ctx.fillText(`COMBO x${gameRef.current.combo}`, 244, 48);
+      ctx.fillText(`x${gameRef.current.combo}`, 230, 46);
+
+      ctx.fillStyle = "#00e676";
+      ctx.fillText(`❤ ${gameRef.current.lives}`, 292, 46);
     }
 
     function drawTarget(target) {
@@ -224,11 +309,19 @@ export default function DogHuntPage() {
       ctx.save();
       ctx.translate(target.x, y);
 
-      ctx.shadowBlur = 18;
-      ctx.shadowColor = target.type === "deepfake" ? "#ff4d4d" : "#00e5ff";
+      const color =
+        target.type === "boost"
+          ? "#ffcc00"
+          : target.type === "deepfake"
+          ? "#ff4d4d"
+          : "#00e5ff";
 
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = color;
       ctx.fillStyle =
-        target.type === "deepfake"
+        target.type === "boost"
+          ? "rgba(255,204,0,0.25)"
+          : target.type === "deepfake"
           ? "rgba(255,77,77,0.22)"
           : "rgba(0,229,255,0.22)";
 
@@ -239,25 +332,32 @@ export default function DogHuntPage() {
       ctx.font = `${target.size}px Arial`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(target.type === "deepfake" ? "👾" : "🤖", 0, 2);
 
+      let emoji = "🤖";
+      if (target.type === "deepfake") emoji = "👾";
+      if (target.type === "boost") emoji = "🐦";
+
+      ctx.fillText(emoji, 0, 2);
       ctx.restore();
     }
 
     function drawParticles() {
       particlesRef.current.forEach((p) => {
         ctx.fillStyle = p.color;
-        ctx.globalAlpha = Math.max(0, p.life / 32);
+        ctx.globalAlpha = Math.max(0, p.life / 34);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      });
+    }
 
-        if (p.miss) {
-          ctx.font = "bold 16px Arial";
-          ctx.fillText("MISS", p.x - 20, p.y);
-        } else {
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
+    function drawPopups() {
+      popupsRef.current.forEach((p) => {
+        ctx.globalAlpha = Math.max(0, p.life / 42);
+        ctx.fillStyle = p.color;
+        ctx.font = "bold 14px Arial";
+        ctx.fillText(p.text, p.x, p.y);
         ctx.globalAlpha = 1;
       });
     }
@@ -277,9 +377,17 @@ export default function DogHuntPage() {
       }
 
       gameRef.current.frame += 1;
+      gameRef.current.wave = Math.floor(gameRef.current.score / 1500) + 1;
+      setWave(gameRef.current.wave);
 
-      if (gameRef.current.frame % 42 === 0) {
+      const spawnRate = clamp(58 - gameRef.current.wave * 3, 26, 58);
+
+      if (gameRef.current.frame % spawnRate === 0) {
         spawnTarget();
+
+        if (gameRef.current.wave >= 4 && Math.random() > 0.7) {
+          setTimeout(() => spawnTarget(), 220);
+        }
       }
 
       targetsRef.current = targetsRef.current
@@ -288,13 +396,40 @@ export default function DogHuntPage() {
           x: target.x + target.vx,
           y: target.y + target.vy,
         }))
-        .filter((target) => target.x > -80 && target.x < GAME_WIDTH + 80);
+        .filter((target) => {
+          const offscreen = target.x < -90 || target.x > GAME_WIDTH + 90;
+
+          if (offscreen && !target.missed) {
+            if (target.type !== "boost") {
+              gameRef.current.combo = 1;
+              gameRef.current.lives -= 1;
+              addPopup("-1 LIFE", GAME_WIDTH / 2 - 28, 95, "#ff4d4d");
+              syncState();
+
+              if (gameRef.current.lives <= 0) {
+                endGame();
+              }
+            }
+
+            target.missed = true;
+          }
+
+          return !offscreen;
+        });
 
       particlesRef.current = particlesRef.current
         .map((p) => ({
           ...p,
           x: p.x + p.vx,
           y: p.y + p.vy,
+          life: p.life - 1,
+        }))
+        .filter((p) => p.life > 0);
+
+      popupsRef.current = popupsRef.current
+        .map((p) => ({
+          ...p,
+          y: p.y - 0.6,
           life: p.life - 1,
         }))
         .filter((p) => p.life > 0);
@@ -305,6 +440,7 @@ export default function DogHuntPage() {
       update();
       targetsRef.current.forEach(drawTarget);
       drawParticles();
+      drawPopups();
       drawHud();
 
       animationRef.current = requestAnimationFrame(loop);
@@ -327,8 +463,8 @@ export default function DogHuntPage() {
         <h1>DOG Hunt</h1>
 
         <p>
-          Tap AI bots out of the sky. Chain combos. Earn BOOST. Protect the
-          internet.
+          Tap AI bots out of the sky. Hit deepfakes. Catch BOOST birds. Protect
+          the internet.
         </p>
 
         <div className="game-shell">
@@ -339,6 +475,7 @@ export default function DogHuntPage() {
             className="dog-canvas dog-hunt-canvas"
             onClick={(e) => shoot(e.clientX, e.clientY)}
             onTouchStart={(e) => {
+              e.preventDefault();
               const touch = e.touches[0];
               if (touch) shoot(touch.clientX, touch.clientY);
             }}
@@ -347,7 +484,7 @@ export default function DogHuntPage() {
           {status === "ready" && (
             <div className="game-overlay">
               <h2>DOG Hunt</h2>
-              <p>Tap the AI bots. Deepfake enemies are worth more.</p>
+              <p>Tap AI bots. Deepfakes and BOOST birds are worth more.</p>
               <button className="primary" onClick={startGame}>
                 Start Hunt
               </button>
@@ -384,11 +521,33 @@ export default function DogHuntPage() {
           </div>
 
           <div>
+            <span>Lives</span>
+            <strong>{lives}</strong>
+          </div>
+        </div>
+
+        <div className="game-stats compact-stats" style={{ marginTop: 10 }}>
+          <div>
+            <span>Combo</span>
+            <strong>x{combo}</strong>
+          </div>
+
+          <div>
+            <span>Wave</span>
+            <strong>{wave}</strong>
+          </div>
+
+          <div>
             <span>Time</span>
             <strong>{timeLeft}s</strong>
+          </div>
+
+          <div>
+            <span>Mode</span>
+            <strong>HUNT</strong>
           </div>
         </div>
       </section>
     </main>
   );
-            }
+}
