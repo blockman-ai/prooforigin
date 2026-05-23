@@ -522,6 +522,27 @@ export default function DetectPage() {
                   {(result.metadata.fileSize / 1024 / 1024).toFixed(2)} MB
                 </p>
 
+                <p>
+                  <strong>Camera:</strong>{" "}
+                  {result.metadata.exif?.make || "Unknown"}{" "}
+                  {result.metadata.exif?.model || ""}
+                </p>
+
+                <p>
+                  <strong>Software:</strong>{" "}
+                  {result.metadata.exif?.software || "Not detected"}
+                </p>
+
+                <p>
+                  <strong>Date Taken:</strong>{" "}
+                  {result.metadata.exif?.dateTimeOriginal || "Not detected"}
+                </p>
+
+                <p>
+                  <strong>GPS Present:</strong>{" "}
+                  {result.metadata.exif?.gpsPresent ? "Yes" : "No"}
+                </p>
+
                 <p style={{ wordBreak: "break-all" }}>
                   <strong>SHA-256:</strong> {result.metadata.sha256}
                 </p>
@@ -544,6 +565,18 @@ export default function DetectPage() {
 
                 <ul>
                   {result.metadata.metadataSignals.map((signal, index) => (
+                    <li key={index}>{signal}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {result?.metadata?.exifSignals?.length > 0 && (
+              <div className="signals-box">
+                <p className="report-label">EXIF Signals</p>
+
+                <ul>
+                  {result.metadata.exifSignals.map((signal, index) => (
                     <li key={index}>{signal}</li>
                   ))}
                 </ul>
@@ -574,4 +607,4 @@ export default function DetectPage() {
       </section>
     </main>
   );
-}
+                  }
