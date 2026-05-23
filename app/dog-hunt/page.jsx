@@ -188,7 +188,7 @@ export default function DogHuntPage() {
       const dy = y - renderedY;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      if (distance < target.size + 8) {
+      if (distance < target.size + 28) {
         hitTarget = target;
         break;
       }
