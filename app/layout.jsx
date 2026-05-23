@@ -2,7 +2,24 @@ import "./globals.css";
 
 export const metadata = {
   title: "ProofOrigin",
-  description: "Prove what's real. Bitcoin-backed proof of authenticity for digital content in the age of AI.",
+  description:
+    "Advanced authenticity verification for digital content in the age of AI.",
+
+  openGraph: {
+    title: "ProofOrigin",
+    description:
+      "Advanced authenticity verification for digital content in the age of AI.",
+    url: "https://www.prooforigin.org",
+    siteName: "ProofOrigin",
+    type: "website",
+  },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "ProofOrigin",
+    description:
+      "Advanced authenticity verification for digital content in the age of AI.",
+  },
 };
 
 export default function RootLayout({ children }) {
