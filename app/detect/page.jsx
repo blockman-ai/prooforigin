@@ -204,23 +204,25 @@ export default function DetectPage() {
 
         const reportId = createReportId();
 
-const savedReport = {
-  id: reportId,
-  percent: data.percent ?? 0,
-  forensicSummary,
-  createdAt: new Date().toISOString(),
-};
+        const savedReport = {
+          id: reportId,
+          percent: data.percent ?? 0,
+          forensicSummary,
+          metadata: data.metadata || null,
+          proofOriginScore: data.proofOriginScore ?? null,
+          createdAt: new Date().toISOString(),
+        };
 
-localStorage.setItem(
-  `prooforigin_report_${reportId}`,
-  JSON.stringify(savedReport)
-);
+        localStorage.setItem(
+          `prooforigin_report_${reportId}`,
+          JSON.stringify(savedReport)
+        );
 
-setResult({
-  ...data,
-  forensicSummary,
-  reportId,
-});
+        setResult({
+          ...data,
+          forensicSummary,
+          reportId,
+        });
       }
     } catch {
       setError("Unable to analyze image. Please try again.");
@@ -245,9 +247,7 @@ setResult({
           text: shareText,
           url: reportUrl,
         });
-      } catch {
-        // User cancelled share sheet.
-      }
+      } catch {}
     } else {
       await navigator.clipboard.writeText(shareText);
       alert("Report link copied!");
@@ -258,7 +258,6 @@ setResult({
     if (!result) return;
 
     const reportUrl = getReportUrl(result.reportId);
-
     await navigator.clipboard.writeText(reportUrl);
     alert("Report link copied!");
   }
@@ -473,13 +472,13 @@ setResult({
               </div>
 
               <div>
-                <p className="report-label">Media Type</p>
-                <h3>Image</h3>
+                <p className="report-label">Integrity Score</p>
+                <h3>{result?.metadata?.integrityScore ?? "N/A"}/100</h3>
               </div>
 
               <div>
-                <p className="report-label">Status</p>
-                <h3>Complete</h3>
+                <p className="report-label">Metadata Status</p>
+                <h3>{result?.metadata?.metadataStatus || "N/A"}</h3>
               </div>
             </div>
 
@@ -501,6 +500,34 @@ setResult({
               </p>
             </div>
 
+            {result?.metadata && (
+              <div className="explanation-box">
+                <p className="report-label">Metadata Forensics</p>
+
+                <p>
+                  <strong>Status:</strong> {result.metadata.metadataStatus}
+                </p>
+
+                <p>
+                  <strong>Integrity Score:</strong>{" "}
+                  {result.metadata.integrityScore}/100
+                </p>
+
+                <p>
+                  <strong>File Type:</strong> {result.metadata.fileType}
+                </p>
+
+                <p>
+                  <strong>File Size:</strong>{" "}
+                  {(result.metadata.fileSize / 1024 / 1024).toFixed(2)} MB
+                </p>
+
+                <p style={{ wordBreak: "break-all" }}>
+                  <strong>SHA-256:</strong> {result.metadata.sha256}
+                </p>
+              </div>
+            )}
+
             <div className="signals-box">
               <p className="report-label">Detected Signals</p>
 
@@ -510,6 +537,18 @@ setResult({
                 ))}
               </ul>
             </div>
+
+            {result?.metadata?.metadataSignals?.length > 0 && (
+              <div className="signals-box">
+                <p className="report-label">Metadata Signals</p>
+
+                <ul>
+                  {result.metadata.metadataSignals.map((signal, index) => (
+                    <li key={index}>{signal}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <div className="share-buttons">
               <button onClick={shareResult}>Share Link</button>
