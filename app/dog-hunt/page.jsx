@@ -476,7 +476,7 @@ export default function DogHuntPage() {
             onClick={(e) => shoot(e.clientX, e.clientY)}
             onTouchStart={(e) => {
               e.preventDefault();
-              const touch = e.touches[0];
+              const touch = e.changedTouches[0];
               if (touch) shoot(touch.clientX, touch.clientY);
             }}
           />
