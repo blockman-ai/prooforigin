@@ -207,6 +207,7 @@ export default function DetectPage() {
         const savedReport = {
           id: reportId,
           percent: data.percent ?? 0,
+          engines: data.engines || null,
           forensicSummary,
           metadata: data.metadata || null,
           proofOriginScore: data.proofOriginScore ?? null,
@@ -460,6 +461,27 @@ export default function DetectPage() {
               <div style={{ width: `${percent}%` }} />
             </div>
 
+            <div className="engine-consensus-box">
+              <p className="report-label">AI Detection Consensus</p>
+
+              <div className="engine-row">
+                <span>Sightengine</span>
+                <strong>
+                  {result?.engines?.sightengine?.percent ?? "N/A"}%
+                </strong>
+              </div>
+
+              <div className="engine-row">
+                <span>Hive AI</span>
+                <strong>{result?.engines?.hive?.percent ?? "N/A"}%</strong>
+              </div>
+
+              <div className="engine-row consensus">
+                <span>ProofOrigin Consensus</span>
+                <strong>{result?.percent ?? "N/A"}%</strong>
+              </div>
+            </div>
+
             <div className="report-grid">
               <div>
                 <p className="report-label">Confidence</p>
@@ -544,10 +566,10 @@ export default function DetectPage() {
                 </p>
 
                 <p>
-  <strong>Image Size:</strong>{" "}
-  {result.metadata.exif?.imageWidth || "Unknown"} x{" "}
-  {result.metadata.exif?.imageHeight || "Unknown"}
-</p>
+                  <strong>Image Size:</strong>{" "}
+                  {result.metadata.exif?.imageWidth || "Unknown"} x{" "}
+                  {result.metadata.exif?.imageHeight || "Unknown"}
+                </p>
 
                 <p style={{ wordBreak: "break-all" }}>
                   <strong>SHA-256:</strong> {result.metadata.sha256}
@@ -613,4 +635,4 @@ export default function DetectPage() {
       </section>
     </main>
   );
-                  }
+  }
