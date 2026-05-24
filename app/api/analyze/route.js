@@ -142,15 +142,22 @@ console.log("ProofOrigin EXIF Debug:", exif);
         null,
       gpsPresent: Boolean(exif?.latitude && exif?.longitude),
       exif: {
-        make: exif?.Make || null,
-        model: exif?.Model || null,
-        software: exif?.Software || null,
-        dateTimeOriginal:
-          exif?.DateTimeOriginal?.toString?.() ||
-          exif?.CreateDate?.toString?.() ||
-          null,
-        gpsPresent: Boolean(exif?.latitude && exif?.longitude),
-      },
+  make: exif?.Make || exif?.make || null,
+  model: exif?.Model || exif?.model || null,
+  software:
+    exif?.Software ||
+    exif?.CreatorTool ||
+    exif?.ProcessingSoftware ||
+    null,
+  dateTimeOriginal:
+    exif?.DateTimeOriginal?.toString?.() ||
+    exif?.CreateDate?.toString?.() ||
+    exif?.ModifyDate?.toString?.() ||
+    null,
+  gpsPresent: Boolean(exif?.latitude && exif?.longitude),
+  imageWidth: exif?.ImageWidth || null,
+  imageHeight: exif?.ImageHeight || null,
+},
       metadataSignals: buildMetadataSignals(exif),
       exifSignals: buildExifSignals(exif),
       sha256,
