@@ -103,7 +103,8 @@ export async function POST(req) {
     const buffer = Buffer.from(arrayBuffer);
 
     let exif = {};
-    try {
+
+try {
   exif =
     (await exifr.parse(buffer, {
       tiff: true,
@@ -116,7 +117,9 @@ export async function POST(req) {
     })) || {};
 } catch {
   exif = {};
-    }
+}
+
+console.log("ProofOrigin EXIF Debug:", exif);
 
     const sha256 = getSha256(buffer);
     const integrityScore = calculateIntegrityScore(exif);
