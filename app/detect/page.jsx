@@ -543,6 +543,12 @@ export default function DetectPage() {
                   {result.metadata.exif?.gpsPresent ? "Yes" : "No"}
                 </p>
 
+                <p>
+  <strong>Image Size:</strong>{" "}
+  {result.metadata.exif?.imageWidth || "Unknown"} x{" "}
+  {result.metadata.exif?.imageHeight || "Unknown"}
+</p>
+
                 <p style={{ wordBreak: "break-all" }}>
                   <strong>SHA-256:</strong> {result.metadata.sha256}
                 </p>
