@@ -104,9 +104,18 @@ export async function POST(req) {
 
     let exif = {};
     try {
-      exif = (await exifr.parse(buffer)) || {};
-    } catch {
-      exif = {};
+  exif =
+    (await exifr.parse(buffer, {
+      tiff: true,
+      ifd0: true,
+      exif: true,
+      gps: true,
+      xmp: true,
+      icc: true,
+      iptc: true,
+    })) || {};
+} catch {
+  exif = {};
     }
 
     const sha256 = getSha256(buffer);
