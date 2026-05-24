@@ -106,6 +106,120 @@ function getSightengineAiScore(data) {
   );
 }
 
+function getVerdict(percent) {
+  if (percent >= 70) return "Likely AI-generated";
+  if (percent <= 30) return "Likely human-made";
+  return "Uncertain";
+}
+
+function getConsensusScore(scores) {
+  const validScores = scores.filter((score) => typeof score === "number");
+
+  if (validScores.length === 0) return 0;
+
+  const total = validScores.reduce((sum, score) => sum + score, 0);
+
+  return Math.round(total / validScores.length);
+}
+
+async function runHiveAnalysis(buffer, file) {
+  const hiveApiKey = process.env.HIVE_API_KEY;
+
+  if (!hiveApiKey) {
+    return {
+      success: false,
+      error: "Hive API key missing",
+      percent: null,
+      source: null,
+      raw: null,
+    };
+  }
+
+  try {
+    const hiveFile = new File([buffer], file.name || "upload.jpg", {
+      type: file.type || "image/jpeg",
+    });
+
+    const hiveForm = new FormData();
+    hiveForm.append("media", hiveFile);
+
+    const hiveRes = await fetch("https://api.thehive.ai/api/v3/task/sync", {
+      method: "POST",
+      headers: {
+        Authorization: `Token ${hiveApiKey}`,
+      },
+      body: hiveForm,
+    });
+
+    const hiveData = await hiveRes.json();
+
+    if (!hiveRes.ok || hiveData?.status?.[0]?.status === "failure") {
+      return {
+        success: false,
+        error:
+          hiveData?.message ||
+          hiveData?.error ||
+          hiveData?.status?.[0]?.response?.error ||
+          "Hive analysis failed",
+        percent: null,
+        source: null,
+        raw: hiveData,
+      };
+    }
+
+    const output =
+      hiveData?.status?.[0]?.response?.output ||
+      hiveData?.response?.output ||
+      hiveData?.output ||
+      [];
+
+    let aiGeneratedScore = null;
+    let topSource = null;
+    let topSourceScore = 0;
+
+    for (const item of output) {
+      const classes = item?.classes || [];
+
+      for (const cls of classes) {
+        const className = cls?.class || cls?.label || cls?.name;
+        const score = Number(cls?.score ?? cls?.confidence ?? 0);
+
+        if (className === "ai_generated") {
+          aiGeneratedScore = score;
+        }
+
+        if (
+          className &&
+          className !== "ai_generated" &&
+          className !== "not_ai_generated" &&
+          score > topSourceScore
+        ) {
+          topSource = className;
+          topSourceScore = score;
+        }
+      }
+    }
+
+    const percent =
+      aiGeneratedScore !== null ? Math.round(aiGeneratedScore * 100) : null;
+
+    return {
+      success: true,
+      percent,
+      source: topSource,
+      raw: hiveData,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error?.message || "Hive analysis failed",
+      percent: null,
+      source: null,
+      raw: null,
+    };
+  }
+}
+
 export async function POST(req) {
   try {
     const formData = await req.formData();
@@ -183,31 +297,35 @@ export async function POST(req) {
     sightForm.append("api_user", apiUser);
     sightForm.append("api_secret", apiSecret);
 
-    const res = await fetch("https://api.sightengine.com/1.0/check.json", {
+    const sightRes = await fetch("https://api.sightengine.com/1.0/check.json", {
       method: "POST",
       body: sightForm,
     });
 
-    const data = await res.json();
+    const sightData = await sightRes.json();
 
-    if (!res.ok || data.status === "failure") {
+    if (!sightRes.ok || sightData.status === "failure") {
       return NextResponse.json(
         {
           success: false,
-          error: data.error?.message || "Sightengine analysis failed.",
-          raw: data,
+          error: sightData.error?.message || "Sightengine analysis failed.",
+          raw: sightData,
         },
         { status: 500 }
       );
     }
 
-    const aiScore = getSightengineAiScore(data);
-    const percent = Math.round(Number(aiScore) * 100);
+    const sightengineScore = getSightengineAiScore(sightData);
+    const sightenginePercent = Math.round(Number(sightengineScore) * 100);
 
-    let verdict = "Uncertain";
+    const hive = await runHiveAnalysis(buffer, file);
 
-    if (percent >= 70) verdict = "Likely AI-generated";
-    if (percent <= 30) verdict = "Likely human-made";
+    const percent = getConsensusScore([
+      sightenginePercent,
+      hive.success ? hive.percent : null,
+    ]);
+
+    const verdict = getVerdict(percent);
 
     return NextResponse.json({
       success: true,
@@ -215,7 +333,24 @@ export async function POST(req) {
       verdict,
       proofOriginScore: integrityScore,
       metadata,
-      raw: data,
+      engines: {
+        sightengine: {
+          success: true,
+          percent: sightenginePercent,
+          raw: sightData,
+        },
+        hive: {
+          success: hive.success,
+          percent: hive.percent,
+          source: hive.source,
+          error: hive.error || null,
+          raw: hive.raw,
+        },
+      },
+      raw: {
+        sightengine: sightData,
+        hive: hive.raw,
+      },
     });
   } catch (error) {
     return NextResponse.json(
