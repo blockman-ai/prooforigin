@@ -2,14 +2,18 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 
+export const dynamic = "force-dynamic";
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+function getSupabaseServerClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+}
 
 function basicForensicChecks({ fileName, fileType, metadata }) {
   const riskFlags = [];
@@ -27,7 +31,7 @@ function basicForensicChecks({ fileName, fileType, metadata }) {
     }
 
     if (!metadata?.DateTimeOriginal && !metadata?.CreateDate) {
-      riskFlags.push("Missing original timestamp");
+      riskFlags.push("Missing original capture timestamp");
       trustScore -= 15;
     }
 
@@ -52,7 +56,6 @@ function basicForensicChecks({ fileName, fileType, metadata }) {
       riskFlags.push(
         `Possible AI-generation software detected: ${metadata.Software}`
       );
-
       trustScore -= 35;
     }
   }
@@ -65,7 +68,6 @@ function basicForensicChecks({ fileName, fileType, metadata }) {
   trustScore = Math.max(0, Math.min(100, trustScore));
 
   let trustRating = "High";
-
   if (trustScore < 75) trustRating = "Medium";
   if (trustScore < 45) trustRating = "Low";
 
@@ -78,17 +80,20 @@ function basicForensicChecks({ fileName, fileType, metadata }) {
 
 export async function POST(req) {
   try {
-    const {
-      proofId,
-      fileName,
-      fileType,
-      publicUrl,
-      metadata = {},
-    } = await req.json();
+    const body = await req.json();
 
-    if (!proofId) {
+    const proofId = body.proofId || null;
+    const fileName = body.fileName || "Uploaded file";
+    const fileType = body.fileType || "image/png";
+    const publicUrl = body.publicUrl || body.imageUrl || "";
+    const metadata = body.metadata || {};
+
+    if (!publicUrl && !proofId) {
       return NextResponse.json(
-        { error: "Missing proofId" },
+        {
+          success: false,
+          error: "Missing file URL or proof ID",
+        },
         { status: 400 }
       );
     }
@@ -112,14 +117,12 @@ FILE DETAILS:
 FORENSIC ANALYSIS:
 - Trust Score: ${forensic.trustScore}/100
 - Trust Rating: ${forensic.trustRating}
-- Risk Flags:
-${forensic.riskFlags.join(", ") || "None"}
+- Risk Flags: ${forensic.riskFlags.join(", ") || "None"}
 
 METADATA:
 ${JSON.stringify(metadata, null, 2)}
 
-Generate a professional authenticity report with:
-
+Return a clear authenticity report with:
 1. Summary
 2. Authenticity Assessment
 3. AI Generation Risk
@@ -131,33 +134,36 @@ Generate a professional authenticity report with:
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
+      messages: [{ role: "user", content: prompt }],
     });
 
-    const aiSummary =
-      response.choices?.[0]?.message?.content || "";
+    const aiSummary = response.choices?.[0]?.message?.content || "";
 
-    const { error: updateError } = await supabase
-      .from("proofs")
-      .update({
-        ai_summary: aiSummary,
-        status: "analyzed",
-        metadata,
-      })
-      .eq("proof_id", proofId);
+    if (proofId) {
+      const supabase = getSupabaseServerClient();
 
-    if (updateError) {
-      throw updateError;
+      const { error: updateError } = await supabase
+        .from("proofs")
+        .update({
+          ai_summary: aiSummary,
+          status: "analyzed",
+          metadata,
+        })
+        .eq("proof_id", proofId);
+
+      if (updateError) throw updateError;
     }
 
     return NextResponse.json({
       success: true,
       proofId,
+      aiScore: 100 - forensic.trustScore,
+      verdict:
+        forensic.trustScore >= 75
+          ? "Likely Authentic"
+          : forensic.trustScore >= 45
+          ? "Uncertain / Needs Review"
+          : "Possible AI or Manipulated",
       forensic,
       aiSummary,
     });
@@ -167,9 +173,7 @@ Generate a professional authenticity report with:
         success: false,
         error: error.message || "Analysis failed",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
