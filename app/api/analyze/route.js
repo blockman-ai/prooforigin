@@ -4,8 +4,8 @@ import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
-async function getSha256(fileBuffer) {
-  return crypto.createHash("sha256").update(fileBuffer).digest("hex");
+function getSha256(buffer) {
+  return crypto.createHash("sha256").update(buffer).digest("hex");
 }
 
 function buildMetadataSignals(exif) {
@@ -13,15 +13,20 @@ function buildMetadataSignals(exif) {
 
   if (!exif || Object.keys(exif).length === 0) {
     signals.push("No embedded EXIF metadata found");
-  } else {
-    signals.push("Embedded metadata detected");
+    return signals;
   }
 
-  if (!exif?.Make && !exif?.Model) {
+  signals.push("Embedded metadata detected");
+
+  if (exif?.Make || exif?.Model) {
+    signals.push("Camera/device metadata present");
+  } else {
     signals.push("Camera make/model not detected");
   }
 
-  if (!exif?.DateTimeOriginal && !exif?.CreateDate) {
+  if (exif?.DateTimeOriginal || exif?.CreateDate) {
+    signals.push("Original capture timestamp detected");
+  } else {
     signals.push("Original capture date not detected");
   }
 
@@ -40,33 +45,33 @@ function buildExifSignals(exif) {
     return signals;
   }
 
-  if (exif?.Software) {
-    signals.push(`Possible editing/export software: ${exif.Software}`);
+  if (exif?.Make || exif?.Model) {
+    signals.push("Camera make/model metadata detected.");
   }
 
-  if (exif?.Make || exif?.Model) {
-    signals.push("Camera/device metadata present");
+  if (exif?.Software) {
+    signals.push(`Software tag detected: ${exif.Software}`);
   }
 
   if (exif?.DateTimeOriginal || exif?.CreateDate) {
-    signals.push("Capture timestamp metadata present");
+    signals.push("Original capture timestamp detected.");
   }
 
   if (exif?.latitude && exif?.longitude) {
-    signals.push("GPS metadata present");
+    signals.push("GPS metadata present.");
   } else {
-    signals.push("GPS metadata not present");
+    signals.push("GPS metadata not present.");
   }
 
   return signals;
 }
 
 function calculateIntegrityScore(exif) {
-  let score = 100;
+  let score = 60;
 
-  if (!exif || Object.keys(exif).length === 0) score -= 40;
-  if (!exif?.Make && !exif?.Model) score -= 15;
-  if (!exif?.DateTimeOriginal && !exif?.CreateDate) score -= 15;
+  if (exif && Object.keys(exif).length > 0) score += 10;
+  if (exif?.Make || exif?.Model) score += 15;
+  if (exif?.DateTimeOriginal || exif?.CreateDate) score += 15;
   if (exif?.Software) score -= 10;
 
   return Math.max(0, Math.min(100, score));
@@ -84,26 +89,46 @@ export async function POST(req) {
       );
     }
 
+    const apiUser = process.env.SIGHTENGINE_USER;
+    const apiSecret = process.env.SIGHTENGINE_SECRET;
+
+    if (!apiUser || !apiSecret) {
+      return NextResponse.json(
+        { success: false, error: "Sightengine credentials are missing." },
+        { status: 500 }
+      );
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     let exif = {};
-
     try {
       exif = (await exifr.parse(buffer)) || {};
     } catch {
       exif = {};
     }
 
-    const sha256 = await getSha256(buffer);
+    const sha256 = getSha256(buffer);
     const integrityScore = calculateIntegrityScore(exif);
 
     const metadata = {
       metadataStatus:
         Object.keys(exif).length > 0 ? "Metadata Found" : "Limited Metadata",
       integrityScore,
+      fileName: file.name || "unknown",
       fileType: file.type || "unknown",
-      fileSize: file.size || 0,
+      fileSize: file.size || buffer.length,
+      camera:
+        exif?.Make || exif?.Model
+          ? `${exif?.Make || ""} ${exif?.Model || ""}`.trim()
+          : null,
+      software: exif?.Software || null,
+      dateTaken:
+        exif?.DateTimeOriginal?.toString?.() ||
+        exif?.CreateDate?.toString?.() ||
+        null,
+      gpsPresent: Boolean(exif?.latitude && exif?.longitude),
       exif: {
         make: exif?.Make || null,
         model: exif?.Model || null,
@@ -117,39 +142,56 @@ export async function POST(req) {
       metadataSignals: buildMetadataSignals(exif),
       exifSignals: buildExifSignals(exif),
       sha256,
+      timestamp: new Date().toISOString(),
     };
 
-    let percent = 50;
+    const sightFile = new File([buffer], file.name || "upload.jpg", {
+      type: file.type || "image/jpeg",
+    });
 
-const softwareText = String(exif?.Software || "").toLowerCase();
-const allExifText = JSON.stringify(exif).toLowerCase();
+    const sightForm = new FormData();
+    sightForm.append("media", sightFile);
+    sightForm.append("models", "genai");
+    sightForm.append("api_user", apiUser);
+    sightForm.append("api_secret", apiSecret);
 
-if (
-  softwareText.includes("midjourney") ||
-  softwareText.includes("stable diffusion") ||
-  softwareText.includes("dall") ||
-  softwareText.includes("firefly") ||
-  allExifText.includes("ai generated") ||
-  allExifText.includes("prompt") ||
-  allExifText.includes("openai") ||
-  allExifText.includes("chatgpt")
-) {
-  percent = 95;
-} else if (!exif || Object.keys(exif).length === 0) {
-  percent = 70;
-} else if (!exif?.Make && !exif?.Model && !exif?.DateTimeOriginal) {
-  percent = 65;
-} else if (softwareText.includes("photoshop") || softwareText.includes("canva")) {
-  percent = 55;
-} else {
-  percent = 25;
-}
+    const res = await fetch("https://api.sightengine.com/1.0/check.json", {
+      method: "POST",
+      body: sightForm,
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.status === "failure") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: data.error?.message || "Sightengine analysis failed.",
+          raw: data,
+        },
+        { status: 500 }
+      );
+    }
+
+    const aiScore =
+      data.type?.ai_generated ??
+      data.ai_generated ??
+      data.genai?.ai_generated ??
+      0;
+
+    const percent = Math.round(Number(aiScore) * 100);
+
+    let verdict = "Uncertain";
+    if (percent >= 70) verdict = "Likely AI-generated";
+    if (percent <= 30) verdict = "Likely human-made";
 
     return NextResponse.json({
       success: true,
       percent,
+      verdict,
       proofOriginScore: integrityScore,
       metadata,
+      raw: data,
     });
   } catch (error) {
     return NextResponse.json(
