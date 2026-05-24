@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
+import { processProof } from "../lib/processProof";
 
 export default function UploadPage() {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [proof, setProof] = useState(null);
   const [error, setError] = useState("");
+  const [analysisStatus, setAnalysisStatus] = useState("");
 
   async function handleUpload() {
     if (!file) return;
@@ -15,10 +17,17 @@ export default function UploadPage() {
     setUploading(true);
     setError("");
     setProof(null);
+    setAnalysisStatus("Preparing proof...");
 
     try {
       const proofId = crypto.randomUUID();
       const storagePath = `uploads/${proofId}-${file.name}`;
+
+      setAnalysisStatus("Extracting metadata...");
+
+      const localAnalysis = await processProof(file);
+
+      setAnalysisStatus("Uploading file...");
 
       const { error: uploadError } = await supabase.storage
         .from("proofs")
@@ -30,6 +39,8 @@ export default function UploadPage() {
         .from("proofs")
         .getPublicUrl(storagePath);
 
+      setAnalysisStatus("Creating proof record...");
+
       const { error: insertError } = await supabase.from("proofs").insert({
         proof_id: proofId,
         file_name: file.name,
@@ -38,9 +49,12 @@ export default function UploadPage() {
         storage_path: storagePath,
         public_url: publicData.publicUrl,
         status: "uploaded",
+        metadata: localAnalysis.metadata || {},
       });
 
       if (insertError) throw insertError;
+
+      setAnalysisStatus("Running AI authenticity analysis...");
 
       const analyzeResponse = await fetch("/api/analyze", {
         method: "POST",
@@ -52,16 +66,21 @@ export default function UploadPage() {
           fileName: file.name,
           fileType: file.type,
           publicUrl: publicData.publicUrl,
+          metadata: localAnalysis.metadata || {},
         }),
       });
 
       if (!analyzeResponse.ok) {
         console.warn("AI analysis failed, but proof was created.");
+        setAnalysisStatus("Proof created. AI analysis pending.");
+      } else {
+        setAnalysisStatus("Proof analyzed successfully.");
       }
 
       setProof(proofId);
     } catch (err) {
       setError(err.message || "Upload failed");
+      setAnalysisStatus("");
     }
 
     setUploading(false);
@@ -71,7 +90,7 @@ export default function UploadPage() {
     <main
       style={{
         padding: 24,
-        maxWidth: 700,
+        maxWidth: 760,
         margin: "0 auto",
         fontFamily: "Arial, sans-serif",
       }}
@@ -79,8 +98,8 @@ export default function UploadPage() {
       <h1>ProofOrigin</h1>
 
       <p>
-        Prove what's real. Upload digital content and generate a verification
-        proof.
+        Upload digital content, extract forensic metadata, run AI authenticity
+        analysis, and generate a public verification record.
       </p>
 
       <div
@@ -110,13 +129,31 @@ export default function UploadPage() {
             cursor: uploading || !file ? "not-allowed" : "pointer",
           }}
         >
-          {uploading ? "Uploading + Analyzing..." : "Generate Proof"}
+          {uploading ? "Processing Proof..." : "Generate Proof"}
         </button>
+
+        {analysisStatus && (
+          <p style={{ marginTop: 16 }}>
+            <strong>Status:</strong> {analysisStatus}
+          </p>
+        )}
       </div>
 
       {proof && (
-        <div style={{ marginTop: 30 }}>
+        <div
+          style={{
+            marginTop: 30,
+            padding: 20,
+            border: "1px solid #ddd",
+            borderRadius: 14,
+          }}
+        >
           <h2>Proof Created</h2>
+
+          <p>
+            Your file has been uploaded, registered, and analyzed by
+            ProofOrigin.
+          </p>
 
           <a href={`/verify/${proof}`}>Open Verification Page</a>
         </div>
