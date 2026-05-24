@@ -282,6 +282,8 @@ export async function POST(req) {
       fileName: file.name || "unknown",
       fileType: file.type || "unknown",
       fileSize: file.size || buffer.length,
+      imageWidth: normalizedExif.imageWidth,
+imageHeight: normalizedExif.imageHeight,
       camera:
         normalizedExif.make || normalizedExif.model
           ? `${normalizedExif.make || ""} ${normalizedExif.model || ""}`.trim()
