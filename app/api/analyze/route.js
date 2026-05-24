@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import * as exifr from "exifr";
 import crypto from "crypto";
+import sharp from "sharp";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +78,7 @@ function calculateIntegrityScore(exif) {
   return Math.max(0, Math.min(100, score));
 }
 
-function normalizeExif(exif) {
+function normalizeExif(exif, imageInfo) {
   return {
     make: exif?.Make || exif?.make || null,
     model: exif?.Model || exif?.model || null,
@@ -92,8 +93,8 @@ function normalizeExif(exif) {
       exif?.ModifyDate?.toString?.() ||
       null,
     gpsPresent: Boolean(exif?.latitude && exif?.longitude),
-    imageWidth: exif?.ImageWidth || null,
-    imageHeight: exif?.ImageHeight || null,
+    imageWidth: exif?.ImageWidth || imageInfo?.width || null,
+    imageHeight: exif?.ImageHeight || imageInfo?.height || null,
   };
 }
 
@@ -245,6 +246,14 @@ export async function POST(req) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    let imageInfo = {};
+
+    try {
+      imageInfo = await sharp(buffer).metadata();
+    } catch {
+      imageInfo = {};
+    }
+
     let exif = {};
 
     try {
@@ -264,7 +273,7 @@ export async function POST(req) {
 
     const sha256 = getSha256(buffer);
     const integrityScore = calculateIntegrityScore(exif);
-    const normalizedExif = normalizeExif(exif);
+    const normalizedExif = normalizeExif(exif, imageInfo);
 
     const metadata = {
       metadataStatus:
@@ -361,4 +370,4 @@ export async function POST(req) {
       { status: 500 }
     );
   }
-}
+        }
