@@ -443,7 +443,6 @@ export default function DetectPage() {
               accept="image/*"
               onChange={handleFileChange}
             />
-
             <span>{file ? file.name : "Choose an image to analyze"}</span>
           </label>
 
@@ -657,4 +656,4 @@ export default function DetectPage() {
       </section>
     </main>
   );
-    }
+}
