@@ -98,14 +98,14 @@ export default function DetectPage() {
   }
 
   function handleFileChange(e) {
-    const selected = e.target.files?.[0];
-
-    if (!selected) return;
-
+    const selected = e.target.files[0];
     setFile(selected);
     setResult(null);
     setError("");
-    setPreview(URL.createObjectURL(selected));
+
+    if (selected) {
+      setPreview(URL.createObjectURL(selected));
+    }
   }
 
   async function analyzeImage(e) {
@@ -170,64 +170,60 @@ export default function DetectPage() {
 
       if (!res.ok) {
         setError(data.error || "Something went wrong.");
-        setLoading(false);
-        return;
-      }
+      } else {
+        const analysis = getAnalysisValues(data.percent ?? 0);
 
-      const analysis = getAnalysisValues(data.percent ?? 0);
+        let forensicSummary = "";
 
-      let forensicSummary = "";
+        try {
+          const reasonForm = new FormData();
 
-      try {
-        const reasonForm = new FormData();
+          reasonForm.append("image", file);
+          reasonForm.append("percent", String(data.percent ?? 0));
+          reasonForm.append("classification", analysis.classification);
+          reasonForm.append("manipulationRisk", analysis.manipulationRisk);
+          reasonForm.append("confidence", analysis.confidence);
+          reasonForm.append("signals", JSON.stringify(analysis.signals));
 
-        reasonForm.append("image", file);
-        reasonForm.append("percent", String(data.percent ?? 0));
-        reasonForm.append("classification", analysis.classification);
-        reasonForm.append("manipulationRisk", analysis.manipulationRisk);
-        reasonForm.append("confidence", analysis.confidence);
-        reasonForm.append("signals", JSON.stringify(analysis.signals));
+          const reasonRes = await fetch("/api/reason", {
+            method: "POST",
+            body: reasonForm,
+          });
 
-        const reasonRes = await fetch("/api/reason", {
-          method: "POST",
-          body: reasonForm,
-        });
+          const reasonData = await reasonRes.json();
 
-        const reasonData = await reasonRes.json();
-
-        if (!reasonRes.ok) {
-          forensicSummary = `OpenAI vision error: ${reasonData.error}`;
-        } else {
-          forensicSummary =
-            reasonData.summary || "No forensic summary returned.";
+          if (!reasonRes.ok) {
+            forensicSummary = `OpenAI vision error: ${reasonData.error}`;
+          } else {
+            forensicSummary =
+              reasonData.summary || "No forensic summary returned.";
+          }
+        } catch {
+          forensicSummary = "Unable to generate forensic summary.";
         }
-      } catch {
-        forensicSummary = "Unable to generate forensic summary.";
+
+        const reportId = createReportId();
+
+        const savedReport = {
+          id: reportId,
+          percent: data.percent ?? 0,
+          forensicSummary,
+          metadata: data.metadata || null,
+          proofOriginScore: data.proofOriginScore ?? null,
+          createdAt: new Date().toISOString(),
+        };
+
+        localStorage.setItem(
+          `prooforigin_report_${reportId}`,
+          JSON.stringify(savedReport)
+        );
+
+        setResult({
+          ...data,
+          forensicSummary,
+          reportId,
+        });
       }
-
-      const reportId = createReportId();
-
-      const savedReport = {
-        id: reportId,
-        percent: data.percent ?? 0,
-        forensicSummary,
-        metadata: data.metadata || null,
-        proofOriginScore: data.proofOriginScore ?? null,
-        engines: data.engines || null,
-        verdict: data.verdict || null,
-        createdAt: new Date().toISOString(),
-      };
-
-      localStorage.setItem(
-        `prooforigin_report_${reportId}`,
-        JSON.stringify(savedReport)
-      );
-
-      setResult({
-        ...data,
-        forensicSummary,
-        reportId,
-      });
     } catch {
       setError("Unable to analyze image. Please try again.");
     }
@@ -371,21 +367,15 @@ export default function DetectPage() {
     const blob = await createReportImageBlob();
     if (!blob) return;
 
-    const fileToShare = new File(
-      [blob],
-      `prooforigin-report-${result.reportId}.png`,
-      {
-        type: "image/png",
-      }
-    );
+    const file = new File([blob], `prooforigin-report-${result.reportId}.png`, {
+      type: "image/png",
+    });
 
-    if (navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({
         title: "ProofOrigin Report",
-        text: `ProofOrigin Analysis: ${
-          result?.percent ?? 0
-        }% AI probability.`,
-        files: [fileToShare],
+        text: `ProofOrigin Analysis: ${percent}% AI probability.`,
+        files: [file],
       });
     } else {
       await downloadReportImage();
@@ -437,19 +427,12 @@ export default function DetectPage() {
 
         <form onSubmit={analyzeImage} className="detector-card">
           <label className="upload-box">
-            <input
-              className="file-input-hidden"
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-            />
+            <input type="file" accept="image/*" onChange={handleFileChange} />
             <span>{file ? file.name : "Choose an image to analyze"}</span>
           </label>
 
           {preview && (
-            <div className="preview-wrap">
-              <img src={preview} alt="Preview" className="image-preview" />
-            </div>
+            <img src={preview} alt="Preview" className="image-preview" />
           )}
 
           <button className="primary" type="submit" disabled={loading}>
@@ -496,27 +479,6 @@ export default function DetectPage() {
               <div>
                 <p className="report-label">Metadata Status</p>
                 <h3>{result?.metadata?.metadataStatus || "N/A"}</h3>
-              </div>
-            </div>
-
-            <div className="engine-consensus-box">
-              <p className="report-label">AI Detection Consensus</p>
-
-              <div className="engine-row">
-                <span>Sightengine</span>
-                <strong>
-                  {result?.engines?.sightengine?.percent ?? "N/A"}%
-                </strong>
-              </div>
-
-              <div className="engine-row">
-                <span>Hive AI</span>
-                <strong>{result?.engines?.hive?.percent ?? "N/A"}%</strong>
-              </div>
-
-              <div className="engine-row consensus">
-                <span>ProofOrigin Consensus</span>
-                <strong>{result?.percent ?? "N/A"}%</strong>
               </div>
             </div>
 
@@ -579,17 +541,6 @@ export default function DetectPage() {
                 <p>
                   <strong>GPS Present:</strong>{" "}
                   {result.metadata.exif?.gpsPresent ? "Yes" : "No"}
-                </p>
-
-                <p>
-                  <strong>Image Size:</strong>{" "}
-                  {result.metadata.imageWidth ||
-                    result.metadata.exif?.imageWidth ||
-                    "Unknown"}{" "}
-                  x{" "}
-                  {result.metadata.imageHeight ||
-                    result.metadata.exif?.imageHeight ||
-                    "Unknown"}
                 </p>
 
                 <p style={{ wordBreak: "break-all" }}>
