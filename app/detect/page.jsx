@@ -95,8 +95,7 @@ return Math.random().toString(36).substring(2, 10);
 }
 
 function getReportUrl(reportId) {
-return ${window.location.origin}/report/${reportId};
-}
+return `${window.location.origin}/report/${reportId}`;
 
 function handleFileChange(e) {
 const selected = e.target.files[0];
