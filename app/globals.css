@@ -118,6 +118,12 @@ p {
   box-shadow: 0 20px 80px rgba(0, 0, 0, 0.3);
 }
 
+/* UPLOAD AREA */
+
+.file-input-hidden {
+  display: none;
+}
+
 .upload-box {
   display: block;
   border: 2px dashed rgba(0, 229, 255, 0.55);
@@ -129,9 +135,25 @@ p {
   background: rgba(0, 229, 255, 0.05);
   font-size: 20px;
   font-weight: 700;
+  transition: all 0.25s ease;
 }
 
-/* IMPORTANT IMAGE FIX */
+.upload-box:hover {
+  border-color: #00e5ff;
+  background: rgba(0, 229, 255, 0.1);
+  box-shadow: 0 0 30px rgba(0, 229, 255, 0.12);
+}
+
+.upload-box span {
+  display: block;
+  font-size: 28px;
+  font-weight: 800;
+  color: #b8c2d6;
+  text-align: center;
+}
+
+/* IMAGE PREVIEW FIX */
+
 .preview-wrap {
   width: 100%;
   max-width: 520px;
@@ -152,6 +174,8 @@ p {
   display: block;
   border-radius: 24px;
 }
+
+/* ENGINE CONSENSUS */
 
 .engine-consensus-box {
   margin-top: 24px;
@@ -189,6 +213,8 @@ p {
   font-weight: 700;
 }
 
+/* MOBILE FIXES */
+
 @media (max-width: 700px) {
   .page {
     padding: 50px 18px;
@@ -220,5 +246,21 @@ p {
   .secondary,
   .game-button {
     width: 100%;
+  }
+
+  .upload-box span {
+    font-size: 22px;
+  }
+
+  .engine-row {
+    font-size: 14px;
+  }
+
+  .engine-row strong {
+    font-size: 16px;
+  }
+
+  .engine-row.consensus strong {
+    font-size: 18px;
   }
 }
