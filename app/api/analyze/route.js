@@ -1,242 +1,156 @@
-import crypto from "crypto";
-import exifr from "exifr";
+import { NextResponse } from "next/server";
+import OpenAI from "openai";
+import { createClient } from "@supabase/supabase-js";
 
-async function getMetadataForensics(file, buffer) {
-  const sha256 = crypto.createHash("sha256").update(buffer).digest("hex");
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-  const fileName = file.name || "unknown";
-  const fileType = file.type || "unknown";
-  const fileSize = file.size || buffer.length;
-  const lowerName = fileName.toLowerCase();
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-  const possibleCameraOriginal =
-    lowerName.endsWith(".heic") ||
-    lowerName.endsWith(".jpg") ||
-    lowerName.endsWith(".jpeg");
+function basicForensicChecks({ fileName, fileType, metadata }) {
+  const riskFlags = [];
+  let trustScore = 100;
 
-  const possibleScreenshot =
-    lowerName.includes("screenshot") ||
-    lowerName.includes("screen") ||
-    lowerName.endsWith(".png");
-
-  const possibleEdited =
-    lowerName.includes("edited") ||
-    lowerName.includes("export") ||
-    lowerName.includes("photoshop") ||
-    lowerName.includes("canva") ||
-    lowerName.includes("goart");
-
-  let metadataStatus = "Limited";
-  let integrityScore = 60;
-
-  const metadataSignals = [];
-  const exifSignals = [];
-
-  let exif = null;
-
-  try {
-    exif = await exifr.parse(buffer);
-
-    if (exif?.Make || exif?.Model) {
-      exifSignals.push("Camera make/model metadata detected.");
-      integrityScore += 10;
-    }
-
-    if (exif?.Software) {
-      exifSignals.push(`Software tag detected: ${exif.Software}`);
-
-      integrityScore -= 10;
-
-      if (
-        String(exif.Software).toLowerCase().includes("photoshop") ||
-        String(exif.Software).toLowerCase().includes("canva") ||
-        String(exif.Software).toLowerCase().includes("midjourney")
-      ) {
-        integrityScore -= 10;
-      }
-    }
-
-    if (exif?.DateTimeOriginal) {
-      exifSignals.push("Original capture timestamp detected.");
-      integrityScore += 5;
-    }
-
-    if (exif?.latitude || exif?.longitude) {
-      exifSignals.push("GPS metadata detected.");
-      integrityScore += 5;
-    }
-
-    if (!exif) {
-      exifSignals.push("No readable EXIF metadata found.");
-      integrityScore -= 5;
-    }
-  } catch {
-    exifSignals.push("EXIF metadata could not be parsed.");
-    integrityScore -= 5;
+  if (!metadata || Object.keys(metadata).length === 0) {
+    riskFlags.push("No readable metadata found");
+    trustScore -= 20;
   }
 
-  if (possibleCameraOriginal) {
-    metadataStatus = "Camera-Compatible";
-    integrityScore += 15;
+  if (fileType?.startsWith("image/")) {
+    if (!metadata?.Make && !metadata?.Model) {
+      riskFlags.push("Missing camera make/model");
+      trustScore -= 15;
+    }
 
-    metadataSignals.push(
-      "File format is commonly used by camera-original images."
-    );
+    if (!metadata?.DateTimeOriginal && !metadata?.CreateDate) {
+      riskFlags.push("Missing original capture timestamp");
+      trustScore -= 15;
+    }
+
+    const software = String(metadata?.Software || "").toLowerCase();
+
+    if (
+      software.includes("photoshop") ||
+      software.includes("lightroom") ||
+      software.includes("gimp") ||
+      software.includes("canva")
+    ) {
+      riskFlags.push(`Edited/exported with ${metadata.Software}`);
+      trustScore -= 20;
+    }
+
+    if (
+      software.includes("midjourney") ||
+      software.includes("stable diffusion") ||
+      software.includes("dall") ||
+      software.includes("firefly")
+    ) {
+      riskFlags.push(`Possible AI-generation software detected: ${metadata.Software}`);
+      trustScore -= 35;
+    }
   }
 
-  if (possibleScreenshot) {
-    metadataStatus = "Screenshot-Likely";
-    integrityScore -= 20;
-
-    metadataSignals.push(
-      "Filename or PNG format suggests this may be a screenshot."
-    );
+  if (fileName && /\.(ai|psd)$/i.test(fileName)) {
+    riskFlags.push("Source/design file format detected");
+    trustScore -= 10;
   }
 
-  if (possibleEdited) {
-    metadataStatus = "Editing-Likely";
-    integrityScore -= 25;
+  trustScore = Math.max(0, Math.min(100, trustScore));
 
-    metadataSignals.push(
-      "Filename suggests possible editing or app export."
-    );
-  }
+  let trustRating = "High";
 
-  if (fileSize < 100000) {
-    integrityScore -= 10;
-
-    metadataSignals.push(
-      "Small file size may indicate compression or re-export."
-    );
-  }
-
-  integrityScore = Math.max(0, Math.min(100, integrityScore));
+  if (trustScore < 75) trustRating = "Medium";
+  if (trustScore < 45) trustRating = "Low";
 
   return {
-    fileName,
-    fileType,
-    fileSize,
-    sha256,
-    metadataStatus,
-    integrityScore,
-
-    possibleCameraOriginal,
-    possibleScreenshot,
-    possibleEdited,
-
-    metadataSignals,
-    exifSignals,
-
-    exif: {
-      make: exif?.Make || null,
-      model: exif?.Model || null,
-      software: exif?.Software || null,
-      dateTimeOriginal: exif?.DateTimeOriginal || null,
-      gpsPresent: Boolean(exif?.latitude || exif?.longitude),
-    },
-
-    timestamp: new Date().toISOString(),
+    riskFlags,
+    trustScore,
+    trustRating,
   };
 }
 
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const formData = await request.formData();
-    const file = formData.get("image");
+    const { proofId, fileName, fileType, publicUrl, metadata = {} } =
+      await req.json();
 
-    if (!file) {
-      return Response.json(
-        { error: "No image uploaded." },
+    if (!proofId) {
+      return NextResponse.json(
+        { error: "Missing proofId" },
         { status: 400 }
       );
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    const metadata = await getMetadataForensics(file, buffer);
-
-    const apiUser = process.env.SIGHTENGINE_USER;
-    const apiSecret = process.env.SIGHTENGINE_SECRET;
-
-    if (!apiUser || !apiSecret) {
-      return Response.json(
-        { error: "Sightengine credentials are missing." },
-        { status: 500 }
-      );
-    }
-
-    const sightFile = new File(
-      [buffer],
-      file.name || "upload.jpg",
-      {
-        type: file.type || "image/jpeg",
-      }
-    );
-
-    const sightForm = new FormData();
-
-    sightForm.append("media", sightFile);
-    sightForm.append("models", "genai");
-    sightForm.append("api_user", apiUser);
-    sightForm.append("api_secret", apiSecret);
-
-    const res = await fetch(
-      "https://api.sightengine.com/1.0/check.json",
-      {
-        method: "POST",
-        body: sightForm,
-      }
-    );
-
-    const data = await res.json();
-
-    if (!res.ok || data.status === "failure") {
-      return Response.json(
-        {
-          error:
-            data.error?.message || "Analysis failed.",
-          raw: data,
-        },
-        { status: 500 }
-      );
-    }
-
-    const aiScore =
-      data.type?.ai_generated ??
-      data.ai_generated ??
-      data.genai?.ai_generated ??
-      0;
-
-    const percent = Math.round(aiScore * 100);
-
-    let verdict = "Uncertain";
-
-    if (percent >= 70) {
-      verdict = "Likely AI-generated";
-    }
-
-    if (percent <= 30) {
-      verdict = "Likely human-made";
-    }
-
-    const proofOriginScore = Math.round(
-      percent * 0.75 +
-      (100 - metadata.integrityScore) * 0.25
-    );
-
-    return Response.json({
-      percent,
-      verdict,
-      proofOriginScore,
+    const forensic = basicForensicChecks({
+      fileName,
+      fileType,
       metadata,
-      raw: data,
     });
 
+    const prompt = `
+You are ProofOrigin, an AI authenticity and forensic verification engine.
+
+Analyze this digital file using the structured evidence below.
+
+FILE:
+- Name: ${fileName}
+- Type: ${fileType}
+- Public URL: ${publicUrl}
+
+FORENSIC SIGNALS:
+- Trust Score: ${forensic.trustScore}/100
+- Trust Rating: ${forensic.trustRating}
+- Risk Flags: ${forensic.riskFlags.length ? forensic.riskFlags.join(", ") : "None detected"}
+
+METADATA:
+${JSON.stringify(metadata, null, 2)}
+
+Return a professional authenticity report with these sections:
+
+1. Summary
+2. Authenticity Assessment
+3. AI-Generation Risk
+4. Manipulation Risk
+5. Metadata Findings
+6. Trust Rating
+7. Recommended Next Step
+
+Keep it clear, concise, and useful for a public verification page.
+`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const aiSummary = response.choices[0]?.message?.content || "";
+
+    const { error: updateError } = await supabase
+      .from("proofs")
+      .update({
+        ai_summary: aiSummary,
+        status: "analyzed",
+        metadata,
+      })
+      .eq("proof_id", proofId);
+
+    if (updateError) throw updateError;
+
+    return NextResponse.json({
+      success: true,
+      proofId,
+      aiSummary,
+      forensic,
+    });
   } catch (error) {
-    return Response.json(
+    return NextResponse.json(
       {
-        error: error.message || "Server error.",
+        success: false,
+        error: error.message || "Analysis failed",
       },
       { status: 500 }
     );
