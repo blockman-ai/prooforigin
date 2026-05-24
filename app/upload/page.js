@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
-import { processProof } from "../lib/processProof";
 
 export default function UploadPage() {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [proof, setProof] = useState(null);
   const [error, setError] = useState("");
-  const [analysisStatus, setAnalysisStatus] = useState("");
+  const [status, setStatus] = useState("");
 
   async function handleUpload() {
     if (!file) return;
@@ -17,17 +16,13 @@ export default function UploadPage() {
     setUploading(true);
     setError("");
     setProof(null);
-    setAnalysisStatus("Preparing proof...");
+    setStatus("Creating proof...");
 
     try {
       const proofId = crypto.randomUUID();
       const storagePath = `uploads/${proofId}-${file.name}`;
 
-      setAnalysisStatus("Extracting metadata...");
-
-      const localAnalysis = await processProof(file);
-
-      setAnalysisStatus("Uploading file...");
+      setStatus("Uploading file...");
 
       const { error: uploadError } = await supabase.storage
         .from("proofs")
@@ -39,7 +34,7 @@ export default function UploadPage() {
         .from("proofs")
         .getPublicUrl(storagePath);
 
-      setAnalysisStatus("Creating proof record...");
+      setStatus("Saving proof record...");
 
       const { error: insertError } = await supabase.from("proofs").insert({
         proof_id: proofId,
@@ -49,67 +44,44 @@ export default function UploadPage() {
         storage_path: storagePath,
         public_url: publicData.publicUrl,
         status: "uploaded",
-        metadata: localAnalysis.metadata || {},
+        metadata: {},
       });
 
       if (insertError) throw insertError;
 
-      setAnalysisStatus("Running AI authenticity analysis...");
+      setStatus("Running AI analysis...");
 
-      const analyzeResponse = await fetch("/api/analyze", {
+      await fetch("/api/analyze", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
           proofId,
           fileName: file.name,
           fileType: file.type,
           publicUrl: publicData.publicUrl,
-          metadata: localAnalysis.metadata || {},
-        }),
+          metadata: {}
+        })
       });
 
-      if (!analyzeResponse.ok) {
-        console.warn("AI analysis failed, but proof was created.");
-        setAnalysisStatus("Proof created. AI analysis pending.");
-      } else {
-        setAnalysisStatus("Proof analyzed successfully.");
-      }
-
+      setStatus("Proof complete.");
       setProof(proofId);
     } catch (err) {
       setError(err.message || "Upload failed");
-      setAnalysisStatus("");
+      setStatus("");
     }
 
     setUploading(false);
   }
 
   return (
-    <main
-      style={{
-        padding: 24,
-        maxWidth: 760,
-        margin: "0 auto",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
+    <main style={{ padding: 24, maxWidth: 760, margin: "0 auto", fontFamily: "Arial, sans-serif" }}>
       <h1>ProofOrigin</h1>
 
-      <p>
-        Upload digital content, extract forensic metadata, run AI authenticity
-        analysis, and generate a public verification record.
-      </p>
+      <p>Upload digital content and generate a public AI authenticity proof.</p>
 
-      <div
-        style={{
-          border: "2px dashed #666",
-          borderRadius: 16,
-          padding: 30,
-          marginTop: 20,
-        }}
-      >
+      <div style={{ border: "2px dashed #666", borderRadius: 16, padding: 30, marginTop: 20 }}>
         <input
           type="file"
           accept="image/*,video/*,.pdf,.doc,.docx"
@@ -126,35 +98,18 @@ export default function UploadPage() {
             padding: "12px 18px",
             borderRadius: 10,
             border: "none",
-            cursor: uploading || !file ? "not-allowed" : "pointer",
+            cursor: uploading || !file ? "not-allowed" : "pointer"
           }}
         >
-          {uploading ? "Processing Proof..." : "Generate Proof"}
+          {uploading ? "Processing..." : "Generate Proof"}
         </button>
 
-        {analysisStatus && (
-          <p style={{ marginTop: 16 }}>
-            <strong>Status:</strong> {analysisStatus}
-          </p>
-        )}
+        {status && <p style={{ marginTop: 16 }}><strong>Status:</strong> {status}</p>}
       </div>
 
       {proof && (
-        <div
-          style={{
-            marginTop: 30,
-            padding: 20,
-            border: "1px solid #ddd",
-            borderRadius: 14,
-          }}
-        >
+        <div style={{ marginTop: 30 }}>
           <h2>Proof Created</h2>
-
-          <p>
-            Your file has been uploaded, registered, and analyzed by
-            ProofOrigin.
-          </p>
-
           <a href={`/verify/${proof}`}>Open Verification Page</a>
         </div>
       )}
