@@ -14,10 +14,10 @@ export default function UploadPage() {
 
     setUploading(true);
     setError("");
+    setProof(null);
 
     try {
       const proofId = crypto.randomUUID();
-
       const storagePath = `uploads/${proofId}-${file.name}`;
 
       const { error: uploadError } = await supabase.storage
@@ -30,19 +30,34 @@ export default function UploadPage() {
         .from("proofs")
         .getPublicUrl(storagePath);
 
-      const { error: insertError } = await supabase
-        .from("proofs")
-        .insert({
-          proof_id: proofId,
-          file_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          storage_path: storagePath,
-          public_url: publicData.publicUrl,
-          status: "uploaded",
-        });
+      const { error: insertError } = await supabase.from("proofs").insert({
+        proof_id: proofId,
+        file_name: file.name,
+        file_type: file.type,
+        file_size: file.size,
+        storage_path: storagePath,
+        public_url: publicData.publicUrl,
+        status: "uploaded",
+      });
 
       if (insertError) throw insertError;
+
+      const analyzeResponse = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          proofId,
+          fileName: file.name,
+          fileType: file.type,
+          publicUrl: publicData.publicUrl,
+        }),
+      });
+
+      if (!analyzeResponse.ok) {
+        console.warn("AI analysis failed, but proof was created.");
+      }
 
       setProof(proofId);
     } catch (err) {
@@ -58,14 +73,14 @@ export default function UploadPage() {
         padding: 24,
         maxWidth: 700,
         margin: "0 auto",
-        fontFamily: "sans-serif",
+        fontFamily: "Arial, sans-serif",
       }}
     >
       <h1>ProofOrigin</h1>
 
       <p>
-        Prove what's real. Upload digital content and generate a
-        verification proof.
+        Prove what's real. Upload digital content and generate a verification
+        proof.
       </p>
 
       <div
@@ -78,14 +93,11 @@ export default function UploadPage() {
       >
         <input
           type="file"
+          accept="image/*,video/*,.pdf,.doc,.docx"
           onChange={(e) => setFile(e.target.files?.[0])}
         />
 
-        {file && (
-          <p style={{ marginTop: 10 }}>
-            Selected: {file.name}
-          </p>
-        )}
+        {file && <p style={{ marginTop: 10 }}>Selected: {file.name}</p>}
 
         <button
           onClick={handleUpload}
@@ -95,10 +107,10 @@ export default function UploadPage() {
             padding: "12px 18px",
             borderRadius: 10,
             border: "none",
-            cursor: "pointer",
+            cursor: uploading || !file ? "not-allowed" : "pointer",
           }}
         >
-          {uploading ? "Uploading..." : "Generate Proof"}
+          {uploading ? "Uploading + Analyzing..." : "Generate Proof"}
         </button>
       </div>
 
@@ -106,17 +118,11 @@ export default function UploadPage() {
         <div style={{ marginTop: 30 }}>
           <h2>Proof Created</h2>
 
-          <a href={`/verify/${proof}`}>
-            Open Verification Page
-          </a>
+          <a href={`/verify/${proof}`}>Open Verification Page</a>
         </div>
       )}
 
-      {error && (
-        <p style={{ color: "red", marginTop: 20 }}>
-          {error}
-        </p>
-      )}
+      {error && <p style={{ color: "red", marginTop: 20 }}>{error}</p>}
     </main>
   );
-        }
+}
