@@ -440,8 +440,10 @@ export default function DetectPage() {
           </label>
 
           {preview && (
-            <img src={preview} alt="Preview" className="image-preview" />
-          )}
+  <div className="preview-wrap">
+    <img src={preview} alt="Preview" className="image-preview" />
+  </div>
+)}
 
           <button className="primary" type="submit" disabled={loading}>
             {loading ? "Analyzing Image..." : "Run Detection"}
