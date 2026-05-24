@@ -98,14 +98,14 @@ export default function DetectPage() {
   }
 
   function handleFileChange(e) {
-    const selected = e.target.files[0];
+    const selected = e.target.files?.[0];
+
+    if (!selected) return;
+
     setFile(selected);
     setResult(null);
     setError("");
-
-    if (selected) {
-      setPreview(URL.createObjectURL(selected));
-    }
+    setPreview(URL.createObjectURL(selected));
   }
 
   async function analyzeImage(e) {
@@ -170,62 +170,64 @@ export default function DetectPage() {
 
       if (!res.ok) {
         setError(data.error || "Something went wrong.");
-      } else {
-        const analysis = getAnalysisValues(data.percent ?? 0);
-
-        let forensicSummary = "";
-
-        try {
-          const reasonForm = new FormData();
-
-          reasonForm.append("image", file);
-          reasonForm.append("percent", String(data.percent ?? 0));
-          reasonForm.append("classification", analysis.classification);
-          reasonForm.append("manipulationRisk", analysis.manipulationRisk);
-          reasonForm.append("confidence", analysis.confidence);
-          reasonForm.append("signals", JSON.stringify(analysis.signals));
-
-          const reasonRes = await fetch("/api/reason", {
-            method: "POST",
-            body: reasonForm,
-          });
-
-          const reasonData = await reasonRes.json();
-
-          if (!reasonRes.ok) {
-            forensicSummary = `OpenAI vision error: ${reasonData.error}`;
-          } else {
-            forensicSummary =
-              reasonData.summary || "No forensic summary returned.";
-          }
-        } catch {
-          forensicSummary = "Unable to generate forensic summary.";
-        }
-
-        const reportId = createReportId();
-
-        const savedReport = {
-          id: reportId,
-          percent: data.percent ?? 0,
-          forensicSummary,
-          metadata: data.metadata || null,
-          proofOriginScore: data.proofOriginScore ?? null,
-          engines: data.engines || null,
-          verdict: data.verdict || null,
-          createdAt: new Date().toISOString(),
-        };
-
-        localStorage.setItem(
-          `prooforigin_report_${reportId}`,
-          JSON.stringify(savedReport)
-        );
-
-        setResult({
-          ...data,
-          forensicSummary,
-          reportId,
-        });
+        setLoading(false);
+        return;
       }
+
+      const analysis = getAnalysisValues(data.percent ?? 0);
+
+      let forensicSummary = "";
+
+      try {
+        const reasonForm = new FormData();
+
+        reasonForm.append("image", file);
+        reasonForm.append("percent", String(data.percent ?? 0));
+        reasonForm.append("classification", analysis.classification);
+        reasonForm.append("manipulationRisk", analysis.manipulationRisk);
+        reasonForm.append("confidence", analysis.confidence);
+        reasonForm.append("signals", JSON.stringify(analysis.signals));
+
+        const reasonRes = await fetch("/api/reason", {
+          method: "POST",
+          body: reasonForm,
+        });
+
+        const reasonData = await reasonRes.json();
+
+        if (!reasonRes.ok) {
+          forensicSummary = `OpenAI vision error: ${reasonData.error}`;
+        } else {
+          forensicSummary =
+            reasonData.summary || "No forensic summary returned.";
+        }
+      } catch {
+        forensicSummary = "Unable to generate forensic summary.";
+      }
+
+      const reportId = createReportId();
+
+      const savedReport = {
+        id: reportId,
+        percent: data.percent ?? 0,
+        forensicSummary,
+        metadata: data.metadata || null,
+        proofOriginScore: data.proofOriginScore ?? null,
+        engines: data.engines || null,
+        verdict: data.verdict || null,
+        createdAt: new Date().toISOString(),
+      };
+
+      localStorage.setItem(
+        `prooforigin_report_${reportId}`,
+        JSON.stringify(savedReport)
+      );
+
+      setResult({
+        ...data,
+        forensicSummary,
+        reportId,
+      });
     } catch {
       setError("Unable to analyze image. Please try again.");
     }
@@ -435,15 +437,21 @@ export default function DetectPage() {
 
         <form onSubmit={analyzeImage} className="detector-card">
           <label className="upload-box">
-            <input type="file" accept="image/*" onChange={handleFileChange} />
+            <input
+              className="file-input-hidden"
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+            />
+
             <span>{file ? file.name : "Choose an image to analyze"}</span>
           </label>
 
           {preview && (
-  <div className="preview-wrap">
-    <img src={preview} alt="Preview" className="image-preview" />
-  </div>
-)}
+            <div className="preview-wrap">
+              <img src={preview} alt="Preview" className="image-preview" />
+            </div>
+          )}
 
           <button className="primary" type="submit" disabled={loading}>
             {loading ? "Analyzing Image..." : "Run Detection"}
@@ -649,4 +657,4 @@ export default function DetectPage() {
       </section>
     </main>
   );
-      }
+    }
