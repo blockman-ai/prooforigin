@@ -119,7 +119,31 @@ export async function POST(req) {
       sha256,
     };
 
-    const percent = Math.max(0, Math.min(100, 100 - integrityScore));
+    let percent = 50;
+
+const softwareText = String(exif?.Software || "").toLowerCase();
+const allExifText = JSON.stringify(exif).toLowerCase();
+
+if (
+  softwareText.includes("midjourney") ||
+  softwareText.includes("stable diffusion") ||
+  softwareText.includes("dall") ||
+  softwareText.includes("firefly") ||
+  allExifText.includes("ai generated") ||
+  allExifText.includes("prompt") ||
+  allExifText.includes("openai") ||
+  allExifText.includes("chatgpt")
+) {
+  percent = 95;
+} else if (!exif || Object.keys(exif).length === 0) {
+  percent = 70;
+} else if (!exif?.Make && !exif?.Model && !exif?.DateTimeOriginal) {
+  percent = 65;
+} else if (softwareText.includes("photoshop") || softwareText.includes("canva")) {
+  percent = 55;
+} else {
+  percent = 25;
+}
 
     return NextResponse.json({
       success: true,
