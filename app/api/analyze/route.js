@@ -27,7 +27,7 @@ function basicForensicChecks({ fileName, fileType, metadata }) {
     }
 
     if (!metadata?.DateTimeOriginal && !metadata?.CreateDate) {
-      riskFlags.push("Missing original capture timestamp");
+      riskFlags.push("Missing original timestamp");
       trustScore -= 15;
     }
 
@@ -49,7 +49,10 @@ function basicForensicChecks({ fileName, fileType, metadata }) {
       software.includes("dall") ||
       software.includes("firefly")
     ) {
-      riskFlags.push(`Possible AI-generation software detected: ${metadata.Software}`);
+      riskFlags.push(
+        `Possible AI-generation software detected: ${metadata.Software}`
+      );
+
       trustScore -= 35;
     }
   }
@@ -75,8 +78,13 @@ function basicForensicChecks({ fileName, fileType, metadata }) {
 
 export async function POST(req) {
   try {
-    const { proofId, fileName, fileType, publicUrl, metadata = {} } =
-      await req.json();
+    const {
+      proofId,
+      fileName,
+      fileType,
+      publicUrl,
+      metadata = {},
+    } = await req.json();
 
     if (!proofId) {
       return NextResponse.json(
@@ -92,42 +100,47 @@ export async function POST(req) {
     });
 
     const prompt = `
-You are ProofOrigin, an AI authenticity and forensic verification engine.
+You are ProofOrigin, an AI authenticity verification engine.
 
-Analyze this digital file using the structured evidence below.
+Analyze this uploaded digital file.
 
-FILE:
-- Name: ${fileName}
-- Type: ${fileType}
+FILE DETAILS:
+- File Name: ${fileName}
+- File Type: ${fileType}
 - Public URL: ${publicUrl}
 
-FORENSIC SIGNALS:
+FORENSIC ANALYSIS:
 - Trust Score: ${forensic.trustScore}/100
 - Trust Rating: ${forensic.trustRating}
-- Risk Flags: ${forensic.riskFlags.length ? forensic.riskFlags.join(", ") : "None detected"}
+- Risk Flags:
+${forensic.riskFlags.join(", ") || "None"}
 
 METADATA:
 ${JSON.stringify(metadata, null, 2)}
 
-Return a professional authenticity report with these sections:
+Generate a professional authenticity report with:
 
 1. Summary
 2. Authenticity Assessment
-3. AI-Generation Risk
+3. AI Generation Risk
 4. Manipulation Risk
 5. Metadata Findings
 6. Trust Rating
 7. Recommended Next Step
-
-Keep it clear, concise, and useful for a public verification page.
 `;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
     });
 
-    const aiSummary = response.choices[0]?.message?.content || "";
+    const aiSummary =
+      response.choices?.[0]?.message?.content || "";
 
     const { error: updateError } = await supabase
       .from("proofs")
@@ -138,13 +151,15 @@ Keep it clear, concise, and useful for a public verification page.
       })
       .eq("proof_id", proofId);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      throw updateError;
+    }
 
     return NextResponse.json({
       success: true,
       proofId,
-      aiSummary,
       forensic,
+      aiSummary,
     });
   } catch (error) {
     return NextResponse.json(
@@ -152,7 +167,9 @@ Keep it clear, concise, and useful for a public verification page.
         success: false,
         error: error.message || "Analysis failed",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
