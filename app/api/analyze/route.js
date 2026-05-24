@@ -77,6 +77,35 @@ function calculateIntegrityScore(exif) {
   return Math.max(0, Math.min(100, score));
 }
 
+function normalizeExif(exif) {
+  return {
+    make: exif?.Make || exif?.make || null,
+    model: exif?.Model || exif?.model || null,
+    software:
+      exif?.Software ||
+      exif?.CreatorTool ||
+      exif?.ProcessingSoftware ||
+      null,
+    dateTimeOriginal:
+      exif?.DateTimeOriginal?.toString?.() ||
+      exif?.CreateDate?.toString?.() ||
+      exif?.ModifyDate?.toString?.() ||
+      null,
+    gpsPresent: Boolean(exif?.latitude && exif?.longitude),
+    imageWidth: exif?.ImageWidth || null,
+    imageHeight: exif?.ImageHeight || null,
+  };
+}
+
+function getSightengineAiScore(data) {
+  return (
+    data.type?.ai_generated ??
+    data.ai_generated ??
+    data.genai?.ai_generated ??
+    0
+  );
+}
+
 export async function POST(req) {
   try {
     const formData = await req.formData();
@@ -104,25 +133,24 @@ export async function POST(req) {
 
     let exif = {};
 
-try {
-  exif =
-    (await exifr.parse(buffer, {
-      tiff: true,
-      ifd0: true,
-      exif: true,
-      gps: true,
-      xmp: true,
-      icc: true,
-      iptc: true,
-    })) || {};
-} catch {
-  exif = {};
-}
-
-console.log("ProofOrigin EXIF Debug:", exif);
+    try {
+      exif =
+        (await exifr.parse(buffer, {
+          tiff: true,
+          ifd0: true,
+          exif: true,
+          gps: true,
+          xmp: true,
+          icc: true,
+          iptc: true,
+        })) || {};
+    } catch {
+      exif = {};
+    }
 
     const sha256 = getSha256(buffer);
     const integrityScore = calculateIntegrityScore(exif);
+    const normalizedExif = normalizeExif(exif);
 
     const metadata = {
       metadataStatus:
@@ -132,32 +160,13 @@ console.log("ProofOrigin EXIF Debug:", exif);
       fileType: file.type || "unknown",
       fileSize: file.size || buffer.length,
       camera:
-        exif?.Make || exif?.Model
-          ? `${exif?.Make || ""} ${exif?.Model || ""}`.trim()
+        normalizedExif.make || normalizedExif.model
+          ? `${normalizedExif.make || ""} ${normalizedExif.model || ""}`.trim()
           : null,
-      software: exif?.Software || null,
-      dateTaken:
-        exif?.DateTimeOriginal?.toString?.() ||
-        exif?.CreateDate?.toString?.() ||
-        null,
-      gpsPresent: Boolean(exif?.latitude && exif?.longitude),
-      exif: {
-  make: exif?.Make || exif?.make || null,
-  model: exif?.Model || exif?.model || null,
-  software:
-    exif?.Software ||
-    exif?.CreatorTool ||
-    exif?.ProcessingSoftware ||
-    null,
-  dateTimeOriginal:
-    exif?.DateTimeOriginal?.toString?.() ||
-    exif?.CreateDate?.toString?.() ||
-    exif?.ModifyDate?.toString?.() ||
-    null,
-  gpsPresent: Boolean(exif?.latitude && exif?.longitude),
-  imageWidth: exif?.ImageWidth || null,
-  imageHeight: exif?.ImageHeight || null,
-},
+      software: normalizedExif.software,
+      dateTaken: normalizedExif.dateTimeOriginal,
+      gpsPresent: normalizedExif.gpsPresent,
+      exif: normalizedExif,
       metadataSignals: buildMetadataSignals(exif),
       exifSignals: buildExifSignals(exif),
       sha256,
@@ -192,15 +201,11 @@ console.log("ProofOrigin EXIF Debug:", exif);
       );
     }
 
-    const aiScore =
-      data.type?.ai_generated ??
-      data.ai_generated ??
-      data.genai?.ai_generated ??
-      0;
-
+    const aiScore = getSightengineAiScore(data);
     const percent = Math.round(Number(aiScore) * 100);
 
     let verdict = "Uncertain";
+
     if (percent >= 70) verdict = "Likely AI-generated";
     if (percent <= 30) verdict = "Likely human-made";
 
