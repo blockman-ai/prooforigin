@@ -98,8 +98,8 @@ export default function DetectPage() {
   }
 
   function handleFileChange(e) {
-    const selected = e.target.files[0];
-    setFile(selected);
+    const selected = e.target.files?.[0];
+    setFile(selected || null);
     setResult(null);
     setError("");
 
@@ -233,9 +233,7 @@ export default function DetectPage() {
           text: shareText,
           url: reportUrl,
         });
-      } catch {
-        // User cancelled share sheet.
-      }
+      } catch {}
     } else {
       await navigator.clipboard.writeText(shareText);
       alert("Report link copied!");
@@ -246,7 +244,6 @@ export default function DetectPage() {
     if (!result) return;
 
     const reportUrl = getReportUrl(result.reportId);
-
     await navigator.clipboard.writeText(reportUrl);
     alert("Report link copied!");
   }
@@ -416,12 +413,19 @@ export default function DetectPage() {
 
         <form onSubmit={analyzeImage} className="detector-card">
           <label className="upload-box">
-            <input type="file" accept="image/*" onChange={handleFileChange} />
+            <input
+              className="file-input-hidden"
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+            />
             <span>{file ? file.name : "Choose an image to analyze"}</span>
           </label>
 
           {preview && (
-            <img src={preview} alt="Preview" className="image-preview" />
+            <div className="preview-wrap">
+              <img src={preview} alt="Preview" className="image-preview" />
+            </div>
           )}
 
           <button className="primary" type="submit" disabled={loading}>
@@ -489,6 +493,66 @@ export default function DetectPage() {
               </p>
             </div>
 
+            {result?.metadata && (
+              <div className="explanation-box">
+                <p className="report-label">Metadata Forensics</p>
+
+                <p>
+                  <strong>Status:</strong> {result.metadata.metadataStatus}
+                </p>
+
+                <p>
+                  <strong>Integrity Score:</strong>{" "}
+                  {result.metadata.integrityScore}/100
+                </p>
+
+                <p>
+                  <strong>File Type:</strong> {result.metadata.fileType}
+                </p>
+
+                <p>
+                  <strong>File Size:</strong>{" "}
+                  {(result.metadata.fileSize / 1024 / 1024).toFixed(2)} MB
+                </p>
+
+                <p>
+                  <strong>Camera:</strong>{" "}
+                  {result.metadata.exif?.make || "Unknown"}{" "}
+                  {result.metadata.exif?.model || ""}
+                </p>
+
+                <p>
+                  <strong>Software:</strong>{" "}
+                  {result.metadata.exif?.software || "Not detected"}
+                </p>
+
+                <p>
+                  <strong>Date Taken:</strong>{" "}
+                  {result.metadata.exif?.dateTimeOriginal || "Not detected"}
+                </p>
+
+                <p>
+                  <strong>GPS Present:</strong>{" "}
+                  {result.metadata.exif?.gpsPresent ? "Yes" : "No"}
+                </p>
+
+                <p>
+                  <strong>Image Size:</strong>{" "}
+                  {result.metadata.imageWidth ||
+                    result.metadata.exif?.imageWidth ||
+                    "Unknown"}{" "}
+                  x{" "}
+                  {result.metadata.imageHeight ||
+                    result.metadata.exif?.imageHeight ||
+                    "Unknown"}
+                </p>
+
+                <p style={{ wordBreak: "break-all" }}>
+                  <strong>SHA-256:</strong> {result.metadata.sha256}
+                </p>
+              </div>
+            )}
+
             <div className="signals-box">
               <p className="report-label">Detected Signals</p>
 
@@ -498,6 +562,30 @@ export default function DetectPage() {
                 ))}
               </ul>
             </div>
+
+            {result?.metadata?.metadataSignals?.length > 0 && (
+              <div className="signals-box">
+                <p className="report-label">Metadata Signals</p>
+
+                <ul>
+                  {result.metadata.metadataSignals.map((signal, index) => (
+                    <li key={index}>{signal}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {result?.metadata?.exifSignals?.length > 0 && (
+              <div className="signals-box">
+                <p className="report-label">EXIF Signals</p>
+
+                <ul>
+                  {result.metadata.exifSignals.map((signal, index) => (
+                    <li key={index}>{signal}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <div className="share-buttons">
               <button onClick={shareResult}>Share Link</button>
@@ -523,4 +611,4 @@ export default function DetectPage() {
       </section>
     </main>
   );
-}
+    }
