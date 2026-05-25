@@ -204,6 +204,21 @@ export default function DetectPage() {
 
         const reportId = createReportId();
 
+        const savedReport = {
+  id: reportId,
+  percent: data.percent ?? 0,
+  forensicSummary,
+  metadata: data.metadata || null,
+  proofOriginScore: data.proofOriginScore ?? null,
+  verdict: data.verdict || null,
+  createdAt: new Date().toISOString(),
+};
+
+localStorage.setItem(
+  `prooforigin_report_${reportId}`,
+  JSON.stringify(savedReport)
+);
+
         setResult({
           ...data,
           forensicSummary,
