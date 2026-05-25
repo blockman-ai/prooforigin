@@ -208,7 +208,11 @@ export default function DetectPage() {
   id: reportId,
   percent: data.percent ?? 0,
   forensicSummary,
+
   metadata: data.metadata || null,
+  metadataSignals: data.metadata?.metadataSignals || [],
+  exifSignals: data.metadata?.exifSignals || [],
+
   proofOriginScore: data.proofOriginScore ?? null,
   verdict: data.verdict || null,
   createdAt: new Date().toISOString(),
