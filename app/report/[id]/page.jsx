@@ -220,13 +220,7 @@ function ConsensusEngineNetwork({ engines }) {
     <div className="explanation-box">
       <p className="report-label">Consensus Engine Network</p>
 
-      <div
-        style={{
-          display: "grid",
-          gap: "14px",
-          marginTop: "18px",
-        }}
-      >
+      <div style={{ display: "grid", gap: "14px", marginTop: "18px" }}>
         {Object.entries(engines).map(([engineName, engineData]) => {
           const status = engineData?.status || "unknown";
 
@@ -249,12 +243,7 @@ function ConsensusEngineNetwork({ engines }) {
                   gap: "12px",
                 }}
               >
-                <strong
-                  style={{
-                    textTransform: "capitalize",
-                    fontSize: "16px",
-                  }}
-                >
+                <strong style={{ textTransform: "capitalize", fontSize: "16px" }}>
                   {engineName.replaceAll("_", " ")}
                 </strong>
 
@@ -304,6 +293,43 @@ function ConsensusEngineNetwork({ engines }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function CryptographicIntegrity({ integrity }) {
+  return (
+    <div className="explanation-box">
+      <p className="report-label">Cryptographic Integrity</p>
+
+      <p>
+        <strong>Verification Status:</strong>{" "}
+        {integrity.verification_status || "Unknown"}
+      </p>
+
+      <p>
+        <strong>Hash Algorithm:</strong>{" "}
+        {integrity.hash_algorithm || "SHA-256"}
+      </p>
+
+      <p style={{ wordBreak: "break-all" }}>
+        <strong>SHA-256:</strong> {integrity.sha256 || "Not recorded"}
+      </p>
+
+      <p>
+        <strong>File Name:</strong> {integrity.file_name || "Unknown"}
+      </p>
+
+      <p>
+        <strong>File Type:</strong> {integrity.file_type || "Unknown"}
+      </p>
+
+      <p>
+        <strong>File Size:</strong>{" "}
+        {integrity.file_size
+          ? `${(integrity.file_size / 1024 / 1024).toFixed(2)} MB`
+          : "Unknown"}
+      </p>
     </div>
   );
 }
@@ -360,42 +386,6 @@ export default function EvidenceReportPage() {
       </main>
     );
   }
-
-  <div className="explanation-box">
-  <p className="report-label">Cryptographic Integrity</p>
-
-  <p>
-    <strong>Verification Status:</strong>{" "}
-    {integrity.verification_status || "Unknown"}
-  </p>
-
-  <p>
-    <strong>Hash Algorithm:</strong>{" "}
-    {integrity.hash_algorithm || "SHA-256"}
-  </p>
-
-  <p style={{ wordBreak: "break-all" }}>
-    <strong>SHA-256:</strong>{" "}
-    {integrity.sha256 || "Not recorded"}
-  </p>
-
-  <p>
-    <strong>File Name:</strong>{" "}
-    {integrity.file_name || "Unknown"}
-  </p>
-
-  <p>
-    <strong>File Type:</strong>{" "}
-    {integrity.file_type || "Unknown"}
-  </p>
-
-  <p>
-    <strong>File Size:</strong>{" "}
-    {integrity.file_size
-      ? `${(integrity.file_size / 1024 / 1024).toFixed(2)} MB`
-      : "Unknown"}
-  </p>
-</div>
 
   const score = clamp(evidence?.prooforigin?.score);
   const classification = evidence?.prooforigin?.classification || "Unknown";
@@ -459,6 +449,8 @@ export default function EvidenceReportPage() {
               <h3>Forensic Evidence</h3>
             </div>
           </div>
+
+          <CryptographicIntegrity integrity={integrity} />
 
           <div className="explanation-box">
             <p className="report-label">Consensus Intelligence</p>
@@ -537,4 +529,4 @@ export default function EvidenceReportPage() {
       </section>
     </main>
   );
-              }
+}
