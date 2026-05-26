@@ -187,7 +187,8 @@ export default function DetectPage() {
       const livePercent =
   Math.round(data.percent ?? 0);
       const analysis = getAnalysisValues(livePercent);
-      const reportId = createReportId();
+      const reportId =
+  data.file_id || data.report_id || createReportId();
 
       const forensicSummary =
   data?.trace_analysis?.summary ||
@@ -195,8 +196,7 @@ export default function DetectPage() {
   data?.verdict ||
   "ProofOrigin AI completed forensic analysis.";
 
-      const reportId =
-  data.file_id || data.report_id || createReportId();
+      const reportId = savedReport = {
         id: reportId,
         percent: livePercent,
         forensicSummary,
