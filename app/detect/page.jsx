@@ -196,7 +196,7 @@ export default function DetectPage() {
   data?.verdict ||
   "ProofOrigin AI completed forensic analysis.";
 
-      const reportId = savedReport = {
+      const savedReport = {
         id: reportId,
         percent: livePercent,
         forensicSummary,
