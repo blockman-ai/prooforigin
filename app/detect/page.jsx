@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 
+const PROOFORIGIN_API =
+  "https://prooforigin-ai-production-2983.up.railway.app/analyze";
+
 function getAnalysisValues(percent) {
   let classification = "Human-Made";
   let manipulationRisk = "Low";
@@ -123,10 +126,7 @@ export default function DetectPage() {
     if (storedData.date !== today) {
       localStorage.setItem(
         "prooforigin_limit",
-        JSON.stringify({
-          date: today,
-          count: 0,
-        })
+        JSON.stringify({ date: today, count: 0 })
       );
     }
 
@@ -158,10 +158,10 @@ export default function DetectPage() {
     setLoading(true);
 
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("file", file);
 
     try {
-      const res = await fetch("/api/analyze", {
+      const res = await fetch(PROOFORIGIN_API, {
         method: "POST",
         body: formData,
       });
@@ -169,66 +169,48 @@ export default function DetectPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Something went wrong.");
-      } else {
-        const analysis = getAnalysisValues(data.percent ?? 0);
-
-        let forensicSummary = "";
-
-        try {
-          const reasonForm = new FormData();
-
-          reasonForm.append("image", file);
-          reasonForm.append("percent", String(data.percent ?? 0));
-          reasonForm.append("classification", analysis.classification);
-          reasonForm.append("manipulationRisk", analysis.manipulationRisk);
-          reasonForm.append("confidence", analysis.confidence);
-          reasonForm.append("signals", JSON.stringify(analysis.signals));
-
-          const reasonRes = await fetch("/api/reason", {
-            method: "POST",
-            body: reasonForm,
-          });
-
-          const reasonData = await reasonRes.json();
-
-          if (!reasonRes.ok) {
-            forensicSummary = `OpenAI vision error: ${reasonData.error}`;
-          } else {
-            forensicSummary =
-              reasonData.summary || "No forensic summary returned.";
-          }
-        } catch {
-          forensicSummary = "Unable to generate forensic summary.";
-        }
-
-        const reportId = createReportId();
-
-        const savedReport = {
-  id: reportId,
-  percent: data.percent ?? 0,
-  forensicSummary,
-
-  metadata: data.metadata || null,
-  metadataSignals: data.metadata?.metadataSignals || [],
-  exifSignals: data.metadata?.exifSignals || [],
-
-  proofOriginScore: data.proofOriginScore ?? null,
-  verdict: data.verdict || null,
-  createdAt: new Date().toISOString(),
-};
-
-localStorage.setItem(
-  `prooforigin_report_${reportId}`,
-  JSON.stringify(savedReport)
-);
-
-        setResult({
-          ...data,
-          forensicSummary,
-          reportId,
-        });
+        setError(data.error || "ProofOrigin AI analysis failed.");
+        setLoading(false);
+        return;
       }
+
+      const livePercent = Math.round(data.summary?.ai_score ?? 0);
+      const analysis = getAnalysisValues(livePercent);
+      const reportId = createReportId();
+
+      const forensicSummary =
+        data.provenance_analysis?.probable_chain?.join(" → ") ||
+        data.origin_analysis?.explanation ||
+        "ProofOrigin AI completed forensic analysis.";
+
+      const savedReport = {
+        id: reportId,
+        percent: livePercent,
+        forensicSummary,
+        prooforiginAI: data,
+        metadata: data.metadata || null,
+        metadataSignals: data.metadata?.metadataSignals || [],
+        exifSignals: data.metadata?.exifSignals || [],
+        proofOriginScore: data.consensus_analysis?.consensus_score ?? null,
+        verdict:
+          data.consensus_analysis?.consensus_label ||
+          data.summary?.label ||
+          null,
+        createdAt: new Date().toISOString(),
+      };
+
+      localStorage.setItem(
+        `prooforigin_report_${reportId}`,
+        JSON.stringify(savedReport)
+      );
+
+      setResult({
+        ...data,
+        percent: livePercent,
+        forensicSummary,
+        reportId,
+        classification: analysis.classification,
+      });
     } catch {
       setError("Unable to analyze image. Please try again.");
     }
@@ -261,7 +243,6 @@ localStorage.setItem(
 
   async function copyLink() {
     if (!result) return;
-
     const reportUrl = getReportUrl(result.reportId);
     await navigator.clipboard.writeText(reportUrl);
     alert("Report link copied!");
@@ -269,9 +250,7 @@ localStorage.setItem(
 
   function viewReport() {
     if (!result) return;
-
-    const reportUrl = getReportUrl(result.reportId);
-    window.open(reportUrl, "_blank");
+    window.open(getReportUrl(result.reportId), "_blank");
   }
 
   function downloadReport() {
@@ -372,15 +351,17 @@ localStorage.setItem(
     const blob = await createReportImageBlob();
     if (!blob) return;
 
-    const file = new File([blob], `prooforigin-report-${result.reportId}.png`, {
-      type: "image/png",
-    });
+    const imageFile = new File(
+      [blob],
+      `prooforigin-report-${result.reportId}.png`,
+      { type: "image/png" }
+    );
 
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    if (navigator.canShare && navigator.canShare({ files: [imageFile] })) {
       await navigator.share({
         title: "ProofOrigin Report",
-        text: `ProofOrigin Analysis: ${percent}% AI probability.`,
-        files: [file],
+        text: `ProofOrigin Analysis: ${result?.percent ?? 0}% AI probability.`,
+        files: [imageFile],
       });
     } else {
       await downloadReportImage();
@@ -402,32 +383,19 @@ localStorage.setItem(
   }
 
   let explanation =
+    result?.origin_analysis?.explanation ||
     "The image returned mixed signals. Treat the result as informational, not definitive.";
-
-  if (classification === "Human-Made") {
-    explanation =
-      "This image shows few indicators commonly associated with AI-generated content. It appears likely to be human-made.";
-  } else if (classification === "Human-Made with Minor Edits") {
-    explanation =
-      "This image appears mostly human-made, but it may contain light editing, enhancement, or retouching signals.";
-  } else if (classification === "Heavily Manipulated") {
-    explanation =
-      "This image returned mixed but elevated signals. It may contain significant editing, manipulation, or synthetic elements.";
-  } else if (classification === "Fully AI-Generated") {
-    explanation =
-      "This image shows strong signals commonly associated with AI-generated or synthetic content.";
-  }
 
   return (
     <main className="page">
       <section className="hero">
-        <div className="badge">ProofOrigin Detector</div>
+        <div className="badge">ProofOrigin AI Live Detector</div>
 
         <h1>AI Image Authenticity Report</h1>
 
         <p>
-          Upload an image and receive a professional AI-generation probability
-          report.
+          Upload an image and receive a live ProofOrigin AI forensic
+          authenticity report.
         </p>
 
         <form onSubmit={analyzeImage} className="detector-card">
@@ -448,7 +416,7 @@ localStorage.setItem(
           )}
 
           <button className="primary" type="submit" disabled={loading}>
-            {loading ? "Analyzing Image..." : "Run Detection"}
+            {loading ? "Analyzing With ProofOrigin AI..." : "Run Detection"}
           </button>
         </form>
 
@@ -484,8 +452,8 @@ localStorage.setItem(
               </div>
 
               <div>
-                <p className="report-label">Media Type</p>
-                <h3>Image</h3>
+                <p className="report-label">Origin</p>
+                <h3>{result.origin_analysis?.label || "Unknown"}</h3>
               </div>
 
               <div>
@@ -505,106 +473,55 @@ localStorage.setItem(
             </div>
 
             <div className="explanation-box">
-              <p className="report-label">Forensic Vision Summary</p>
+              <p className="report-label">ProofOrigin AI Forensic Summary</p>
+              <p>{result.forensicSummary}</p>
+            </div>
+
+            <div className="explanation-box">
+              <p className="report-label">Consensus Intelligence</p>
               <p>
-                {result?.forensicSummary ||
-                  "This media analysis is based on probability signals and should not be treated as absolute certainty."}
+                <strong>Score:</strong>{" "}
+                {result.consensus_analysis?.consensus_score ?? "N/A"}
+              </p>
+              <p>
+                <strong>Label:</strong>{" "}
+                {result.consensus_analysis?.consensus_label ?? "N/A"}
               </p>
             </div>
 
-            {result?.metadata && (
-              <div className="explanation-box">
-                <p className="report-label">Metadata Forensics</p>
+            <div className="explanation-box">
+              <p className="report-label">Adversarial Risk</p>
+              <p>
+                <strong>Risk Level:</strong>{" "}
+                {result.adversarial_analysis?.risk_level ?? "N/A"}
+              </p>
+              <p>
+                <strong>Risk Score:</strong>{" "}
+                {result.adversarial_analysis?.risk_score ?? "N/A"}
+              </p>
+            </div>
 
-                <p>
-                  <strong>Status:</strong> {result.metadata.metadataStatus}
-                </p>
-
-                <p>
-                  <strong>Integrity Score:</strong>{" "}
-                  {result.metadata.integrityScore}/100
-                </p>
-
-                <p>
-                  <strong>File Type:</strong> {result.metadata.fileType}
-                </p>
-
-                <p>
-                  <strong>File Size:</strong>{" "}
-                  {(result.metadata.fileSize / 1024 / 1024).toFixed(2)} MB
-                </p>
-
-                <p>
-                  <strong>Camera:</strong>{" "}
-                  {result.metadata.exif?.make || "Unknown"}{" "}
-                  {result.metadata.exif?.model || ""}
-                </p>
-
-                <p>
-                  <strong>Software:</strong>{" "}
-                  {result.metadata.exif?.software || "Not detected"}
-                </p>
-
-                <p>
-                  <strong>Date Taken:</strong>{" "}
-                  {result.metadata.exif?.dateTimeOriginal || "Not detected"}
-                </p>
-
-                <p>
-                  <strong>GPS Present:</strong>{" "}
-                  {result.metadata.exif?.gpsPresent ? "Yes" : "No"}
-                </p>
-
-                <p>
-                  <strong>Image Size:</strong>{" "}
-                  {result.metadata.imageWidth ||
-                    result.metadata.exif?.imageWidth ||
-                    "Unknown"}{" "}
-                  x{" "}
-                  {result.metadata.imageHeight ||
-                    result.metadata.exif?.imageHeight ||
-                    "Unknown"}
-                </p>
-
-                <p style={{ wordBreak: "break-all" }}>
-                  <strong>SHA-256:</strong> {result.metadata.sha256}
-                </p>
+            {result.provenance_analysis?.probable_chain?.length > 0 && (
+              <div className="signals-box">
+                <p className="report-label">Provenance Chain</p>
+                <ul>
+                  {result.provenance_analysis.probable_chain.map(
+                    (item, index) => (
+                      <li key={index}>{item}</li>
+                    )
+                  )}
+                </ul>
               </div>
             )}
 
             <div className="signals-box">
               <p className="report-label">Detected Signals</p>
-
               <ul>
                 {signals.map((signal, index) => (
                   <li key={index}>{signal}</li>
                 ))}
               </ul>
             </div>
-
-            {result?.metadata?.metadataSignals?.length > 0 && (
-              <div className="signals-box">
-                <p className="report-label">Metadata Signals</p>
-
-                <ul>
-                  {result.metadata.metadataSignals.map((signal, index) => (
-                    <li key={index}>{signal}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {result?.metadata?.exifSignals?.length > 0 && (
-              <div className="signals-box">
-                <p className="report-label">EXIF Signals</p>
-
-                <ul>
-                  {result.metadata.exifSignals.map((signal, index) => (
-                    <li key={index}>{signal}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
 
             <div className="share-buttons">
               <button onClick={shareResult}>Share Link</button>
@@ -630,4 +547,4 @@ localStorage.setItem(
       </section>
     </main>
   );
-    }
+      }
