@@ -175,7 +175,8 @@ export default function DetectPage() {
         return;
       }
 
-      const livePercent = Math.round(data.summary?.ai_score ?? 0);
+      const livePercent =
+  Math.round(data.percent ?? 0);
       const analysis = getAnalysisValues(livePercent);
       const reportId = createReportId();
 
