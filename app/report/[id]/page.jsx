@@ -364,6 +364,32 @@ export default function EvidenceReportPage() {
     if (id) loadEvidence();
   }, [id]);
 
+  async function submitFeedback(label) {
+  try {
+    const res = await fetch(`${API_BASE}/feedback`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        file_id: evidence.report_id,
+        user_label: label,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      alert("Feedback failed.");
+      return;
+    }
+
+    alert(`Feedback recorded: ${label}`);
+  } catch {
+    alert("Unable to submit feedback.");
+  }
+  }
+
   if (loading) {
     return (
       <main className="page">
