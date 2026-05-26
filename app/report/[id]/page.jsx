@@ -5,6 +5,119 @@ import { useParams } from "next/navigation";
 
 const API_BASE = "https://prooforigin-ai-production-2983.up.railway.app";
 
+function clamp(value) {
+  return Math.min(100, Math.max(0, Number(value) || 0));
+}
+
+function EvidenceConfidenceTimeline({ evidence }) {
+  const aiScore = clamp(evidence?.prooforigin?.score);
+  const consensusScore = clamp(evidence?.consensus?.score);
+  const provenanceConfidence =
+    evidence?.provenance?.provenance_confidence || "Low";
+  const trace = evidence?.trace || {};
+  const adversarialRisk = clamp(evidence?.adversarial?.risk_score);
+
+  const captureConfidence =
+    provenanceConfidence === "High"
+      ? 85
+      : provenanceConfidence === "Moderate"
+      ? 55
+      : 25;
+
+  const editRisk =
+    trace.recompression_detected ||
+    trace.screenshot_generation === "Likely Screenshot"
+      ? 70
+      : 30;
+
+  const provenanceStrength =
+    provenanceConfidence === "High"
+      ? 90
+      : provenanceConfidence === "Moderate"
+      ? 55
+      : 20;
+
+  const items = [
+    {
+      label: "Original Capture Confidence",
+      value: captureConfidence,
+      note: "How strongly the record suggests original capture evidence.",
+    },
+    {
+      label: "Editing / Screenshot Risk",
+      value: editRisk,
+      note: "Likelihood of screenshotting, recompression, or edit lineage.",
+    },
+    {
+      label: "AI Synthesis Likelihood",
+      value: aiScore,
+      note: "Estimated synthetic or AI-generation probability.",
+    },
+    {
+      label: "Provenance Strength",
+      value: provenanceStrength,
+      note: "Strength of reconstructed media origin evidence.",
+    },
+    {
+      label: "Consensus Strength",
+      value: consensusScore,
+      note: "Strength of ProofOrigin consensus intelligence.",
+    },
+    {
+      label: "Adversarial Risk",
+      value: adversarialRisk,
+      note: "Risk of manipulation designed to evade detection.",
+    },
+  ];
+
+  return (
+    <div className="explanation-box">
+      <p className="report-label">Evidence Confidence Timeline</p>
+
+      <div style={{ display: "grid", gap: "18px", marginTop: "18px" }}>
+        {items.map((item) => (
+          <div key={item.label}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: "12px",
+                marginBottom: "8px",
+              }}
+            >
+              <strong>{item.label}</strong>
+              <strong>{Math.round(item.value)}%</strong>
+            </div>
+
+            <div
+              style={{
+                height: "12px",
+                width: "100%",
+                borderRadius: "999px",
+                background: "rgba(255,255,255,0.12)",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${clamp(item.value)}%`,
+                  height: "100%",
+                  borderRadius: "999px",
+                  background: "linear-gradient(90deg, #00f5ff, #00ff88)",
+                }}
+              />
+            </div>
+
+            <p style={{ marginTop: "6px", opacity: 0.75, fontSize: "14px" }}>
+              {item.note}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function EvidenceReportPage() {
   const params = useParams();
   const id = params?.id;
@@ -58,7 +171,7 @@ export default function EvidenceReportPage() {
     );
   }
 
-  const score = evidence?.prooforigin?.score ?? 0;
+  const score = clamp(evidence?.prooforigin?.score);
   const classification = evidence?.prooforigin?.classification || "Unknown";
   const consensusScore = evidence?.consensus?.score ?? "N/A";
   const consensusLabel = evidence?.consensus?.label || "Unknown";
@@ -95,7 +208,7 @@ export default function EvidenceReportPage() {
           </div>
 
           <div className="score-bar">
-            <div style={{ width: `${Math.min(100, Math.max(0, score))}%` }} />
+            <div style={{ width: `${score}%` }} />
           </div>
 
           <div className="report-grid">
@@ -129,6 +242,8 @@ export default function EvidenceReportPage() {
               <strong>Label:</strong> {consensusLabel}
             </p>
           </div>
+
+          <EvidenceConfidenceTimeline evidence={evidence} />
 
           <div className="explanation-box">
             <p className="report-label">Provenance Chain</p>
