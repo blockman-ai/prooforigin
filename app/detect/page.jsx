@@ -181,9 +181,10 @@ export default function DetectPage() {
       const reportId = createReportId();
 
       const forensicSummary =
-        data.provenance_analysis?.probable_chain?.join(" → ") ||
-        data.origin_analysis?.explanation ||
-        "ProofOrigin AI completed forensic analysis.";
+  data?.trace_analysis?.summary ||
+  data?.origin_analysis?.explanation ||
+  data?.verdict ||
+  "ProofOrigin AI completed forensic analysis.";
 
       const savedReport = {
         id: reportId,
