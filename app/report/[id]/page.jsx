@@ -118,6 +118,103 @@ function EvidenceConfidenceTimeline({ evidence }) {
   );
 }
 
+function VisualTrustGraph({ evidence }) {
+  const aiScore = clamp(evidence?.prooforigin?.score);
+  const consensusScore = clamp(evidence?.consensus?.score);
+  const adversarialRisk = clamp(evidence?.adversarial?.risk_score);
+  const provenanceConfidence =
+    evidence?.provenance?.provenance_confidence || "Low";
+
+  const provenanceScore =
+    provenanceConfidence === "High"
+      ? 90
+      : provenanceConfidence === "Moderate"
+      ? 55
+      : 20;
+
+  const humanScore = clamp(100 - aiScore);
+
+  const trustScore = clamp(
+    humanScore * 0.35 +
+      provenanceScore * 0.25 +
+      consensusScore * 0.25 +
+      (100 - adversarialRisk) * 0.15
+  );
+
+  const items = [
+    { label: "Human Signal", value: humanScore },
+    { label: "Provenance", value: provenanceScore },
+    { label: "Consensus", value: consensusScore },
+    { label: "Anti-Tamper", value: 100 - adversarialRisk },
+  ];
+
+  return (
+    <div className="explanation-box">
+      <p className="report-label">Visual Trust Graph</p>
+
+      <div
+        style={{
+          margin: "24px auto",
+          width: "220px",
+          height: "220px",
+          borderRadius: "50%",
+          background: `conic-gradient(#00ff88 ${trustScore}%, rgba(255,255,255,0.12) 0)`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "0 0 40px rgba(0,255,200,0.25)",
+        }}
+      >
+        <div
+          style={{
+            width: "150px",
+            height: "150px",
+            borderRadius: "50%",
+            background: "#07111f",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+          }}
+        >
+          <strong style={{ fontSize: "42px" }}>{Math.round(trustScore)}%</strong>
+          <span style={{ fontSize: "13px", opacity: 0.75 }}>Trust Score</span>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gap: "14px" }}>
+        {items.map((item) => (
+          <div key={item.label}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <strong>{item.label}</strong>
+              <strong>{Math.round(item.value)}%</strong>
+            </div>
+
+            <div
+              style={{
+                marginTop: "8px",
+                height: "10px",
+                borderRadius: "999px",
+                background: "rgba(255,255,255,0.12)",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${clamp(item.value)}%`,
+                  height: "100%",
+                  background: "linear-gradient(90deg, #00f5ff, #00ff88)",
+                }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function EvidenceReportPage() {
   const params = useParams();
   const id = params?.id;
@@ -244,6 +341,8 @@ export default function EvidenceReportPage() {
           </div>
 
           <EvidenceConfidenceTimeline evidence={evidence} />
+
+          <VisualTrustGraph evidence={evidence} />
 
           <div className="explanation-box">
             <p className="report-label">Provenance Chain</p>
