@@ -140,7 +140,6 @@ export default function DetectPage() {
     }
 
     const updatedData = JSON.parse(localStorage.getItem("prooforigin_limit"));
-
     const urlParams = new URLSearchParams(window.location.search);
     const isDev = urlParams.get("test") === "ski2026";
 
@@ -184,17 +183,34 @@ export default function DetectPage() {
         return;
       }
 
-      const livePercent =
-  Math.round(data.percent ?? 0);
-      const analysis = getAnalysisValues(livePercent);
-      const reportId =
-  data.file_id || data.report_id || createReportId();
+      const finalScore =
+        data.weightedConsensus?.score ??
+        data.weighted_consensus?.score ??
+        data.engine_outputs?.openai_vision?.score ??
+        data.percent ??
+        0;
+
+      const livePercent = Math.round(finalScore);
+
+      const finalLabel =
+        data.weightedConsensus?.label ??
+        data.weighted_consensus?.label ??
+        data.verdict ??
+        getAnalysisValues(livePercent).classification;
+
+      const analysis = {
+        ...getAnalysisValues(livePercent),
+        classification: finalLabel,
+      };
+
+      const reportId = data.file_id || data.report_id || createReportId();
 
       const forensicSummary =
-  data?.trace_analysis?.summary ||
-  data?.origin_analysis?.explanation ||
-  data?.verdict ||
-  "ProofOrigin AI completed forensic analysis.";
+        data?.engine_outputs?.openai_vision?.reasoning_summary ||
+        data?.trace_analysis?.summary ||
+        data?.origin_analysis?.explanation ||
+        data?.verdict ||
+        "ProofOrigin AI completed forensic analysis.";
 
       const savedReport = {
         id: reportId,
@@ -204,11 +220,15 @@ export default function DetectPage() {
         metadata: data.metadata || null,
         metadataSignals: data.metadata?.metadataSignals || [],
         exifSignals: data.metadata?.exifSignals || [],
-        proofOriginScore: data.consensus_analysis?.consensus_score ?? null,
-        verdict:
-          data.consensus_analysis?.consensus_label ||
-          data.summary?.label ||
+        proofOriginScore:
+          data.weightedConsensus?.score ??
+          data.weighted_consensus?.score ??
+          data.consensus_analysis?.consensus_score ??
           null,
+        weightedConsensus:
+          data.weightedConsensus || data.weighted_consensus || null,
+        engine_outputs: data.engine_outputs || {},
+        verdict: finalLabel,
         createdAt: new Date().toISOString(),
       };
 
@@ -223,10 +243,13 @@ export default function DetectPage() {
         forensicSummary,
         reportId,
         classification: analysis.classification,
+        weightedConsensus:
+          data.weightedConsensus || data.weighted_consensus || null,
+        engine_outputs: data.engine_outputs || {},
       });
     } catch (err) {
-  console.error("ProofOrigin frontend error:", err);
-  setError(err?.message || "Unable to analyze image. Please try again.");
+      console.error("ProofOrigin frontend error:", err);
+      setError(err?.message || "Unable to analyze image. Please try again.");
     }
 
     setLoading(false);
@@ -239,7 +262,7 @@ export default function DetectPage() {
     const percentValue = result?.percent ?? 0;
     const analysis = getAnalysisValues(percentValue);
 
-    const shareText = `ProofOrigin Analysis: ${percentValue}% AI probability. Classification: ${analysis.classification}. View report: ${reportUrl}`;
+    const shareText = `ProofOrigin Analysis: ${percentValue}% AI probability. Classification: ${result.classification || analysis.classification}. View report: ${reportUrl}`;
 
     if (navigator.share) {
       try {
@@ -301,7 +324,7 @@ export default function DetectPage() {
 
     ctx.fillStyle = "#ffcc00";
     ctx.font = "bold 52px Arial";
-    ctx.fillText(analysis.classification, 70, 290);
+    ctx.fillText(result.classification || analysis.classification, 70, 290);
 
     ctx.fillStyle = "#b8c2d6";
     ctx.font = "32px Arial";
@@ -383,20 +406,32 @@ export default function DetectPage() {
   }
 
   const percent = result?.percent ?? 0;
-  const { classification, manipulationRisk, confidence, signals } =
-    getAnalysisValues(percent);
+  const fallbackAnalysis = getAnalysisValues(percent);
+
+  const classification =
+    result?.classification || fallbackAnalysis.classification;
+
+  const manipulationRisk = fallbackAnalysis.manipulationRisk;
+  const confidence = fallbackAnalysis.confidence;
+  const signals = fallbackAnalysis.signals;
 
   let statusClass = "status-human";
 
-  if (classification === "Human-Made with Minor Edits") {
+  if (
+    classification === "Mixed / Suspicious" ||
+    classification === "AI-Assisted or Heavily Edited"
+  ) {
     statusClass = "status-edited";
-  } else if (classification === "Heavily Manipulated") {
-    statusClass = "status-manipulated";
-  } else if (classification === "Fully AI-Generated") {
+  } else if (
+    classification === "Likely AI-Generated" ||
+    classification === "Highly Likely AI-Generated" ||
+    classification === "Strong AI Consensus"
+  ) {
     statusClass = "status-ai";
   }
 
-  let explanation =
+  const explanation =
+    result?.engine_outputs?.openai_vision?.reasoning_summary ||
     result?.origin_analysis?.explanation ||
     "The image returned mixed signals. Treat the result as informational, not definitive.";
 
@@ -495,11 +530,23 @@ export default function DetectPage() {
               <p className="report-label">Consensus Intelligence</p>
               <p>
                 <strong>Score:</strong>{" "}
-                {result.consensus_analysis?.consensus_score ?? "N/A"}
+                {result.weightedConsensus?.score ??
+                  result.weighted_consensus?.score ??
+                  result.consensus_analysis?.consensus_score ??
+                  "N/A"}
               </p>
               <p>
                 <strong>Label:</strong>{" "}
-                {result.consensus_analysis?.consensus_label ?? "N/A"}
+                {result.weightedConsensus?.label ??
+                  result.weighted_consensus?.label ??
+                  result.consensus_analysis?.consensus_label ??
+                  "N/A"}
+              </p>
+              <p>
+                <strong>Engines Used:</strong>{" "}
+                {result.weightedConsensus?.engines_used?.join(", ") ||
+                  result.weighted_consensus?.engines_used?.join(", ") ||
+                  "N/A"}
               </p>
             </div>
 
@@ -561,4 +608,4 @@ export default function DetectPage() {
       </section>
     </main>
   );
-      }
+                  }
