@@ -212,8 +212,9 @@ export default function DetectPage() {
         reportId,
         classification: analysis.classification,
       });
-    } catch {
-      setError("Unable to analyze image. Please try again.");
+    } catch (err) {
+  console.error("ProofOrigin frontend error:", err);
+  setError(err?.message || "Unable to analyze image. Please try again.");
     }
 
     setLoading(false);
