@@ -365,29 +365,36 @@ export default function EvidenceReportPage() {
   }, [id]);
 
   async function submitFeedback(label) {
-  try {
-    const res = await fetch(`${API_BASE}/feedback`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        file_id: evidence.report_id,
-        user_label: label,
-      }),
-    });
+    try {
+      const res = await fetch(`${API_BASE}/feedback`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          file_id: evidence.report_id,
+          user_label: label,
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok || !data.success) {
-      alert("Feedback failed.");
-      return;
+      if (!res.ok || !data.success) {
+        alert("Feedback failed.");
+        return;
+      }
+
+      const refreshed = await fetch(`${API_BASE}/evidence/${id}`);
+      const refreshedData = await refreshed.json();
+
+      if (refreshedData.success) {
+        setEvidence(refreshedData.evidence);
+      }
+
+      alert(`Feedback recorded: ${label}`);
+    } catch {
+      alert("Unable to submit feedback.");
     }
-
-    alert(`Feedback recorded: ${label}`);
-  } catch {
-    alert("Unable to submit feedback.");
-  }
   }
 
   if (loading) {
@@ -515,28 +522,38 @@ export default function EvidenceReportPage() {
           <ConsensusEngineNetwork engines={engines} />
 
           <div className="explanation-box">
-  <p className="report-label">Feedback Learning Layer</p>
+            <p className="report-label">Feedback Learning Layer</p>
 
-  <div
-    style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(2, 1fr)",
-      gap: "12px",
-      marginTop: "16px",
-    }}
-  >
-    <button onClick={() => submitFeedback("correct")}>Result Correct</button>
-    <button onClick={() => submitFeedback("wrong")}>Result Wrong</button>
-    <button onClick={() => submitFeedback("ai")}>This Is AI</button>
-    <button onClick={() => submitFeedback("human")}>This Is Human</button>
-    <button onClick={() => submitFeedback("edited")}>Edited / Screenshot</button>
-    <button onClick={() => submitFeedback("disputed")}>Disputed</button>
-  </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, 1fr)",
+                gap: "12px",
+                marginTop: "16px",
+              }}
+            >
+              <button onClick={() => submitFeedback("correct")}>
+                Result Correct
+              </button>
+              <button onClick={() => submitFeedback("wrong")}>
+                Result Wrong
+              </button>
+              <button onClick={() => submitFeedback("ai")}>This Is AI</button>
+              <button onClick={() => submitFeedback("human")}>
+                This Is Human
+              </button>
+              <button onClick={() => submitFeedback("edited")}>
+                Edited / Screenshot
+              </button>
+              <button onClick={() => submitFeedback("disputed")}>
+                Disputed
+              </button>
+            </div>
 
-  <div style={{ marginTop: "18px" }}>
-    <pre>{JSON.stringify(feedback, null, 2)}</pre>
-  </div>
-</div>
+            <div style={{ marginTop: "18px" }}>
+              <pre>{JSON.stringify(feedback, null, 2)}</pre>
+            </div>
+          </div>
 
           <div className="signals-box">
             <p className="report-label">Detected Signals</p>
