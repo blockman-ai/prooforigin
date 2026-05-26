@@ -6,52 +6,61 @@ const PROOFORIGIN_API =
   "https://prooforigin-ai-production-2983.up.railway.app/analyze";
 
 function getAnalysisValues(percent) {
-  let classification = "Human-Made";
+  let classification = "Likely Human";
   let manipulationRisk = "Low";
 
-  if (percent <= 15) {
-    classification = "Human-Made";
+  if (percent < 20) {
+    classification = "Likely Human";
     manipulationRisk = "Low";
-  } else if (percent > 15 && percent <= 40) {
-    classification = "Human-Made with Minor Edits";
+  } else if (percent >= 20 && percent < 45) {
+    classification = "Mixed / Suspicious";
     manipulationRisk = "Moderate";
-  } else if (percent > 40 && percent < 75) {
-    classification = "Heavily Manipulated";
+  } else if (percent >= 45 && percent < 65) {
+    classification = "AI-Assisted or Heavily Edited";
+    manipulationRisk = "Elevated";
+  } else if (percent >= 65 && percent < 85) {
+    classification = "Likely AI-Generated";
     manipulationRisk = "High";
   } else {
-    classification = "Fully AI-Generated";
+    classification = "Strong AI Consensus";
     manipulationRisk = "Very High";
   }
 
   let confidence = "Moderate";
-  if (percent >= 85 || percent <= 15) confidence = "High";
-  if (percent >= 40 && percent <= 60) confidence = "Low";
+  if (percent <= 15 || percent >= 85) confidence = "High";
+  if (percent >= 35 && percent <= 55) confidence = "Low";
 
   let signals = [];
 
-  if (classification === "Human-Made") {
+  if (classification === "Likely Human") {
     signals = [
       "Low AI-generation probability",
-      "Natural image structure detected",
-      "No strong synthetic-generation indicators found",
+      "Mostly natural authenticity indicators",
+      "No strong synthetic-generation signals detected",
     ];
-  } else if (classification === "Human-Made with Minor Edits") {
+  } else if (classification === "Mixed / Suspicious") {
     signals = [
-      "Mostly human-made image signals",
-      "Possible light retouching or enhancement",
-      "Some minor authenticity uncertainty detected",
+      "Mixed authenticity indicators detected",
+      "Possible editing, retouching, screenshot, or synthetic influence",
+      "Additional verification recommended",
     ];
-  } else if (classification === "Heavily Manipulated") {
+  } else if (classification === "AI-Assisted or Heavily Edited") {
     signals = [
-      "Elevated synthetic or manipulation signals",
-      "Mixed authenticity indicators",
-      "Manual review recommended",
+      "Elevated synthetic or manipulation indicators",
+      "Image may contain AI-assisted generation, heavy editing, or composite elements",
+      "Manual review strongly recommended",
+    ];
+  } else if (classification === "Likely AI-Generated") {
+    signals = [
+      "Strong AI-generation probability",
+      "Multiple synthetic-media indicators detected",
+      "Content should be treated with caution",
     ];
   } else {
     signals = [
-      "High AI-generation probability",
-      "Strong synthetic-media indicators detected",
-      "Content should be treated with caution",
+      "Very strong AI-generation consensus",
+      "High synthetic-media probability",
+      "Content should be considered likely AI-generated unless proven otherwise",
     ];
   }
 
