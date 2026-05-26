@@ -371,6 +371,7 @@ export default function EvidenceReportPage() {
   const trace = evidence?.trace || {};
   const engines = evidence?.engine_outputs || {};
   const feedback = evidence?.feedback || {};
+  const integrity = evidence?.integrity || {};
 
   return (
     <main className="page">
