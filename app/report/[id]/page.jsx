@@ -215,6 +215,99 @@ function VisualTrustGraph({ evidence }) {
   );
 }
 
+function ConsensusEngineNetwork({ engines }) {
+  return (
+    <div className="explanation-box">
+      <p className="report-label">Consensus Engine Network</p>
+
+      <div
+        style={{
+          display: "grid",
+          gap: "14px",
+          marginTop: "18px",
+        }}
+      >
+        {Object.entries(engines).map(([engineName, engineData]) => {
+          const status = engineData?.status || "unknown";
+
+          return (
+            <div
+              key={engineName}
+              style={{
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: "18px",
+                padding: "18px",
+                background: "rgba(255,255,255,0.03)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "12px",
+                  gap: "12px",
+                }}
+              >
+                <strong
+                  style={{
+                    textTransform: "capitalize",
+                    fontSize: "16px",
+                  }}
+                >
+                  {engineName.replaceAll("_", " ")}
+                </strong>
+
+                <span
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: "999px",
+                    fontSize: "12px",
+                    whiteSpace: "nowrap",
+                    background:
+                      status === "complete"
+                        ? "rgba(0,255,120,0.15)"
+                        : "rgba(255,255,255,0.08)",
+                    color:
+                      status === "complete"
+                        ? "#00ff88"
+                        : "rgba(255,255,255,0.75)",
+                  }}
+                >
+                  {status.toUpperCase()}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "12px",
+                }}
+              >
+                <div>
+                  <p className="report-label">Score</p>
+                  <strong>
+                    {engineData?.score !== null &&
+                    engineData?.score !== undefined
+                      ? `${Math.round(engineData.score)}%`
+                      : "Pending"}
+                  </strong>
+                </div>
+
+                <div>
+                  <p className="report-label">Classification</p>
+                  <strong>{engineData?.label || "Pending"}</strong>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function EvidenceReportPage() {
   const params = useParams();
   const id = params?.id;
@@ -364,10 +457,7 @@ export default function EvidenceReportPage() {
             <pre>{JSON.stringify(trace, null, 2)}</pre>
           </div>
 
-          <div className="explanation-box">
-            <p className="report-label">Engine Outputs</p>
-            <pre>{JSON.stringify(engines, null, 2)}</pre>
-          </div>
+          <ConsensusEngineNetwork engines={engines} />
 
           <div className="explanation-box">
             <p className="report-label">Feedback State</p>
@@ -410,4 +500,4 @@ export default function EvidenceReportPage() {
       </section>
     </main>
   );
-}
+              }
