@@ -515,9 +515,28 @@ export default function EvidenceReportPage() {
           <ConsensusEngineNetwork engines={engines} />
 
           <div className="explanation-box">
-            <p className="report-label">Feedback State</p>
-            <pre>{JSON.stringify(feedback, null, 2)}</pre>
-          </div>
+  <p className="report-label">Feedback Learning Layer</p>
+
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(2, 1fr)",
+      gap: "12px",
+      marginTop: "16px",
+    }}
+  >
+    <button onClick={() => submitFeedback("correct")}>Result Correct</button>
+    <button onClick={() => submitFeedback("wrong")}>Result Wrong</button>
+    <button onClick={() => submitFeedback("ai")}>This Is AI</button>
+    <button onClick={() => submitFeedback("human")}>This Is Human</button>
+    <button onClick={() => submitFeedback("edited")}>Edited / Screenshot</button>
+    <button onClick={() => submitFeedback("disputed")}>Disputed</button>
+  </div>
+
+  <div style={{ marginTop: "18px" }}>
+    <pre>{JSON.stringify(feedback, null, 2)}</pre>
+  </div>
+</div>
 
           <div className="signals-box">
             <p className="report-label">Detected Signals</p>
