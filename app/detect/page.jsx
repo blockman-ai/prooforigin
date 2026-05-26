@@ -167,6 +167,7 @@ export default function DetectPage() {
       });
 
       const data = await res.json();
+      console.log("ProofOrigin API response:", data);
 
       if (!res.ok) {
         setError(data.error || "ProofOrigin AI analysis failed.");
