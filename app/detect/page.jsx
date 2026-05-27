@@ -232,6 +232,10 @@ export default function DetectPage() {
         engineArbitration:
           data.engineArbitration || data.engine_arbitration || null,
         engine_outputs: data.engine_outputs || {},
+        humanSummary:
+  data.humanSummary ||
+  data.human_summary ||
+  null,
         verdict: finalLabel,
         createdAt: new Date().toISOString(),
       };
@@ -254,6 +258,10 @@ export default function DetectPage() {
         engineArbitration:
           data.engineArbitration || data.engine_arbitration || null,
         engine_outputs: data.engine_outputs || {},
+        humanSummary:
+  data.humanSummary ||
+  data.human_summary ||
+  null,
       });
     } catch (err) {
       console.error(err);
