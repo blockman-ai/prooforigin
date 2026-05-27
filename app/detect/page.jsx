@@ -98,7 +98,6 @@ export default function DetectPage() {
   const id = text.substring(5);
   return id;
   }
-}
 
 function getReportUrl(reportId) {
   const baseUrl = window.location.origin;
