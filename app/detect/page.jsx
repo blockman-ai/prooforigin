@@ -91,10 +91,12 @@ export default function DetectPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  function createReportId() {return Math.random().toString(36).substring(2, 10);
+  function createReportId() {
+    return Math.random().toString(36).substring(2, 10);
   }
 
-  function getReportUrl(reportId) { return`${window.location.origin}/report/${reportId}`;
+  function getReportUrl(reportId) {
+    return `${window.location.origin}/report/${reportId}`;
   }
 
   function handleFileChange(e) {
