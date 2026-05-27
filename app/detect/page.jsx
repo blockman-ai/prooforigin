@@ -101,8 +101,7 @@ export default function DetectPage() {
   function getReportUrl(reportId) {
     if (typeof window === "undefined") return "";
     const baseUrl = window.location.origin;
-    const url = baseUrl + "/report/" + reportId;
-    return url;
+    return baseUrl + "/report/" + reportId;
   }
 
   function handleFileChange(e) {
@@ -204,10 +203,7 @@ export default function DetectPage() {
         data.verdict ??
         getAnalysisValues(livePercent).classification;
 
-      const reportId =
-        data.file_id ||
-        data.report_id ||
-        createReportId();
+      const reportId = data.file_id || data.report_id || createReportId();
 
       const forensicSummary =
         data?.engine_outputs?.openai_vision?.reasoning_summary ||
@@ -230,9 +226,11 @@ export default function DetectPage() {
           data.consensus_analysis?.consensus_score ??
           null,
         weightedConsensus:
-          data.weightedConsensus ||
-          data.weighted_consensus ||
-          null,
+          data.weightedConsensus || data.weighted_consensus || null,
+        forensicContext:
+          data.forensicContext || data.forensic_context || null,
+        engineArbitration:
+          data.engineArbitration || data.engine_arbitration || null,
         engine_outputs: data.engine_outputs || {},
         verdict: finalLabel,
         createdAt: new Date().toISOString(),
@@ -250,9 +248,11 @@ export default function DetectPage() {
         reportId,
         classification: finalLabel,
         weightedConsensus:
-          data.weightedConsensus ||
-          data.weighted_consensus ||
-          null,
+          data.weightedConsensus || data.weighted_consensus || null,
+        forensicContext:
+          data.forensicContext || data.forensic_context || null,
+        engineArbitration:
+          data.engineArbitration || data.engine_arbitration || null,
         engine_outputs: data.engine_outputs || {},
       });
     } catch (err) {
@@ -459,17 +459,11 @@ export default function DetectPage() {
   const fallbackAnalysis = getAnalysisValues(percent);
 
   const classification =
-    result?.classification ||
-    fallbackAnalysis.classification;
+    result?.classification || fallbackAnalysis.classification;
 
-  const manipulationRisk =
-    fallbackAnalysis.manipulationRisk;
-
-  const confidence =
-    fallbackAnalysis.confidence;
-
-  const signals =
-    fallbackAnalysis.signals;
+  const manipulationRisk = fallbackAnalysis.manipulationRisk;
+  const confidence = fallbackAnalysis.confidence;
+  const signals = fallbackAnalysis.signals;
 
   let statusClass = "status-human";
 
@@ -516,11 +510,7 @@ export default function DetectPage() {
 
           {preview && (
             <div className="preview-wrap">
-              <img
-                src={preview}
-                alt="Preview"
-                className="image-preview"
-              />
+              <img src={preview} alt="Preview" className="image-preview" />
             </div>
           )}
 
@@ -587,29 +577,90 @@ export default function DetectPage() {
             </div>
 
             <div className="explanation-box">
-  <p className="report-label">Forensic Context Analysis</p>
+              <p className="report-label">Forensic Context Analysis</p>
 
-  <p>
-    <strong>Media Object Type:</strong>{" "}
-    {result.forensicContext?.media_object_type || "Unknown"}
-  </p>
+              <p>
+                <strong>Media Object Type:</strong>{" "}
+                {result.forensicContext?.media_object_type || "Unknown"}
+              </p>
 
-  <p>
-    <strong>Embedded AI Likelihood:</strong>{" "}
-    {result.forensicContext?.embedded_ai_likelihood ?? "N/A"}%
-  </p>
+              <p>
+                <strong>Embedded AI Likelihood:</strong>{" "}
+                {result.forensicContext?.embedded_ai_likelihood ?? "N/A"}%
+              </p>
 
-  <p>
-    <strong>Final Media Authenticity:</strong>{" "}
-    {result.forensicContext?.final_media_authenticity || "Unknown"}
-  </p>
+              <p>
+                <strong>Final Media Authenticity:</strong>{" "}
+                {result.forensicContext?.final_media_authenticity || "Unknown"}
+              </p>
 
-  <p>
-    <strong>Context Explanation:</strong>{" "}
-    {result.forensicContext?.forensic_context_explanation ||
-      "No forensic context available."}
-  </p>
-</div>
+              <p>
+                <strong>Context Explanation:</strong>{" "}
+                {result.forensicContext?.forensic_context_explanation ||
+                  "No forensic context available."}
+              </p>
+            </div>
+
+            <div className="explanation-box">
+              <p className="report-label">Sub-Detection Intelligence</p>
+
+              <p>
+                <strong>Screenshot / Re-Encoding:</strong>{" "}
+                {result.forensicContext?.screenshot_or_reencoding_likely
+                  ? "Detected"
+                  : "Not Detected"}
+              </p>
+
+              <p>
+                <strong>Embedded Synthetic Content:</strong>{" "}
+                {result.forensicContext?.synthetic_content_likely
+                  ? "Likely"
+                  : "Not Strongly Detected"}
+              </p>
+
+              <p>
+                <strong>Missing EXIF:</strong>{" "}
+                {result.forensicContext?.transformation_layers?.missing_exif
+                  ? "Yes"
+                  : "No"}
+              </p>
+
+              <p>
+                <strong>Screenshot Indicators:</strong>{" "}
+                {result.forensicContext?.transformation_layers
+                  ?.screenshot_indicators ?? "N/A"}
+              </p>
+
+              <p>
+                <strong>Synthetic Indicators:</strong>{" "}
+                {result.forensicContext?.transformation_layers
+                  ?.synthetic_indicators ?? "N/A"}
+              </p>
+            </div>
+
+            <div className="explanation-box">
+              <p className="report-label">Engine Arbitration Analysis</p>
+
+              <p>
+                <strong>Confidence:</strong>{" "}
+                {result.engineArbitration?.confidence ||
+                  result.engine_arbitration?.confidence ||
+                  "Unknown"}
+              </p>
+
+              <p>
+                <strong>Score Spread:</strong>{" "}
+                {result.engineArbitration?.score_spread ??
+                  result.engine_arbitration?.score_spread ??
+                  "N/A"}
+              </p>
+
+              <p>
+                {result.engineArbitration?.explanation ||
+                  result.engine_arbitration?.explanation ||
+                  "No engine arbitration analysis available."}
+              </p>
+            </div>
 
             <div className="explanation-box">
               <p className="report-label">Consensus Intelligence</p>
@@ -701,4 +752,4 @@ export default function DetectPage() {
       </section>
     </main>
   );
-  }
+}
