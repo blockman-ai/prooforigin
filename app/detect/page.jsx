@@ -98,8 +98,6 @@ export default function DetectPage() {
   const id = text.substring(5);
   return id;
   }
-  const id = randomPart.substring(2, 10);
-  return id;
 }
 
 function getReportUrl(reportId) {
