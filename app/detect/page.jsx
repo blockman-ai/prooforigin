@@ -4,7 +4,7 @@ import { useState } from "react";
 
 const PROOFORIGIN_API =
   process.env.NEXT_PUBLIC_PROOFORIGIN_API ||
-  "https://prooforigin-production.up.railway.app/analyze";
+  "https://prooforigin-ai-production-2983.up.railway.app/analyze";
 
 function getAnalysisValues(percent) {
   let classification = "Likely Human-Made";
