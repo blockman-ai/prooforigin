@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 const PROOFORIGIN_API =
-  process.env.NEXT_PUBLIC_PROOFORIGIN_API ||
   "https://prooforigin-ai-production-2983.up.railway.app/analyze";
 
 function getAnalysisValues(percent) {
