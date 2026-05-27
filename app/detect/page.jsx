@@ -93,7 +93,11 @@ export default function DetectPage() {
   const [error, setError] = useState("");
 
   function createReportId() {
-  const randomPart = Math.random().toString(36);
+  const now = Date.now();
+  const text = String(now);
+  const id = text.substring(5);
+  return id;
+  }
   const id = randomPart.substring(2, 10);
   return id;
 }
