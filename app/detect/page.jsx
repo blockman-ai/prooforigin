@@ -587,6 +587,31 @@ export default function DetectPage() {
             </div>
 
             <div className="explanation-box">
+  <p className="report-label">Forensic Context Analysis</p>
+
+  <p>
+    <strong>Media Object Type:</strong>{" "}
+    {result.forensicContext?.media_object_type || "Unknown"}
+  </p>
+
+  <p>
+    <strong>Embedded AI Likelihood:</strong>{" "}
+    {result.forensicContext?.embedded_ai_likelihood ?? "N/A"}%
+  </p>
+
+  <p>
+    <strong>Final Media Authenticity:</strong>{" "}
+    {result.forensicContext?.final_media_authenticity || "Unknown"}
+  </p>
+
+  <p>
+    <strong>Context Explanation:</strong>{" "}
+    {result.forensicContext?.forensic_context_explanation ||
+      "No forensic context available."}
+  </p>
+</div>
+
+            <div className="explanation-box">
               <p className="report-label">Consensus Intelligence</p>
 
               <p>
