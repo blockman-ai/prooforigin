@@ -285,6 +285,7 @@ export default function DetectPage() {
 
     setLoading(false);
   }
+  }
 
     async function shareResult() {
     if (!result) return;
