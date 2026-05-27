@@ -93,15 +93,18 @@ export default function DetectPage() {
   const [error, setError] = useState("");
 
   function createReportId() {
-  const id = Math.random().toString(36).substring(2, 10);
+  const randomPart = Math.random().toString(36);
+  const id = randomPart.substring(2, 10);
   return id;
-  }
+}
 
-  function getReportUrl(reportId) {
-    return window.location.origin + "/report/" + reportId;
-  }
+function getReportUrl(reportId) {
+  const baseUrl = window.location.origin;
+  const url = baseUrl + "/report/" + reportId;
+  return url;
+}
 
-  function handleFileChange(e) {
+ function handleFileChange(e) {
     const selected = e.target.files?.[0];
 
     setFile(selected || null);
