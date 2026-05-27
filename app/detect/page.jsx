@@ -236,6 +236,15 @@ export default function DetectPage() {
   data.humanSummary ||
   data.human_summary ||
   null,
+        confidenceEscalation:
+  data.confidenceEscalation ||
+  data.confidence_escalation ||
+  null,
+
+originalConsensus:
+  data.originalConsensus ||
+  data.original_consensus ||
+  null,
         verdict: finalLabel,
         createdAt: new Date().toISOString(),
       };
@@ -261,6 +270,15 @@ export default function DetectPage() {
         humanSummary:
   data.humanSummary ||
   data.human_summary ||
+  null,
+        confidenceEscalation:
+  data.confidenceEscalation ||
+  data.confidence_escalation ||
+  null,
+
+originalConsensus:
+  data.originalConsensus ||
+  data.original_consensus ||
   null,
       });
     } catch (err) {
