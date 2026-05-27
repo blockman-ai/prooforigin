@@ -678,7 +678,41 @@ originalConsensus:
               <p className="report-label">Engine Arbitration Analysis</p>
 
               <p>
-                <strong>Confidence:</strong>{" "}
+
+                <div className="explanation-box">
+  <p className="report-label">Confidence Escalation</p>
+
+  <p>
+    <strong>Escalation Triggered:</strong>{" "}
+    {result.confidenceEscalation?.escalation_triggered ||
+    result.confidence_escalation?.escalation_triggered
+      ? "Yes"
+      : "No"}
+  </p>
+
+  <p>
+    <strong>Escalated Score:</strong>{" "}
+    {result.confidenceEscalation?.score ??
+      result.confidence_escalation?.score ??
+      "N/A"}
+    %
+  </p>
+
+  <p>
+    <strong>Final Label:</strong>{" "}
+    {result.confidenceEscalation?.label ||
+      result.confidence_escalation?.label ||
+      "Unknown"}
+  </p>
+
+  <p>
+    <strong>Reason:</strong>{" "}
+    {(result.confidenceEscalation?.escalation_reasons ||
+      result.confidence_escalation?.escalation_reasons ||
+      []).join(", ") || "No escalation applied."}
+  </p>
+</div>
+              <strong>Confidence:</strong>{" "}
                 {result.engineArbitration?.confidence ||
                   result.engine_arbitration?.confidence ||
                   "Unknown"}
