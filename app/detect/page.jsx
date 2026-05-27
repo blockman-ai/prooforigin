@@ -97,7 +97,7 @@ export default function DetectPage() {
   }
 
   function getReportUrl(reportId) {
-    return `${window.location.origin}/report/${reportId}`;
+    return window.location.origin + "/report/" + reportId;
   }
 
   function handleFileChange(e) {
