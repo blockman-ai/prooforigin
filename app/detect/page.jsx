@@ -3,8 +3,7 @@
 import { useState } from "react";
 
 const PROOFORIGIN_API =
-  process.env.NEXT_PUBLIC_PROOFORIGIN_API ||
-  "https://prooforigin-production.up.railway.app/analyze";
+  "https://prooforigin-ai-production-2983.up.railway.app/analyze";
 
 function getAnalysisValues(percent) {
   let classification = "Likely Human-Made";
@@ -59,7 +58,7 @@ function getAnalysisValues(percent) {
 }
 
 function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 4) {
-  const words = text.split(" ");
+  const words = String(text || "").split(" ");
   let line = "";
   let lines = 0;
 
@@ -93,19 +92,20 @@ export default function DetectPage() {
   const [error, setError] = useState("");
 
   function createReportId() {
-  const now = Date.now();
-  const text = String(now);
-  const id = text.substring(5);
-  return id;
+    const now = Date.now();
+    const text = String(now);
+    const id = text.substring(5);
+    return id;
   }
 
-function getReportUrl(reportId) {
-  const baseUrl = window.location.origin;
-  const url = baseUrl + "/report/" + reportId;
-  return url;
-}
+  function getReportUrl(reportId) {
+    if (typeof window === "undefined") return "";
+    const baseUrl = window.location.origin;
+    const url = baseUrl + "/report/" + reportId;
+    return url;
+  }
 
- function handleFileChange(e) {
+  function handleFileChange(e) {
     const selected = e.target.files?.[0];
 
     setFile(selected || null);
@@ -113,7 +113,8 @@ function getReportUrl(reportId) {
     setError("");
 
     if (selected) {
-      setPreview(URL.createObjectURL(selected));
+      const imageUrl = URL.createObjectURL(selected);
+      setPreview(imageUrl);
     }
   }
 
@@ -122,6 +123,11 @@ function getReportUrl(reportId) {
 
     setError("");
     setResult(null);
+
+    if (!file) {
+      setError("Please upload an image first.");
+      return;
+    }
 
     const DAILY_LIMIT = 5;
     const today = new Date().toDateString();
@@ -141,20 +147,14 @@ function getReportUrl(reportId) {
     }
 
     const updatedData = JSON.parse(
-      localStorage.getItem("prooforigin_limit")
+      localStorage.getItem("prooforigin_limit") || "{}"
     );
 
     const urlParams = new URLSearchParams(window.location.search);
-
     const isDev = urlParams.get("test") === "ski2026";
 
     if (!isDev && updatedData.count >= DAILY_LIMIT) {
       setError("Daily free scan limit reached.");
-      return;
-    }
-
-    if (!file) {
-      setError("Please upload an image first.");
       return;
     }
 
@@ -163,7 +163,7 @@ function getReportUrl(reportId) {
         "prooforigin_limit",
         JSON.stringify({
           date: today,
-          count: updatedData.count + 1,
+          count: (updatedData.count || 0) + 1,
         })
       );
     }
@@ -196,18 +196,13 @@ function getReportUrl(reportId) {
         data.percent ??
         0;
 
-      const livePercent = Math.round(finalScore);
+      const livePercent = Math.round(Number(finalScore) || 0);
 
       const finalLabel =
         data.weightedConsensus?.label ??
         data.weighted_consensus?.label ??
         data.verdict ??
         getAnalysisValues(livePercent).classification;
-
-      const analysis = {
-        ...getAnalysisValues(livePercent),
-        classification: finalLabel,
-      };
 
       const reportId =
         data.file_id ||
@@ -225,83 +220,63 @@ function getReportUrl(reportId) {
         id: reportId,
         percent: livePercent,
         forensicSummary,
-
         prooforiginAI: data,
-
         metadata: data.metadata || null,
-
-        metadataSignals:
-          data.metadata?.metadataSignals || [],
-
-        exifSignals:
-          data.metadata?.exifSignals || [],
-
+        metadataSignals: data.metadata?.metadataSignals || [],
+        exifSignals: data.metadata?.exifSignals || [],
         proofOriginScore:
           data.weightedConsensus?.score ??
           data.weighted_consensus?.score ??
           data.consensus_analysis?.consensus_score ??
           null,
-
         weightedConsensus:
           data.weightedConsensus ||
           data.weighted_consensus ||
           null,
-
-        engine_outputs:
-          data.engine_outputs || {},
-
+        engine_outputs: data.engine_outputs || {},
         verdict: finalLabel,
-
         createdAt: new Date().toISOString(),
       };
 
       localStorage.setItem(
-        `prooforigin_report_${reportId}`,
+        "prooforigin_report_" + reportId,
         JSON.stringify(savedReport)
       );
 
       setResult({
         ...data,
-
         percent: livePercent,
-
         forensicSummary,
-
         reportId,
-
-        classification: analysis.classification,
-
+        classification: finalLabel,
         weightedConsensus:
           data.weightedConsensus ||
           data.weighted_consensus ||
           null,
-
-        engine_outputs:
-          data.engine_outputs || {},
+        engine_outputs: data.engine_outputs || {},
       });
     } catch (err) {
       console.error(err);
-
-      setError(
-        err?.message ||
-          "Unable to analyze image."
-      );
+      setError(err?.message || "Unable to analyze image.");
     }
 
     setLoading(false);
   }
-  }
 
-    async function shareResult() {
+  async function shareResult() {
     if (!result) return;
 
     const reportUrl = getReportUrl(result.reportId);
-
     const percentValue = result?.percent ?? 0;
-
     const analysis = getAnalysisValues(percentValue);
 
-    const shareText = `ProofOrigin Analysis: ${percentValue}% AI probability. Classification: ${result.classification || analysis.classification}. View report: ${reportUrl}`;
+    const shareText =
+      "ProofOrigin Analysis: " +
+      percentValue +
+      "% AI probability. Classification: " +
+      (result.classification || analysis.classification) +
+      ". View report: " +
+      reportUrl;
 
     if (navigator.share) {
       try {
@@ -313,7 +288,6 @@ function getReportUrl(reportId) {
       } catch {}
     } else {
       await navigator.clipboard.writeText(shareText);
-
       alert("Report link copied!");
     }
   }
@@ -322,19 +296,13 @@ function getReportUrl(reportId) {
     if (!result) return;
 
     const reportUrl = getReportUrl(result.reportId);
-
     await navigator.clipboard.writeText(reportUrl);
-
     alert("Report link copied!");
   }
 
   function viewReport() {
     if (!result) return;
-
-    window.open(
-      getReportUrl(result.reportId),
-      "_blank"
-    );
+    window.open(getReportUrl(result.reportId), "_blank");
   }
 
   function downloadReport() {
@@ -345,94 +313,51 @@ function getReportUrl(reportId) {
     if (!result) return null;
 
     const percentValue = result?.percent ?? 0;
-
     const analysis = getAnalysisValues(percentValue);
-
     const reportUrl = getReportUrl(result.reportId);
 
     const canvas = document.createElement("canvas");
-
     canvas.width = 1080;
     canvas.height = 1350;
 
     const ctx = canvas.getContext("2d");
 
-    const gradient = ctx.createLinearGradient(
-      0,
-      0,
-      0,
-      canvas.height
-    );
-
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
     gradient.addColorStop(0, "#063845");
     gradient.addColorStop(0.45, "#07111f");
     gradient.addColorStop(1, "#030712");
 
     ctx.fillStyle = gradient;
-
-    ctx.fillRect(
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.fillStyle = "#00e5ff";
-
     ctx.font = "bold 42px Arial";
-
-    ctx.fillText(
-      "ProofOrigin Authenticity Report",
-      70,
-      90
-    );
+    ctx.fillText("ProofOrigin Authenticity Report", 70, 90);
 
     ctx.fillStyle = "white";
-
     ctx.font = "bold 78px Arial";
-
-    ctx.fillText(
-      `${percentValue}% AI Probability`,
-      70,
-      210
-    );
+    ctx.fillText(percentValue + "% AI Probability", 70, 210);
 
     ctx.fillStyle = "#ffcc00";
-
     ctx.font = "bold 52px Arial";
-
     ctx.fillText(
-      result.classification ||
-        analysis.classification,
+      result.classification || analysis.classification,
       70,
       290
     );
 
     ctx.fillStyle = "#b8c2d6";
-
     ctx.font = "32px Arial";
-
+    ctx.fillText("Confidence: " + analysis.confidence, 70, 370);
     ctx.fillText(
-      `Confidence: ${analysis.confidence}`,
-      70,
-      370
-    );
-
-    ctx.fillText(
-      `Manipulation Risk: ${analysis.manipulationRisk}`,
+      "Manipulation Risk: " + analysis.manipulationRisk,
       70,
       420
     );
-
-    ctx.fillText(
-      `Report ID: ${result.reportId}`,
-      70,
-      470
-    );
+    ctx.fillText("Report ID: " + result.reportId, 70, 470);
 
     if (preview) {
       const img = new Image();
-
       img.src = preview;
 
       await new Promise((resolve) => {
@@ -441,110 +366,71 @@ function getReportUrl(reportId) {
       });
 
       ctx.save();
-
       ctx.beginPath();
 
-      ctx.roundRect(
-        70,
-        530,
-        940,
-        470,
-        28
-      );
+      if (ctx.roundRect) {
+        ctx.roundRect(70, 530, 940, 470, 28);
+      } else {
+        ctx.rect(70, 530, 940, 470);
+      }
 
       ctx.clip();
-
-      ctx.drawImage(
-        img,
-        70,
-        530,
-        940,
-        470
-      );
-
+      ctx.drawImage(img, 70, 530, 940, 470);
       ctx.restore();
     }
 
     ctx.fillStyle = "rgba(255,255,255,0.08)";
-
     ctx.beginPath();
 
-    ctx.roundRect(
-      70,
-      1040,
-      940,
-      180,
-      28
-    );
+    if (ctx.roundRect) {
+      ctx.roundRect(70, 1040, 940, 180, 28);
+    } else {
+      ctx.rect(70, 1040, 940, 180);
+    }
 
     ctx.fill();
 
     ctx.fillStyle = "#dbeafe";
-
     ctx.font = "30px Arial";
 
     const summary =
       result?.forensicSummary ||
       "This media analysis is probabilistic and should not be treated as absolute certainty.";
 
-    wrapText(
-      ctx,
-      summary,
-      100,
-      1105,
-      860,
-      38,
-      4
-    );
+    wrapText(ctx, summary, 100, 1105, 860, 38, 4);
 
     ctx.fillStyle = "#00e5ff";
-
     ctx.font = "bold 30px Arial";
-
-    ctx.fillText(
-      reportUrl,
-      100,
-      1265
-    );
+    ctx.fillText(reportUrl, 100, 1265);
 
     return new Promise((resolve) => {
-      canvas.toBlob(
-        (blob) => resolve(blob),
-        "image/png"
-      );
+      canvas.toBlob((blob) => resolve(blob), "image/png");
     });
   }
 
   async function downloadReportImage() {
-    const blob =
-      await createReportImageBlob();
+    const blob = await createReportImageBlob();
 
     if (!blob) return;
 
-    const url =
-      URL.createObjectURL(blob);
-
-    const a =
-      document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
 
     a.href = url;
-
-    a.download = `prooforigin-report-${result.reportId}.png`;
-
+    a.download = "prooforigin-report-" + result.reportId + ".png";
     a.click();
 
     URL.revokeObjectURL(url);
   }
 
   async function shareReportImage() {
-    const blob =
-      await createReportImageBlob();
+    const blob = await createReportImageBlob();
 
     if (!blob) return;
 
     const imageFile = new File(
       [blob],
-      `prooforigin-report-${result.reportId}.png`,
+      "prooforigin-report-" + result.reportId + ".png",
       {
         type: "image/png",
       }
@@ -558,9 +444,10 @@ function getReportUrl(reportId) {
     ) {
       await navigator.share({
         title: "ProofOrigin Report",
-
-        text: `ProofOrigin Analysis: ${result?.percent ?? 0}% AI probability.`,
-
+        text:
+          "ProofOrigin Analysis: " +
+          (result?.percent ?? 0) +
+          "% AI probability.",
         files: [imageFile],
       });
     } else {
@@ -568,11 +455,8 @@ function getReportUrl(reportId) {
     }
   }
 
-  const percent =
-    result?.percent ?? 0;
-
-  const fallbackAnalysis =
-    getAnalysisValues(percent);
+  const percent = result?.percent ?? 0;
+  const fallbackAnalysis = getAnalysisValues(percent);
 
   const classification =
     result?.classification ||
@@ -587,39 +471,27 @@ function getReportUrl(reportId) {
   const signals =
     fallbackAnalysis.signals;
 
-  let statusClass =
-    "status-human";
+  let statusClass = "status-human";
 
   if (
-    classification ===
-      "Mixed / Suspicious" ||
-    classification ===
-      "AI-Assisted or Heavily Edited"
+    classification === "Mixed / Suspicious" ||
+    classification === "AI-Assisted or Heavily Edited"
   ) {
-    statusClass =
-      "status-edited";
+    statusClass = "status-edited";
   } else if (
-    classification ===
-      "Likely AI-Generated" ||
-    classification ===
-      "Highly Likely AI-Generated" ||
-    classification ===
-      "Strong AI Consensus"
+    classification === "Likely AI-Generated" ||
+    classification === "Highly Likely AI-Generated" ||
+    classification === "Strong AI Consensus"
   ) {
-    statusClass =
-      "status-ai";
+    statusClass = "status-ai";
   }
 
   const explanation =
-    result?.engine_outputs
-      ?.openai_vision
-      ?.reasoning_summary ||
-    result?.origin_analysis
-      ?.explanation ||
+    result?.engine_outputs?.openai_vision?.reasoning_summary ||
+    result?.origin_analysis?.explanation ||
     "The image returned mixed signals. Treat the result as informational, not definitive.";
-  }
 
-return (
+  return (
     <main className="page">
       <section className="hero">
         <div className="badge">ProofOrigin AI Live Detector</div>
@@ -644,7 +516,11 @@ return (
 
           {preview && (
             <div className="preview-wrap">
-              <img src={preview} alt="Preview" className="image-preview" />
+              <img
+                src={preview}
+                alt="Preview"
+                className="image-preview"
+              />
             </div>
           )}
 
@@ -670,7 +546,7 @@ return (
             </div>
 
             <div className="score-bar">
-              <div style={{ width: `${percent}%` }} />
+              <div style={{ width: percent + "%" }} />
             </div>
 
             <div className="report-grid">
@@ -800,4 +676,4 @@ return (
       </section>
     </main>
   );
-}
+  }
