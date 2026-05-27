@@ -539,6 +539,16 @@ export default function DetectPage() {
               <div style={{ width: percent + "%" }} />
             </div>
 
+            <div className="explanation-box">
+  <p className="report-label">Human Summary</p>
+
+  <p>
+    {result.humanSummary?.summary ||
+      result.human_summary?.summary ||
+      "ProofOrigin completed a human-readable authenticity summary."}
+  </p>
+</div>
+
             <div className="report-grid">
               <div>
                 <p className="report-label">Confidence</p>
