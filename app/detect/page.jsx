@@ -104,17 +104,53 @@ export default function DetectPage() {
     return baseUrl + "/report/" + reportId;
   }
 
-  function handleFileChange(e) {
-    const selected = e.target.files?.[0];
+  async function handleFileChange(e) {
+  const selected = e.target.files?.[0];
 
-    setFile(selected || null);
-    setResult(null);
-    setError("");
+  setFile(selected || null);
+  setResult(null);
+  setError("");
+  setPreview("");
 
-    if (selected) {
-      const imageUrl = URL.createObjectURL(selected);
+  if (!selected) return;
+
+  const fileName = selected.name.toLowerCase();
+
+  const isHeic =
+    fileName.endsWith(".heic") ||
+    fileName.endsWith(".heif") ||
+    selected.type === "image/heic" ||
+    selected.type === "image/heif";
+
+  try {
+    if (isHeic) {
+      const convertedBlob = await heic2any({
+        blob: selected,
+        toType: "image/jpeg",
+        quality: 0.9,
+      });
+
+      const previewUrl =
+        URL.createObjectURL(convertedBlob);
+
+      setPreview(previewUrl);
+
+    } else {
+      const imageUrl =
+        URL.createObjectURL(selected);
+
       setPreview(imageUrl);
     }
+
+  } catch (err) {
+    console.error(err);
+
+    setPreview("");
+
+    setError(
+      "Image selected, but HEIC preview could not be generated."
+    );
+  }
   }
 
   async function analyzeImage(e) {
