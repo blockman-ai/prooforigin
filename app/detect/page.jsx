@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 const heic2any =
   typeof window !== "undefined"
     ? require("heic2any")
