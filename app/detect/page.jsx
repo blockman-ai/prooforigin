@@ -105,7 +105,7 @@ export default function DetectPage() {
 
   function getReportUrl(reportId) {
     if (typeof window === "undefined") return "";
-    const baseUrl = window.location.origin;
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
     return baseUrl + "/report/" + reportId;
   }
 
@@ -190,7 +190,7 @@ export default function DetectPage() {
       localStorage.getItem("prooforigin_limit") || "{}"
     );
 
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
     const isDev = urlParams.get("test") === "ski2026";
 
     if (!isDev && updatedData.count >= DAILY_LIMIT) {
@@ -369,11 +369,11 @@ originalConsensus:
 
   function viewReport() {
     if (!result) return;
-    window.open(getReportUrl(result.reportId), "_blank");
+    if (typeof window !== "undefined") window.open(getReportUrl(result.reportId), "_blank");
   }
 
   function downloadReport() {
-    window.print();
+    if (typeof window !== "undefined") window.print();
   }
 
   async function createReportImageBlob() {
