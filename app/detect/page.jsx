@@ -528,7 +528,7 @@ originalConsensus:
             <input
               className="file-input-hidden"
               type="file"
-              accept="image/*"
+              accept=".jpg,.jpeg,.png,.webp,.heic,.heif"
               onChange={handleFileChange}
             />
             <span>{file ? file.name : "Choose an image to analyze"}</span>
