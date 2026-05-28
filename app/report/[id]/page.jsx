@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import PremiumVerificationCard from "@/components/PremiumVerificationCard";
 
 const API_BASE = "https://prooforigin-ai-production-2983.up.railway.app";
 
