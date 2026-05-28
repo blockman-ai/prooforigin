@@ -281,13 +281,21 @@ p {
 .share-buttons button {
   flex: 1;
   min-width: 150px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  background: rgba(255, 255, 255, 0.07);
   color: white;
-  padding: 14px 16px;
-  border-radius: 14px;
-  font-weight: 800;
+  padding: 15px 16px;
+  border-radius: 16px;
+  font-weight: 900;
   cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.share-buttons button:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 229, 255, 0.65);
+  background: rgba(0, 229, 255, 0.12);
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.18);
 }
 
 .error-box {
@@ -298,6 +306,141 @@ p {
   color: #ffb4b4;
   background: rgba(255, 0, 0, 0.08);
   border: 1px solid rgba(255, 0, 0, 0.25);
+}
+
+/* PREMIUM PROOFORIGIN VERIFICATION CARD */
+
+.premium-verification-card {
+  margin: 28px auto;
+  padding: 26px;
+  border-radius: 28px;
+  max-width: 920px;
+  background: linear-gradient(145deg, rgba(9, 20, 35, 0.96), rgba(5, 10, 20, 0.96));
+  border: 1px solid rgba(0, 255, 255, 0.16);
+  box-shadow: 0 0 45px rgba(0, 255, 255, 0.08);
+  text-align: left;
+}
+
+.premium-verification-card.success {
+  border-color: rgba(0, 255, 160, 0.35);
+  box-shadow: 0 0 45px rgba(0, 255, 160, 0.1);
+}
+
+.premium-verification-card.warning {
+  border-color: rgba(255, 204, 0, 0.35);
+  box-shadow: 0 0 45px rgba(255, 204, 0, 0.1);
+}
+
+.premium-verification-card.danger {
+  border-color: rgba(255, 80, 110, 0.4);
+  box-shadow: 0 0 45px rgba(255, 80, 110, 0.1);
+}
+
+.premium-ribbon {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  border-radius: 999px;
+  background: rgba(0, 255, 255, 0.08);
+  color: #00ffff;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.premium-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 190px;
+  gap: 24px;
+  align-items: center;
+}
+
+.premium-kicker {
+  color: #00ffff;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.premium-verification-card h1 {
+  font-size: clamp(34px, 6vw, 64px);
+  line-height: 0.95;
+  margin: 0 0 14px;
+  color: white;
+}
+
+.premium-subtitle {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 17px;
+  max-width: 620px;
+}
+
+.trust-score-orb {
+  width: 170px;
+  height: 170px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  background: radial-gradient(circle, rgba(0,255,210,0.95), rgba(0,180,255,0.65));
+  box-shadow: 0 0 40px rgba(0, 255, 210, 0.35);
+  color: #041016;
+}
+
+.trust-score-orb span {
+  display: block;
+  font-size: 44px;
+  font-weight: 900;
+}
+
+.trust-score-orb small {
+  display: block;
+  margin-top: -42px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.certificate-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.certificate-meta div,
+.premium-pill-row div {
+  padding: 15px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.certificate-meta span,
+.premium-pill-row span {
+  display: block;
+  color: #00ffff;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.certificate-meta strong,
+.premium-pill-row strong {
+  color: white;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.premium-pill-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 22px;
 }
 
 @media (max-width: 700px) {
@@ -347,6 +490,30 @@ p {
 
   .image-preview {
     max-height: 420px;
+  }
+
+  .premium-card-grid,
+  .certificate-meta,
+  .premium-pill-row {
+    grid-template-columns: 1fr;
+  }
+
+  .premium-verification-card {
+    padding: 22px;
+  }
+
+  .trust-score-orb {
+    width: 145px;
+    height: 145px;
+    margin: 0 auto;
+  }
+
+  .trust-score-orb span {
+    font-size: 36px;
+  }
+
+  .premium-verification-card h1 {
+    font-size: 40px;
   }
 
   .game-overlay h2 {
