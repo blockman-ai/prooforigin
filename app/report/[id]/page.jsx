@@ -445,6 +445,8 @@ export default function EvidenceReportPage() {
           authenticity scan.
         </p>
 
+        <PremiumVerificationCard report={report} />
+
         <div className="report-card">
           <div className="report-header">
             <div>
