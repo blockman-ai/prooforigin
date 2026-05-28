@@ -1,6 +1,11 @@
 "use client";
 
-import heic2any from "heic2any";
+import dynamic from "next/dynamic";
+
+const heic2any =
+  typeof window !== "undefined"
+    ? require("heic2any")
+    : null;
 
 const PROOFORIGIN_API =
   "https://prooforigin-ai-production-2983.up.railway.app/analyze";
