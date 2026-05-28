@@ -47,11 +47,18 @@ function getAnalysisValues(percent) {
   } else if (percent >= 45) {
     signals.push("Editing or AI-assisted indicators detected");
     signals.push("Mixed forensic evidence");
+    signals.push("Composite or social-media processing possible");
   } else if (percent >= 20) {
     signals.push("Some suspicious characteristics detected");
+    signals.push("Image may contain edits, filters, compression, or composite traits");
   } else {
     signals.push("Low AI-generation probability");
     signals.push("Natural image structure detected");
+    signals.push("No strong full-AI generation signal detected");
+  }
+
+  if (percent < 40) {
+    signals.push("Composite risk should still be reviewed separately from AI probability");
   }
 
   return {
