@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import heic2any from "heic2any";
 
 const PROOFORIGIN_API =
   "https://prooforigin-ai-production-2983.up.railway.app/analyze";
