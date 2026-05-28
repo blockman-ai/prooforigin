@@ -1,7 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
-
 const heic2any =
   typeof window !== "undefined"
     ? require("heic2any")
