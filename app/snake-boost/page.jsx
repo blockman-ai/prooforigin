@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { loadBestScore, saveBestScore } from "../lib/gameTouch";
 
 const GRID_SIZE = 20;
 const TILE_COUNT = 18;
@@ -18,6 +19,8 @@ export default function SnakeBoostPage() {
   const directionRef = useRef({ x: 1, y: 0 });
   const nextDirectionRef = useRef({ x: 1, y: 0 });
   const foodRef = useRef({ x: 12, y: 10 });
+  const scoreRef = useRef(0);
+  const boostRef = useRef(0);
 
   const joystickRef = useRef(null);
 
@@ -25,10 +28,10 @@ export default function SnakeBoostPage() {
   const [best, setBest] = useState(0);
   const [boostEarned, setBoostEarned] = useState(0);
   const [status, setStatus] = useState("ready");
+  const [tickSpeed, setTickSpeed] = useState(getSpeed(0));
 
   useEffect(() => {
-    const savedBest = localStorage.getItem("snakeboost_best");
-    if (savedBest) setBest(Number(savedBest));
+    setBest(loadBestScore("snakeboost_best"));
   }, []);
 
   function resetGame() {
@@ -36,25 +39,28 @@ export default function SnakeBoostPage() {
     directionRef.current = { x: 1, y: 0 };
     nextDirectionRef.current = { x: 1, y: 0 };
     foodRef.current = { x: 12, y: 10 };
+    scoreRef.current = 0;
+    boostRef.current = 0;
     setScore(0);
     setBoostEarned(0);
+    setTickSpeed(getSpeed(0));
     setStatus("playing");
   }
 
-  function endGame(finalScore) {
+  function endGame() {
+    const finalScore = scoreRef.current;
     setStatus("gameover");
-
-    if (finalScore > best) {
-      localStorage.setItem("snakeboost_best", String(finalScore));
-      setBest(finalScore);
-    }
+    setBest((prev) => saveBestScore("snakeboost_best", finalScore, prev));
 
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
   }
 
   function changeDirection(dir) {
+    if (status !== "playing") return;
+
     const current = directionRef.current;
 
     if (dir === "up" && current.y !== 1) {
@@ -108,6 +114,7 @@ export default function SnakeBoostPage() {
 
   useEffect(() => {
     function handleKey(e) {
+      if (status !== "playing") return;
       if (e.key === "ArrowUp") changeDirection("up");
       if (e.key === "ArrowDown") changeDirection("down");
       if (e.key === "ArrowLeft") changeDirection("left");
@@ -116,7 +123,7 @@ export default function SnakeBoostPage() {
 
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, []);
+  }, [status]);
 
   useEffect(() => {
     if (status !== "playing") return;
@@ -212,16 +219,16 @@ export default function SnakeBoostPage() {
       ctx.shadowBlur = 0;
     }
 
-    function drawHud(currentScore, currentBoost) {
+    function drawHud() {
       ctx.fillStyle = "rgba(0,0,0,0.22)";
       ctx.fillRect(8, 8, 104, 28);
 
       ctx.fillStyle = "#00e5ff";
       ctx.font = "bold 10px Arial";
-      ctx.fillText(`S ${currentScore}`, 15, 20);
+      ctx.fillText(`S ${scoreRef.current}`, 15, 20);
 
       ctx.fillStyle = "#ffcc00";
-      ctx.fillText(`B ${currentBoost}`, 62, 20);
+      ctx.fillText(`B ${boostRef.current}`, 62, 20);
     }
 
     function step() {
@@ -241,7 +248,7 @@ export default function SnakeBoostPage() {
         newHead.x >= TILE_COUNT ||
         newHead.y >= TILE_COUNT
       ) {
-        endGame(score);
+        endGame();
         return;
       }
 
@@ -250,22 +257,18 @@ export default function SnakeBoostPage() {
           (segment) => segment.x === newHead.x && segment.y === newHead.y
         )
       ) {
-        endGame(score);
+        endGame();
         return;
       }
 
       snake.unshift(newHead);
 
-      let nextScore = score;
-      let nextBoost = boostEarned;
-
       if (newHead.x === foodRef.current.x && newHead.y === foodRef.current.y) {
-        nextScore += 100;
-        nextBoost += 100;
-
-        setScore(nextScore);
-        setBoostEarned(nextBoost);
-
+        scoreRef.current += 100;
+        boostRef.current += 100;
+        setScore(scoreRef.current);
+        setBoostEarned(boostRef.current);
+        setTickSpeed(getSpeed(scoreRef.current));
         randomFood();
       } else {
         snake.pop();
@@ -274,31 +277,34 @@ export default function SnakeBoostPage() {
       drawBackground();
       drawFood();
       drawSnake();
-      drawHud(nextScore, nextBoost);
+      drawHud();
     }
 
     drawBackground();
     drawFood();
     drawSnake();
-    drawHud(score, boostEarned);
+    drawHud();
 
-    intervalRef.current = setInterval(step, getSpeed(score));
+    intervalRef.current = setInterval(step, tickSpeed);
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  }, [status, score, boostEarned, best]);
+  }, [status, tickSpeed]);
 
   return (
     <main className="page">
-      <section className="hero">
-        <div className="badge">BOOST Arcade • Snake BOOST</div>
+      <section className="hero game-hero">
+        <div className="badge">BOOST Arcade • Snake</div>
 
         <h1>Snake BOOST</h1>
 
         <p>
-          Classic snake, DOG BOOST style. Collect BOOST orbs, grow longer, and
-          survive the grid.
+          Classic snake with BOOST orbs. Use the D-pad or drag the joystick.
+          Arcade mode only — not a verification outcome.
         </p>
 
         <div className="game-shell">
@@ -306,14 +312,14 @@ export default function SnakeBoostPage() {
             ref={canvasRef}
             width={360}
             height={360}
-            className="dog-canvas"
+            className="dog-canvas dog-canvas--square"
           />
 
           {status === "ready" && (
             <div className="game-overlay">
               <h2>Snake BOOST</h2>
-              <p>Collect BOOST orbs. Avoid the walls and yourself.</p>
-              <button className="primary" onClick={resetGame}>
+              <p>Collect BOOST orbs. Avoid walls and your own tail.</p>
+              <button className="primary" type="button" onClick={resetGame}>
                 Start Game
               </button>
             </div>
@@ -321,10 +327,11 @@ export default function SnakeBoostPage() {
 
           {status === "gameover" && (
             <div className="game-overlay">
-              <h2>Game Over</h2>
+              <h2>Run Complete</h2>
               <p>Score: {score}</p>
-              <p>BOOST Earned: {boostEarned}</p>
-              <button className="primary" onClick={resetGame}>
+              <p>BOOST collected: {boostEarned}</p>
+              <p>Best: {best}</p>
+              <button className="primary" type="button" onClick={resetGame}>
                 Play Again
               </button>
             </div>
@@ -336,34 +343,75 @@ export default function SnakeBoostPage() {
             <span>Score</span>
             <strong>{score}</strong>
           </div>
-
           <div>
             <span>Best</span>
             <strong>{best}</strong>
           </div>
-
           <div>
             <span>BOOST</span>
             <strong>{boostEarned}</strong>
           </div>
-
           <div>
-            <span>Speed</span>
-            <strong>{getSpeed(score)}ms</strong>
+            <span>Status</span>
+            <strong>{status === "playing" ? "LIVE" : "READY"}</strong>
           </div>
         </div>
 
-        <div
-          ref={joystickRef}
-          className="snake-joystick"
-          onTouchMove={handleTouchMove}
-          onMouseMove={handleMouseMove}
-        >
-          <div className="joystick-ring">
-            <span>Drag</span>
-          </div>
-        </div>
+        {status === "playing" && (
+          <>
+            <div className="snake-dpad" aria-label="Direction controls">
+              <button type="button" className="dpad-empty" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={() => changeDirection("up")}
+                aria-label="Move up"
+              >
+                ↑
+              </button>
+              <button type="button" className="dpad-empty" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={() => changeDirection("left")}
+                aria-label="Move left"
+              >
+                ←
+              </button>
+              <button type="button" className="dpad-empty" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={() => changeDirection("right")}
+                aria-label="Move right"
+              >
+                →
+              </button>
+              <button type="button" className="dpad-empty" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={() => changeDirection("down")}
+                aria-label="Move down"
+              >
+                ↓
+              </button>
+              <button type="button" className="dpad-empty" aria-hidden="true" />
+            </div>
+
+            <div
+              ref={joystickRef}
+              className="snake-joystick"
+              onTouchMove={handleTouchMove}
+              onMouseMove={handleMouseMove}
+            >
+              <div className="joystick-ring">
+                <span>Drag to steer</span>
+              </div>
+            </div>
+          </>
+        )}
+
+        <a className="game-back-link" href="/">
+          ← Back to ProofOrigin
+        </a>
       </section>
     </main>
   );
-          }
+}

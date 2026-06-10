@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { bindCanvasTap, loadBestScore, saveBestScore } from "../lib/gameTouch";
 
 export default function DogStackPage() {
   const canvasRef = useRef(null);
@@ -12,8 +13,7 @@ export default function DogStackPage() {
   const [best, setBest] = useState(0);
 
   useEffect(() => {
-    const savedBest = localStorage.getItem("dogstack_best");
-    if (savedBest) setBest(Number(savedBest));
+    setBest(loadBestScore("dogstack_best"));
   }, []);
 
   function startGame() {
@@ -23,7 +23,9 @@ export default function DogStackPage() {
   }
 
   function dropBlock() {
-    if (gameRef.current) gameRef.current.drop();
+    if (status === "playing" && gameRef.current) {
+      gameRef.current.drop();
+    }
   }
 
   useEffect(() => {
@@ -59,12 +61,7 @@ export default function DogStackPage() {
 
     function endGame() {
       setStatus("gameover");
-
-      if (currentScore > best) {
-        localStorage.setItem("dogstack_best", String(currentScore));
-        setBest(currentScore);
-      }
-
+      setBest((prev) => saveBestScore("dogstack_best", currentScore, prev));
       cancelAnimationFrame(animationId);
     }
 
@@ -202,52 +199,55 @@ export default function DogStackPage() {
       animationId = requestAnimationFrame(loop);
     }
 
-    window.addEventListener("click", drop);
-    window.addEventListener("touchstart", drop);
+    const unbindTap = bindCanvasTap(canvas, drop);
 
     loop();
 
     return () => {
       cancelAnimationFrame(animationId);
-      window.removeEventListener("click", drop);
-      window.removeEventListener("touchstart", drop);
+      unbindTap();
+      gameRef.current = null;
     };
-  }, [status, best]);
+  }, [status]);
 
   return (
     <main className="page">
-      <section className="hero">
-        <div className="badge">BOOST Arcade • DOG Stack</div>
+      <section className="hero game-hero">
+        <div className="badge">BOOST Arcade • Stack</div>
 
         <h1>DOG Stack</h1>
 
-        <p>Tap to stack DOG BOOST bars. Perfect stacks earn extra BOOST.</p>
+        <p>
+          Tap to drop BOOST bars when they align. Perfect stacks earn extra
+          points — arcade training only.
+        </p>
 
         <div className="game-shell">
           <canvas
             ref={canvasRef}
             width={360}
             height={360}
-            className="dog-canvas"
+            className="dog-canvas dog-canvas--square"
           />
 
           {status === "ready" && (
             <div className="game-overlay">
               <h2>DOG Stack</h2>
-              <p>Tap when the moving block lines up.</p>
-              <button className="primary" onClick={startGame}>
-                Start Game
+              <p>Tap when the moving block lines up with the stack below.</p>
+              <button className="primary" type="button" onClick={startGame}>
+                Start Stack
               </button>
             </div>
           )}
 
           {status === "gameover" && (
             <div className="game-overlay">
-              <h2>Game Over</h2>
+              <h2>Stack Complete</h2>
               <p>Score: {score}</p>
-              <p>BOOST Earned: {boost}</p>
-              <button className="primary" onClick={startGame}>
-                Play Again
+              <p>BOOST collected: {boost}</p>
+              <p>Best: {best}</p>
+              <button className="primary" type="button" onClick={startGame}>
+                Stack Again
               </button>
             </div>
           )}
@@ -258,26 +258,35 @@ export default function DogStackPage() {
             <span>Score</span>
             <strong>{score}</strong>
           </div>
-
           <div>
             <span>Best</span>
             <strong>{best}</strong>
           </div>
-
           <div>
             <span>BOOST</span>
             <strong>{boost}</strong>
           </div>
-
           <div>
-            <span>Mode</span>
-            <strong>STACK</strong>
+            <span>Status</span>
+            <strong>{status === "playing" ? "LIVE" : "READY"}</strong>
           </div>
         </div>
 
-        <button className="primary" onClick={dropBlock} style={{ marginTop: 22 }}>
-          Drop BOOST
-        </button>
+        {status === "playing" && (
+          <button
+            className="primary game-touch-btn"
+            type="button"
+            onClick={dropBlock}
+          >
+            Drop Block
+          </button>
+        )}
+
+        <p className="game-hint">Tip: tap the canvas or the button to drop.</p>
+
+        <a className="game-back-link" href="/">
+          ← Back to ProofOrigin
+        </a>
       </section>
     </main>
   );

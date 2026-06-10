@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  bindCanvasPointer,
+  loadBestScore,
+  saveBestScore,
+} from "../lib/gameTouch";
 
 const GAME_WIDTH = 360;
 const GAME_HEIGHT = 430;
@@ -13,6 +18,17 @@ function randomBetween(min, max) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function drawHudPanel(ctx, x, y, width, height, radius) {
+  ctx.fillStyle = "rgba(0,0,0,0.34)";
+  if (ctx.roundRect) {
+    ctx.beginPath();
+    ctx.roundRect(x, y, width, height, radius);
+    ctx.fill();
+  } else {
+    ctx.fillRect(x, y, width, height);
+  }
 }
 
 export default function DogHuntPage() {
@@ -43,8 +59,7 @@ export default function DogHuntPage() {
   const [wave, setWave] = useState(1);
 
   useEffect(() => {
-    const savedBest = localStorage.getItem("doghunt_best");
-    if (savedBest) setBest(Number(savedBest));
+    setBest(loadBestScore("doghunt_best"));
   }, []);
 
   function syncState() {
@@ -96,8 +111,8 @@ export default function DogHuntPage() {
       type === "boost"
         ? randomBetween(2.4, 3.8)
         : type === "deepfake"
-        ? randomBetween(2.0, 3.5)
-        : randomBetween(1.5, 3.0);
+          ? randomBetween(2.0, 3.5)
+          : randomBetween(1.5, 3.0);
 
     const speed = baseSpeed + difficulty * 0.12;
 
@@ -140,11 +155,9 @@ export default function DogHuntPage() {
   function endGame() {
     gameRef.current.running = false;
     setStatus("gameover");
-
-    if (gameRef.current.score > best) {
-      localStorage.setItem("doghunt_best", String(gameRef.current.score));
-      setBest(gameRef.current.score);
-    }
+    setBest((prev) =>
+      saveBestScore("doghunt_best", gameRef.current.score, prev)
+    );
 
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
@@ -211,13 +224,13 @@ export default function DogHuntPage() {
     if (hitTarget.type === "deepfake") {
       base = 250;
       color = "#ff4d4d";
-      label = "DEEPFAKE +250";
+      label = "SIGNAL +250";
     }
 
     if (hitTarget.type === "boost") {
       base = 400;
       color = "#ffcc00";
-      label = "BOOST BIRD +400";
+      label = "BOOST +400";
     }
 
     const earned = base * gameRef.current.combo;
@@ -228,7 +241,12 @@ export default function DogHuntPage() {
 
     if (gameRef.current.combo % 5 === 0) {
       gameRef.current.boost += 500;
-      addPopup("COMBO BONUS +500", hitTarget.x - 70, hitTarget.y - 30, "#00e676");
+      addPopup(
+        "COMBO BONUS +500",
+        hitTarget.x - 70,
+        hitTarget.y - 30,
+        "#00e676"
+      );
     }
 
     addExplosion(
@@ -288,9 +306,7 @@ export default function DogHuntPage() {
     }
 
     function drawHud() {
-      ctx.fillStyle = "rgba(0,0,0,0.34)";
-      ctx.roundRect(8, 8, 168, 52, 14);
-      ctx.fill();
+      drawHudPanel(ctx, 8, 8, 168, 52, 14);
 
       ctx.fillStyle = "#00e5ff";
       ctx.font = "bold 11px Arial";
@@ -299,9 +315,7 @@ export default function DogHuntPage() {
       ctx.fillStyle = "#ffcc00";
       ctx.fillText(`B ${gameRef.current.boost}`, 18, 46);
 
-      ctx.fillStyle = "rgba(0,0,0,0.34)";
-      ctx.roundRect(218, 8, 134, 52, 14);
-      ctx.fill();
+      drawHudPanel(ctx, 218, 8, 134, 52, 14);
 
       ctx.fillStyle = "#ffffff";
       ctx.font = "bold 11px Arial";
@@ -325,8 +339,8 @@ export default function DogHuntPage() {
         target.type === "boost"
           ? "#ffcc00"
           : target.type === "deepfake"
-          ? "#ff4d4d"
-          : "#00e5ff";
+            ? "#ff4d4d"
+            : "#00e5ff";
 
       ctx.shadowBlur = 20;
       ctx.shadowColor = color;
@@ -334,8 +348,8 @@ export default function DogHuntPage() {
         target.type === "boost"
           ? "rgba(255,204,0,0.25)"
           : target.type === "deepfake"
-          ? "rgba(255,77,77,0.22)"
-          : "rgba(0,229,255,0.22)";
+            ? "rgba(255,77,77,0.22)"
+            : "rgba(0,229,255,0.22)";
 
       ctx.beginPath();
       ctx.arc(0, 0, target.size, 0, Math.PI * 2);
@@ -448,6 +462,8 @@ export default function DogHuntPage() {
     }
 
     function loop() {
+      if (!gameRef.current.running) return;
+
       drawBackground();
       update();
       targetsRef.current.forEach(drawTarget);
@@ -458,25 +474,28 @@ export default function DogHuntPage() {
       animationRef.current = requestAnimationFrame(loop);
     }
 
+    const unbindPointer = bindCanvasPointer(canvas, shoot);
+
     loop();
 
     return () => {
+      unbindPointer();
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [status, best]);
+  }, [status]);
 
   return (
     <main className="page">
-      <section className="hero">
-        <div className="badge">BOOST Arcade • DOG Hunt</div>
+      <section className="hero game-hero">
+        <div className="badge">BOOST Arcade • Hunt</div>
 
         <h1>DOG Hunt</h1>
 
         <p>
-          Tap AI bots out of the sky. Hit deepfakes. Catch BOOST birds. Protect
-          the internet.
+          Tap moving targets in this arcade drill. Higher-signal targets score
+          more — practice only, not a verification result.
         </p>
 
         <div className="game-shell">
@@ -484,21 +503,17 @@ export default function DogHuntPage() {
             ref={canvasRef}
             width={GAME_WIDTH}
             height={GAME_HEIGHT}
-            className="dog-canvas dog-hunt-canvas"
-            style={{ touchAction: "manipulation" }}
-            onClick={(e) => shoot(e.clientX, e.clientY)}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              const touch = e.changedTouches[0];
-              if (touch) shoot(touch.clientX, touch.clientY);
-            }}
+            className="dog-canvas dog-canvas--tall"
           />
 
           {status === "ready" && (
             <div className="game-overlay">
               <h2>DOG Hunt</h2>
-              <p>Tap AI bots. Deepfakes and BOOST birds are worth more.</p>
-              <button className="primary" onClick={startGame}>
+              <p>
+                Tap bots and signal targets. Catch BOOST birds. You have{" "}
+                {ROUND_TIME}s and {START_LIVES} lives.
+              </p>
+              <button className="primary" type="button" onClick={startGame}>
                 Start Hunt
               </button>
             </div>
@@ -508,9 +523,9 @@ export default function DogHuntPage() {
             <div className="game-overlay">
               <h2>Round Complete</h2>
               <p>Score: {score}</p>
-              <p>BOOST Earned: {boost}</p>
+              <p>BOOST collected: {boost}</p>
               <p>Best: {best}</p>
-              <button className="primary" onClick={startGame}>
+              <button className="primary" type="button" onClick={startGame}>
                 Hunt Again
               </button>
             </div>
@@ -522,44 +537,44 @@ export default function DogHuntPage() {
             <span>Score</span>
             <strong>{score}</strong>
           </div>
-
           <div>
             <span>Best</span>
             <strong>{best}</strong>
           </div>
-
           <div>
             <span>BOOST</span>
             <strong>{boost}</strong>
           </div>
-
           <div>
             <span>Lives</span>
             <strong>{lives}</strong>
           </div>
         </div>
 
-        <div className="game-stats compact-stats" style={{ marginTop: 10 }}>
+        <div className="game-stats compact-stats game-stats--secondary">
           <div>
             <span>Combo</span>
             <strong>x{combo}</strong>
           </div>
-
           <div>
             <span>Wave</span>
             <strong>{wave}</strong>
           </div>
-
           <div>
             <span>Time</span>
             <strong>{timeLeft}s</strong>
           </div>
-
           <div>
-            <span>Mode</span>
-            <strong>HUNT</strong>
+            <span>Status</span>
+            <strong>{status === "playing" ? "LIVE" : "READY"}</strong>
           </div>
         </div>
+
+        <p className="game-hint">Tip: tap directly on targets for the best hit area.</p>
+
+        <a className="game-back-link" href="/">
+          ← Back to ProofOrigin
+        </a>
       </section>
     </main>
   );

@@ -443,6 +443,273 @@ p {
   margin-top: 22px;
 }
 
+/* BOOST Arcade — shared game layout */
+
+.game-hero {
+  max-width: 520px;
+}
+
+.game-hero h1 {
+  font-size: clamp(36px, 8vw, 56px);
+}
+
+.game-hero > p {
+  font-size: clamp(16px, 4vw, 19px);
+  margin-bottom: 8px;
+}
+
+.game-shell {
+  position: relative;
+  width: min(100%, 420px);
+  margin: 24px auto 0;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  background: #02050a;
+}
+
+.dog-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dog-canvas--square {
+  aspect-ratio: 1 / 1;
+}
+
+.dog-canvas--tall {
+  aspect-ratio: 360 / 430;
+}
+
+.game-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px 20px;
+  text-align: center;
+  background: rgba(3, 7, 18, 0.88);
+  backdrop-filter: blur(10px);
+}
+
+.game-overlay h2 {
+  font-size: clamp(28px, 6vw, 36px);
+  margin: 0;
+}
+
+.game-overlay p {
+  font-size: 16px;
+  line-height: 1.45;
+  margin: 0;
+  max-width: 300px;
+  color: #dbeafe;
+}
+
+.game-overlay .primary {
+  min-width: 200px;
+  min-height: 52px;
+  margin-top: 4px;
+}
+
+.game-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  width: min(100%, 420px);
+  margin: 20px auto 0;
+}
+
+.game-stats.compact-stats {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.game-stats--secondary {
+  margin-top: 10px;
+}
+
+.game-stats div {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 14px 12px;
+  text-align: center;
+}
+
+.game-stats span {
+  display: block;
+  color: #00e5ff;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.game-stats strong {
+  display: block;
+  font-size: clamp(20px, 5vw, 26px);
+  color: #fff;
+}
+
+.game-touch-btn {
+  display: block;
+  width: min(100%, 420px);
+  min-height: 56px;
+  margin: 18px auto 0;
+  font-size: 18px;
+}
+
+.game-hint {
+  font-size: 14px;
+  color: #8fa3bc;
+  margin: 14px auto 0;
+  max-width: 420px;
+}
+
+.game-back-link {
+  display: inline-block;
+  margin-top: 28px;
+  color: #00e5ff;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.swipe-card {
+  width: min(100%, 420px);
+  margin: 24px auto;
+  padding: 28px 22px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  text-align: center;
+}
+
+.swipe-image {
+  font-size: clamp(48px, 14vw, 72px);
+  margin-bottom: 16px;
+}
+
+.swipe-card h2 {
+  font-size: clamp(22px, 5vw, 28px);
+  margin-bottom: 12px;
+}
+
+.swipe-card p {
+  font-size: 16px;
+  margin: 0;
+}
+
+.swipe-card--intro .primary {
+  min-width: 200px;
+  min-height: 52px;
+  margin-top: 16px;
+}
+
+.swipe-progress {
+  font-size: 14px;
+  color: #00e5ff;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+
+.swipe-btn {
+  padding: 12px 10px;
+}
+
+.swipe-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: min(100%, 420px);
+  margin: 0 auto;
+}
+
+.swipe-actions button {
+  min-height: 56px;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.swipe-message {
+  font-size: 16px;
+  margin: 18px auto 0;
+  max-width: 420px;
+  color: #dbeafe;
+}
+
+.snake-controls {
+  width: min(100%, 420px);
+  margin: 18px auto 0;
+  display: grid;
+  gap: 12px;
+}
+
+.snake-dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  max-width: 260px;
+  margin: 0 auto;
+}
+
+.snake-dpad button {
+  min-height: 52px;
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  font-size: 22px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.snake-dpad .dpad-empty {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.snake-joystick {
+  width: min(100%, 200px);
+  height: 200px;
+  margin: 0 auto;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 229, 255, 0.25);
+  background: rgba(0, 229, 255, 0.06);
+  display: grid;
+  place-items: center;
+  touch-action: none;
+}
+
+.joystick-ring {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: rgba(255, 204, 0, 0.18);
+  border: 2px solid rgba(255, 204, 0, 0.45);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: #ffcc00;
+  font-size: 14px;
+}
+
+@media (min-width: 701px) {
+  .game-stats.compact-stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 @media (max-width: 700px) {
   .page {
     padding: 50px 18px;
@@ -521,20 +788,20 @@ p {
   }
 
   .compact-stats {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
   }
 
   .compact-stats div {
-    padding: 8px 4px;
+    padding: 12px 8px;
   }
 
   .compact-stats strong {
-    font-size: 16px;
+    font-size: 20px;
   }
 
   .compact-stats span {
-    font-size: 8px;
+    font-size: 10px;
   }
 
   .snake-joystick {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { bindCanvasTap, loadBestScore, saveBestScore } from "../lib/gameTouch";
 
 export default function BoostRunnerPage() {
   const canvasRef = useRef(null);
@@ -12,8 +13,7 @@ export default function BoostRunnerPage() {
   const [best, setBest] = useState(0);
 
   useEffect(() => {
-    const savedBest = localStorage.getItem("boostrunner_best");
-    if (savedBest) setBest(Number(savedBest));
+    setBest(loadBestScore("boostrunner_best"));
   }, []);
 
   function startGame() {
@@ -23,7 +23,9 @@ export default function BoostRunnerPage() {
   }
 
   function jump() {
-    if (gameRef.current) gameRef.current.jump();
+    if (status === "playing" && gameRef.current) {
+      gameRef.current.jump();
+    }
   }
 
   useEffect(() => {
@@ -56,12 +58,7 @@ export default function BoostRunnerPage() {
 
     function endGame() {
       setStatus("gameover");
-
-      if (currentScore > best) {
-        localStorage.setItem("boostrunner_best", String(currentScore));
-        setBest(currentScore);
-      }
-
+      setBest((prev) => saveBestScore("boostrunner_best", currentScore, prev));
       cancelAnimationFrame(animationId);
     }
 
@@ -218,52 +215,55 @@ export default function BoostRunnerPage() {
       animationId = requestAnimationFrame(loop);
     }
 
-    window.addEventListener("click", dogJump);
-    window.addEventListener("touchstart", dogJump);
+    const unbindTap = bindCanvasTap(canvas, dogJump);
 
     loop();
 
     return () => {
       cancelAnimationFrame(animationId);
-      window.removeEventListener("click", dogJump);
-      window.removeEventListener("touchstart", dogJump);
+      unbindTap();
+      gameRef.current = null;
     };
-  }, [status, best]);
+  }, [status]);
 
   return (
     <main className="page">
-      <section className="hero">
-        <div className="badge">BOOST Arcade • BOOST Runner</div>
+      <section className="hero game-hero">
+        <div className="badge">BOOST Arcade • Runner</div>
 
         <h1>BOOST Runner</h1>
 
-        <p>Jump over AI bots. Collect BOOST coins. Chase the Bitcoin moon.</p>
+        <p>
+          Tap to jump over bots and collect BOOST coins. Arcade training only —
+          not a verification result.
+        </p>
 
         <div className="game-shell">
           <canvas
             ref={canvasRef}
             width={360}
             height={360}
-            className="dog-canvas"
+            className="dog-canvas dog-canvas--square"
           />
 
           {status === "ready" && (
             <div className="game-overlay">
               <h2>BOOST Runner</h2>
-              <p>Tap to jump. Avoid AI bots. Collect BOOST.</p>
-              <button className="primary" onClick={startGame}>
-                Start Game
+              <p>Tap the game area or the button below to jump.</p>
+              <button className="primary" type="button" onClick={startGame}>
+                Start Run
               </button>
             </div>
           )}
 
           {status === "gameover" && (
             <div className="game-overlay">
-              <h2>Game Over</h2>
+              <h2>Run Complete</h2>
               <p>Score: {score}</p>
-              <p>BOOST Earned: {boost}</p>
-              <button className="primary" onClick={startGame}>
-                Play Again
+              <p>BOOST collected: {boost}</p>
+              <p>Best: {best}</p>
+              <button className="primary" type="button" onClick={startGame}>
+                Run Again
               </button>
             </div>
           )}
@@ -274,26 +274,35 @@ export default function BoostRunnerPage() {
             <span>Score</span>
             <strong>{score}</strong>
           </div>
-
           <div>
             <span>Best</span>
             <strong>{best}</strong>
           </div>
-
           <div>
             <span>BOOST</span>
             <strong>{boost}</strong>
           </div>
-
           <div>
-            <span>Mode</span>
-            <strong>RUN</strong>
+            <span>Status</span>
+            <strong>{status === "playing" ? "LIVE" : "READY"}</strong>
           </div>
         </div>
 
-        <button className="primary" onClick={jump} style={{ marginTop: 22 }}>
-          Tap / Jump
-        </button>
+        {status === "playing" && (
+          <button
+            className="primary game-touch-btn"
+            type="button"
+            onClick={jump}
+          >
+            Jump
+          </button>
+        )}
+
+        <p className="game-hint">Tip: tap anywhere on the canvas to jump.</p>
+
+        <a className="game-back-link" href="/">
+          ← Back to ProofOrigin
+        </a>
       </section>
     </main>
   );

@@ -1,6 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { bindCanvasTap, loadBestScore, saveBestScore } from "../lib/gameTouch";
+
+function drawHudPanel(ctx, x, y, width, height, radius) {
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  if (ctx.roundRect) {
+    ctx.beginPath();
+    ctx.roundRect(x, y, width, height, radius);
+    ctx.fill();
+  } else {
+    ctx.fillRect(x, y, width, height);
+  }
+}
 
 export default function DogGamePage() {
   const canvasRef = useRef(null);
@@ -15,14 +27,8 @@ export default function DogGamePage() {
     setStatus("playing");
   }
 
-  function restartGame() {
-    setScore(0);
-    setStatus("playing");
-  }
-
   useEffect(() => {
-    const savedBest = localStorage.getItem("dogboost_best");
-    if (savedBest) setBest(Number(savedBest));
+    setBest(loadBestScore("dogboost_best"));
   }, []);
 
   useEffect(() => {
@@ -61,12 +67,7 @@ export default function DogGamePage() {
 
     function endGame() {
       setStatus("gameover");
-
-      if (currentScore > best) {
-        localStorage.setItem("dogboost_best", String(currentScore));
-        setBest(currentScore);
-      }
-
+      setBest((prev) => saveBestScore("dogboost_best", currentScore, prev));
       cancelAnimationFrame(animationId);
     }
 
@@ -101,9 +102,7 @@ export default function DogGamePage() {
     }
 
     function drawHud() {
-      ctx.fillStyle = "rgba(0,0,0,0.35)";
-      ctx.roundRect(14, 12, 190, 42, 14);
-      ctx.fill();
+      drawHudPanel(ctx, 14, 12, 190, 42, 14);
 
       ctx.fillStyle = "#00e5ff";
       ctx.font = "bold 16px Arial";
@@ -188,31 +187,33 @@ export default function DogGamePage() {
       animationId = requestAnimationFrame(loop);
     }
 
+    const unbindTap = bindCanvasTap(canvas, jump);
+
     loop();
-
-    function handleTap() {
-      jump();
-    }
-
-    window.addEventListener("click", handleTap);
-    window.addEventListener("touchstart", handleTap);
 
     return () => {
       cancelAnimationFrame(animationId);
-      window.removeEventListener("click", handleTap);
-      window.removeEventListener("touchstart", handleTap);
+      unbindTap();
+      gameRef.current = null;
     };
-  }, [status, best]);
+  }, [status]);
+
+  function handleTap() {
+    if (status === "playing" && gameRef.current) {
+      gameRef.current.jump();
+    }
+  }
 
   return (
     <main className="page">
-      <section className="hero">
-        <div className="badge">DOG BOOST Mini Game</div>
+      <section className="hero game-hero">
+        <div className="badge">BOOST Arcade • Flight</div>
 
         <h1>DOG BOOST Flight</h1>
 
         <p>
-          Tap to fly. Collect DOG coins. Dodge AI bots. Chase the Bitcoin moon.
+          Tap to stay aloft, collect coins, and dodge bots. Arcade practice —
+          not a media verification outcome.
         </p>
 
         <div className="game-shell">
@@ -220,42 +221,63 @@ export default function DogGamePage() {
             ref={canvasRef}
             width={360}
             height={430}
-            className="dog-canvas"
+            className="dog-canvas dog-canvas--tall"
           />
 
           {status === "ready" && (
             <div className="game-overlay">
-              <h2>Ready?</h2>
-              <p>Tap start and keep DOG flying.</p>
-              <button className="primary" onClick={startGame}>
-                Start Game
+              <h2>Ready to Fly</h2>
+              <p>Tap to rise. Avoid the top, bottom, and bots.</p>
+              <button className="primary" type="button" onClick={startGame}>
+                Start Flight
               </button>
             </div>
           )}
 
           {status === "gameover" && (
             <div className="game-overlay">
-              <h2>Game Over</h2>
+              <h2>Flight Over</h2>
               <p>Score: {score}</p>
               <p>Best: {best}</p>
-              <button className="primary" onClick={restartGame}>
-                Play Again
+              <button className="primary" type="button" onClick={startGame}>
+                Fly Again
               </button>
             </div>
           )}
         </div>
 
-        <div className="game-stats">
+        <div className="game-stats compact-stats">
           <div>
             <span>Score</span>
             <strong>{score}</strong>
           </div>
-
           <div>
             <span>Best</span>
             <strong>{best}</strong>
           </div>
+          <div>
+            <span>Status</span>
+            <strong>{status === "playing" ? "LIVE" : "READY"}</strong>
+          </div>
+          <div>
+            <span>Mode</span>
+            <strong>FLIGHT</strong>
+          </div>
         </div>
+
+        {status === "playing" && (
+          <button
+            className="primary game-touch-btn"
+            type="button"
+            onClick={handleTap}
+          >
+            Tap to Boost
+          </button>
+        )}
+
+        <a className="game-back-link" href="/">
+          ← Back to ProofOrigin
+        </a>
       </section>
     </main>
   );
