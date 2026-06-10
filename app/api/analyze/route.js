@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
+import { getProofOriginAnalyzeUrl } from "../../lib/prooforiginAiConfig";
+import { mapProofOriginProtocol } from "../../lib/prooforiginProtocolMapper";
 
 export const dynamic = "force-dynamic";
-
-const PROOFORIGIN_AI_URL =
-  "https://prooforigin-ai-production-2983.up.railway.app/analyze";
 
 export async function POST(req) {
   try {
@@ -23,7 +22,7 @@ export async function POST(req) {
     const apiForm = new FormData();
     apiForm.append("file", file);
 
-    const response = await fetch(PROOFORIGIN_AI_URL, {
+    const response = await fetch(getProofOriginAnalyzeUrl(), {
       method: "POST",
       body: apiForm,
     });
@@ -41,16 +40,28 @@ export async function POST(req) {
       );
     }
 
+    const protocol = mapProofOriginProtocol(data);
+
     return NextResponse.json({
       success: true,
-      percent: data?.percent ?? data?.summary?.ai_score ?? 0,
+      ...protocol,
+      public_label: protocol.publicLabel,
+      decision_tier: protocol.decisionTier,
+      verification_notice: protocol.verificationNotice,
+      claim_boundary: protocol.claimBoundary,
+      protocol_name: protocol.protocolName,
+      protocol_version: protocol.protocolVersion,
+      evidence_bundle_hash: protocol.evidenceBundleHash,
+      verified_scope: protocol.verifiedScope,
+      truth_verified: protocol.truthVerified,
+      file_id: protocol.fileId,
+      percent: protocol.aiProbability ?? data?.percent ?? data?.summary?.ai_score ?? 0,
       verdict: data?.verdict ?? data?.summary?.label ?? "Unknown",
       proofOriginScore:
         data?.proofOriginScore ??
         data?.consensus_analysis?.consensus_score ??
         null,
       metadata: data?.metadata ?? null,
-
       summary: data?.summary ?? null,
       origin_analysis: data?.origin_analysis ?? null,
       consensus_analysis: data?.consensus_analysis ?? null,
@@ -59,8 +70,6 @@ export async function POST(req) {
       trace_analysis: data?.trace_analysis ?? null,
       evidence: data?.evidence ?? [],
       warnings: data?.warnings ?? [],
-
-      file_id: data?.file_id ?? null,
       training_status: data?.training_status ?? null,
       raw: data,
     });

@@ -16,14 +16,14 @@ export default function PremiumVerificationCard() {
           marginBottom: "12px",
         }}
       >
-        VERIFIED EVIDENCE RECORD
+        Protocol Evaluation Record
       </p>
 
       <ul style={{ margin: 0, paddingLeft: "20px" }}>
-        <li>SHA-256 Hash Recorded</li>
-        <li>Evidence ID Issued</li>
-        <li>Consensus Analysis Complete</li>
-        <li>Public Verification Available</li>
+        <li>Evaluation state recorded under Proof-of-Origin protocol</li>
+        <li>Evidence bundle reference may be attached to this record</li>
+        <li>Protocol-scoped analysis completed</li>
+        <li>Does not verify absolute truth</li>
       </ul>
     </div>
   );

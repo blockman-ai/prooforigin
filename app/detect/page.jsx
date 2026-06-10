@@ -1,14 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { getProofOriginAnalyzeUrl } from "../lib/prooforiginAiConfig";
+import {
+  buildProtocolShareText,
+  getDecisionTierStatusClass,
+  mapProofOriginProtocol,
+} from "../lib/prooforiginProtocolMapper";
 
 const heic2any =
   typeof window !== "undefined"
     ? require("heic2any")
     : null;
-
-const PROOFORIGIN_API =
-  "https://prooforigin-ai-production-2983.up.railway.app/analyze";
 
 function getAnalysisValues(percent) {
   let classification = "Likely Human-Made";
@@ -221,7 +224,7 @@ export default function DetectPage() {
     formData.append("file", file);
 
     try {
-      const res = await fetch(PROOFORIGIN_API, {
+      const res = await fetch(getProofOriginAnalyzeUrl(), {
         method: "POST",
         body: formData,
       });
@@ -236,22 +239,9 @@ export default function DetectPage() {
         return;
       }
 
-      const finalScore =
-        data.weightedConsensus?.score ??
-        data.weighted_consensus?.score ??
-        data.engine_outputs?.openai_vision?.score ??
-        data.percent ??
-        0;
-
-      const livePercent = Math.round(Number(finalScore) || 0);
-
-      const finalLabel =
-        data.weightedConsensus?.label ??
-        data.weighted_consensus?.label ??
-        data.verdict ??
-        getAnalysisValues(livePercent).classification;
-
-      const reportId = data.file_id || data.report_id || createReportId();
+      const protocol = mapProofOriginProtocol(data);
+      const livePercent = protocol.aiProbability ?? 0;
+      const reportId = protocol.fileId || createReportId();
 
       const forensicSummary =
         data?.engine_outputs?.openai_vision?.reasoning_summary ||
@@ -293,7 +283,7 @@ originalConsensus:
   data.originalConsensus ||
   data.original_consensus ||
   null,
-        verdict: finalLabel,
+        protocol,
         createdAt: new Date().toISOString(),
       };
 
@@ -304,10 +294,10 @@ originalConsensus:
 
       setResult({
         ...data,
+        protocol,
         percent: livePercent,
         forensicSummary,
         reportId,
-        classification: finalLabel,
         weightedConsensus:
           data.weightedConsensus || data.weighted_consensus || null,
         forensicContext:
@@ -341,16 +331,9 @@ originalConsensus:
     if (!result) return;
 
     const reportUrl = getReportUrl(result.reportId);
-    const percentValue = result?.percent ?? 0;
-    const analysis = getAnalysisValues(percentValue);
-
-    const shareText =
-      "ProofOrigin Analysis: " +
-      percentValue +
-      "% AI probability. Classification: " +
-      (result.classification || analysis.classification) +
-      ". View report: " +
-      reportUrl;
+    const protocol =
+      result.protocol ?? mapProofOriginProtocol(result);
+    const shareText = buildProtocolShareText(protocol, reportUrl);
 
     if (navigator.share) {
       try {
@@ -386,8 +369,9 @@ originalConsensus:
   async function createReportImageBlob() {
     if (!result) return null;
 
-    const percentValue = result?.percent ?? 0;
-    const analysis = getAnalysisValues(percentValue);
+    const protocol =
+      result.protocol ?? mapProofOriginProtocol(result);
+    const percentValue = protocol.aiProbability ?? result?.percent ?? 0;
     const reportUrl = getReportUrl(result.reportId);
 
     const canvas = document.createElement("canvas");
@@ -406,29 +390,24 @@ originalConsensus:
 
     ctx.fillStyle = "#00e5ff";
     ctx.font = "bold 42px Arial";
-    ctx.fillText("ProofOrigin Authenticity Report", 70, 90);
+    ctx.fillText("ProofOrigin Protocol Evaluation Record", 70, 90);
 
     ctx.fillStyle = "white";
-    ctx.font = "bold 78px Arial";
-    ctx.fillText(percentValue + "% AI Probability", 70, 210);
+    ctx.font = "bold 44px Arial";
+    wrapText(ctx, protocol.publicLabel, 70, 170, 940, 48, 3);
 
     ctx.fillStyle = "#ffcc00";
-    ctx.font = "bold 52px Arial";
-    ctx.fillText(
-      result.classification || analysis.classification,
-      70,
-      290
-    );
+    ctx.font = "bold 36px Arial";
+    ctx.fillText("Decision tier: " + protocol.decisionTier, 70, 290);
 
     ctx.fillStyle = "#b8c2d6";
     ctx.font = "32px Arial";
-    ctx.fillText("Confidence: " + analysis.confidence, 70, 370);
     ctx.fillText(
-      "Manipulation Risk: " + analysis.manipulationRisk,
+      "Engine estimate: " + percentValue + "% (not verified truth)",
       70,
-      420
+      350
     );
-    ctx.fillText("Report ID: " + result.reportId, 70, 470);
+    ctx.fillText("Record ID: " + result.reportId, 70, 400);
 
     if (preview) {
       const img = new Image();
@@ -468,8 +447,9 @@ originalConsensus:
     ctx.font = "30px Arial";
 
     const summary =
-      result?.forensicSummary ||
-      "This media analysis is probabilistic and should not be treated as absolute certainty.";
+      protocol.verificationNotice +
+      " " +
+      protocol.claimBoundary;
 
     wrapText(ctx, summary, 100, 1105, 860, 38, 4);
 
@@ -516,12 +496,11 @@ originalConsensus:
         files: [imageFile],
       })
     ) {
+      const protocol =
+        result.protocol ?? mapProofOriginProtocol(result);
       await navigator.share({
-        title: "ProofOrigin Report",
-        text:
-          "ProofOrigin Analysis: " +
-          (result?.percent ?? 0) +
-          "% AI probability.",
+        title: "ProofOrigin Protocol Evaluation",
+        text: buildProtocolShareText(protocol, getReportUrl(result.reportId)),
         files: [imageFile],
       });
     } else {
@@ -529,30 +508,17 @@ originalConsensus:
     }
   }
 
-  const percent = result?.percent ?? 0;
+  const protocol = result
+    ? result.protocol ?? mapProofOriginProtocol(result)
+    : null;
+  const percent = protocol?.aiProbability ?? result?.percent ?? 0;
   const fallbackAnalysis = getAnalysisValues(percent);
-
-  const classification =
-    result?.classification || fallbackAnalysis.classification;
-
   const manipulationRisk = fallbackAnalysis.manipulationRisk;
   const confidence = fallbackAnalysis.confidence;
   const signals = fallbackAnalysis.signals;
-
-  let statusClass = "status-human";
-
-  if (
-    classification === "Mixed / Suspicious" ||
-    classification === "AI-Assisted or Heavily Edited"
-  ) {
-    statusClass = "status-edited";
-  } else if (
-    classification === "Likely AI-Generated" ||
-    classification === "Highly Likely AI-Generated" ||
-    classification === "Strong AI Consensus"
-  ) {
-    statusClass = "status-ai";
-  }
+  const statusClass = protocol
+    ? getDecisionTierStatusClass(protocol.decisionTier, protocol.aiProbability)
+    : "status-human";
 
   const explanation =
     result?.engine_outputs?.openai_vision?.reasoning_summary ||
@@ -599,19 +565,45 @@ originalConsensus:
           <div className="report-card">
             <div className="report-header">
               <div>
-                <p className="report-label">Final Classification</p>
-                <h2 className={statusClass}>{classification}</h2>
+                <p className="report-label">Public Evaluation Label</p>
+                <h2 className={statusClass}>{protocol.publicLabel}</h2>
+                {protocol.decisionTier &&
+                  protocol.decisionTier !== "unspecified" && (
+                    <span className="badge" style={{ marginTop: 12 }}>
+                      Decision tier: {protocol.decisionTier}
+                    </span>
+                  )}
               </div>
 
               <div className="score-circle">
                 <span>{percent}%</span>
-                <small>AI Probability</small>
+                <small>Engine Estimate</small>
               </div>
             </div>
 
             <div className="score-bar">
               <div style={{ width: percent + "%" }} />
             </div>
+
+            <div className="explanation-box">
+              <p className="report-label">Verification Notice</p>
+              <p>{protocol.verificationNotice}</p>
+            </div>
+
+            <div className="explanation-box">
+              <p className="report-label">Claim Boundary</p>
+              <p>{protocol.claimBoundary}</p>
+            </div>
+
+            {!protocol.truthVerified && (
+              <div className="explanation-box">
+                <p className="report-label">Truth Verification Status</p>
+                <p>
+                  This record does not verify absolute truth. It reflects
+                  protocol-scoped evaluation only.
+                </p>
+              </div>
+            )}
 
             <div className="explanation-box">
   <p className="report-label">Human Summary</p>
