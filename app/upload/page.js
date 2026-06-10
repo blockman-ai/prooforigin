@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
+import { mapProofOriginProtocol } from "../lib/prooforiginProtocolMapper";
 
 export default function UploadPage() {
   const [file, setFile] = useState(null);
@@ -16,7 +17,7 @@ export default function UploadPage() {
     setUploading(true);
     setError("");
     setProof(null);
-    setStatus("Creating proof...");
+    setStatus("Creating proof record...");
 
     try {
       const proofId = crypto.randomUUID();
@@ -49,23 +50,47 @@ export default function UploadPage() {
 
       if (insertError) throw insertError;
 
-      setStatus("Running AI analysis...");
+      setStatus("Running protocol evaluation...");
 
-      await fetch("/api/analyze", {
+      const analyzeForm = new FormData();
+      analyzeForm.append("file", file);
+      analyzeForm.append("storage_path", storagePath);
+
+      const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          proofId,
-          fileName: file.name,
-          fileType: file.type,
-          publicUrl: publicData.publicUrl,
-          metadata: {}
-        })
+        body: analyzeForm,
       });
 
-      setStatus("Proof complete.");
+      const analyzeData = await analyzeRes.json();
+
+      if (!analyzeRes.ok || !analyzeData.success) {
+        throw new Error(analyzeData.error || "Protocol evaluation failed.");
+      }
+
+      const protocol = mapProofOriginProtocol(analyzeData);
+
+      setStatus("Updating proof record...");
+
+      const { error: updateError } = await supabase
+        .from("proofs")
+        .update({
+          status: "evaluated",
+          metadata: {
+            file_id: protocol.fileId ?? analyzeData.file_id ?? null,
+            evidence_bundle_hash: protocol.evidenceBundleHash,
+            public_label: protocol.publicLabel,
+            decision_tier: protocol.decisionTier,
+            protocol_version: protocol.protocolVersion,
+            verification_notice: protocol.verificationNotice,
+            claim_boundary: protocol.claimBoundary,
+            truth_verified: protocol.truthVerified,
+          },
+        })
+        .eq("proof_id", proofId);
+
+      if (updateError) throw updateError;
+
+      setStatus("Proof record complete.");
       setProof(proofId);
     } catch (err) {
       setError(err.message || "Upload failed");
@@ -79,7 +104,10 @@ export default function UploadPage() {
     <main style={{ padding: 24, maxWidth: 760, margin: "0 auto", fontFamily: "Arial, sans-serif" }}>
       <h1>ProofOrigin</h1>
 
-      <p>Upload digital content and generate a public AI authenticity proof.</p>
+      <p>
+        Upload digital content to create a protocol evaluation record. This does
+        not verify absolute truth.
+      </p>
 
       <div style={{ border: "2px dashed #666", borderRadius: 16, padding: 30, marginTop: 20 }}>
         <input
@@ -98,19 +126,23 @@ export default function UploadPage() {
             padding: "12px 18px",
             borderRadius: 10,
             border: "none",
-            cursor: uploading || !file ? "not-allowed" : "pointer"
+            cursor: uploading || !file ? "not-allowed" : "pointer",
           }}
         >
-          {uploading ? "Processing..." : "Generate Proof"}
+          {uploading ? "Processing..." : "Generate Proof Record"}
         </button>
 
-        {status && <p style={{ marginTop: 16 }}><strong>Status:</strong> {status}</p>}
+        {status && (
+          <p style={{ marginTop: 16 }}>
+            <strong>Status:</strong> {status}
+          </p>
+        )}
       </div>
 
       {proof && (
         <div style={{ marginTop: 30 }}>
-          <h2>Proof Created</h2>
-          <a href={`/verify/${proof}`}>Open Verification Page</a>
+          <h2>Proof Record Created</h2>
+          <a href={`/verify/${proof}`}>Open Protocol Record</a>
         </div>
       )}
 

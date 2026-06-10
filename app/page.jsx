@@ -3,17 +3,18 @@ export default function Home() {
     <main className="page">
       <section className="hero">
         <div className="badge">
-          AI Content Detection • Authenticity Reports
+          Protocol Evaluation • Evidence Records
         </div>
 
         <h1>ProofOrigin</h1>
 
-        <h2>Find out if content was created by AI.</h2>
+        <h2>
+          Create a verifiable evaluation record for digital media.
+        </h2>
 
         <p>
-          Upload images, videos, documents, or media files and receive a clear
-          authenticity analysis showing whether content is likely human-made,
-          AI-generated, or manipulated.
+          ProofOrigin archives structural evidence, system confidence, and
+          protocol context—not absolute truth.
         </p>
 
         <div className="buttons">
@@ -44,22 +45,23 @@ export default function Home() {
         <div className="card">
           <h3>1. Upload Content</h3>
           <p>
-            Submit an image, video, document, or audio file for analysis.
+            Submit media for protocol-scoped evaluation and record creation.
           </p>
         </div>
 
         <div className="card">
-          <h3>2. Run AI Detection</h3>
+          <h3>2. Run Evaluation</h3>
           <p>
-            ProofOrigin checks for AI-generation signals, metadata clues, and
-            manipulation risk.
+            ProofOrigin collects engine signals, metadata clues, and protocol
+            context within defined claim boundaries.
           </p>
         </div>
 
         <div className="card">
-          <h3>3. Get a Report</h3>
+          <h3>3. Get a Record</h3>
           <p>
-            Receive a simple authenticity score with a clear explanation.
+            Receive a public evaluation record with notices—not a definitive
+            truth verdict.
           </p>
         </div>
       </section>
@@ -69,8 +71,8 @@ export default function Home() {
 
         <p>
           As AI content becomes harder to recognize, ProofOrigin helps creators,
-          businesses, educators, and everyday users verify what they are
-          looking at.
+          businesses, educators, and everyday users document what evaluation
+          evidence exists—without overclaiming certainty.
         </p>
       </section>
     </main>
