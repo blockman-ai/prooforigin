@@ -1,3 +1,4 @@
+import FeatureCard from "../components/protocol/FeatureCard";
 import GlassPanel from "../components/protocol/GlassPanel";
 import PageShell from "../components/protocol/PageShell";
 
@@ -6,59 +7,55 @@ export default function Home() {
     <PageShell
       badge="Protocol Evaluation • Evidence Records"
       title="ProofOrigin"
-      subtitle="Create a verifiable evaluation record for digital media. ProofOrigin archives structural evidence, system confidence, and protocol context—not absolute truth."
+      subtitle="Create verifiable evaluation records for digital media. Structural evidence and protocol context—not absolute truth."
     >
-      <div className="protocol-actions" style={{ justifyContent: "center" }}>
+      <div className="hero-cta-row">
+        <a href="/upload" className="primary hero-cta-row__primary">
+          Create Proof Record
+        </a>
+        <a href="/detect" className="secondary">
+          Run Live Detector
+        </a>
         <a
           href="https://tally.so/r/vGJQYX"
           target="_blank"
           rel="noopener noreferrer"
-          className="primary"
+          className="secondary"
         >
-          Join the Waitlist
-        </a>
-        <a href="/upload" className="secondary">
-          Upload & Create Record
-        </a>
-        <a href="/detect" className="secondary">
-          Try the Detector
+          Join Waitlist
         </a>
       </div>
 
-      <section className="cards" style={{ marginTop: 36 }}>
-        <GlassPanel title="1. Upload Content">
-          <p style={{ margin: 0, color: "#b8c7dc", lineHeight: 1.55 }}>
-            Submit media for protocol-scoped evaluation and record creation.
-          </p>
-        </GlassPanel>
-
-        <GlassPanel title="2. Run Evaluation">
-          <p style={{ margin: 0, color: "#b8c7dc", lineHeight: 1.55 }}>
-            ProofOrigin collects engine signals, metadata clues, and protocol
-            context within defined claim boundaries.
-          </p>
-        </GlassPanel>
-
-        <GlassPanel title="3. Get a Record">
-          <p style={{ margin: 0, color: "#b8c7dc", lineHeight: 1.55 }}>
-            Receive a public evaluation record with notices—not a definitive
-            truth verdict.
+      <section className="bento-grid" aria-label="How ProofOrigin works">
+        <FeatureCard
+          step="01"
+          title="Upload Content"
+          description="Submit media for protocol-scoped evaluation and durable record creation."
+        />
+        <FeatureCard
+          step="02"
+          title="Run Evaluation"
+          description="Engine signals, metadata clues, and protocol context collected within defined claim boundaries."
+          accent="violet"
+        />
+        <FeatureCard
+          step="03"
+          title="Get a Record"
+          description="Receive a public evaluation record with notices—not a definitive truth verdict."
+          accent="mint"
+        />
+        <GlassPanel className="bento-grid__mission" title="Built for synthetic media">
+          <p className="bento-grid__mission-copy">
+            As AI content becomes harder to recognize, ProofOrigin helps creators,
+            businesses, and everyday users document what evaluation evidence
+            exists—without overclaiming certainty.
           </p>
         </GlassPanel>
       </section>
 
-      <section className="mission">
-        <h2>Built for the age of synthetic media.</h2>
-        <p>
-          As AI content becomes harder to recognize, ProofOrigin helps creators,
-          businesses, educators, and everyday users document what evaluation
-          evidence exists—without overclaiming certainty.
-        </p>
-
-        <div
-          className="protocol-actions"
-          style={{ justifyContent: "center", marginTop: 28 }}
-        >
+      <section className="arcade-strip">
+        <p className="arcade-strip__label">Protocol Arcade</p>
+        <div className="protocol-actions arcade-strip__actions">
           <a href="/dog-game" className="game-button">
             DOG BOOST Flight
           </a>

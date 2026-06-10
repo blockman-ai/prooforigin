@@ -81,6 +81,7 @@ export default async function VerifyPage({ params }) {
   return (
     <PageShell
       narrow
+      heroAlign="left"
       badge="Protocol Record"
       title={proof.file_name || "Proof Record"}
       subtitle="A protocol-scoped upload record. This does not verify absolute truth."

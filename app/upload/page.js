@@ -5,6 +5,7 @@ import GlassPanel from "../../components/protocol/GlassPanel";
 import PageShell from "../../components/protocol/PageShell";
 import ProtocolBadge from "../../components/protocol/ProtocolBadge";
 import StatusCard from "../../components/protocol/StatusCard";
+import UploadDropzone from "../../components/protocol/UploadDropzone";
 import { getProofOriginAnalyzeUrl } from "../lib/prooforiginAiConfig";
 import { getSupabase } from "../lib/supabase";
 import { buildProofMetadataFromAnalyze } from "../lib/prooforiginProtocolMapper";
@@ -154,23 +155,12 @@ export default function UploadPage() {
       subtitle="Upload digital content for protocol-scoped evaluation. This does not verify absolute truth."
     >
       <GlassPanel>
-        <label className="upload-dropzone">
-          <input
-            className="file-input-hidden"
-            type="file"
-            accept="image/*,video/*,.pdf,.doc,.docx"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-          />
-          <span className="upload-dropzone__icon" aria-hidden="true">
-            ↑
-          </span>
-          <p className="upload-dropzone__title">
-            {file ? file.name : "Drop a file or tap to browse"}
-          </p>
-          <p className="upload-dropzone__hint">
-            Images, video, PDF, and documents supported
-          </p>
-        </label>
+        <UploadDropzone
+          file={file}
+          accept="image/*,video/*,.pdf,.doc,.docx"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          hint="Images, video, PDF, and documents supported"
+        />
 
         {preview && (
           <div className="image-frame">

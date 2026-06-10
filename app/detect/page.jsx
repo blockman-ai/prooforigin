@@ -4,6 +4,7 @@ import { useState } from "react";
 import LoadingState from "../../components/protocol/LoadingState";
 import PageShell from "../../components/protocol/PageShell";
 import ProtocolBadge from "../../components/protocol/ProtocolBadge";
+import UploadDropzone from "../../components/protocol/UploadDropzone";
 import { getProofOriginAnalyzeUrl } from "../lib/prooforiginAiConfig";
 import {
   buildProtocolShareText,
@@ -538,23 +539,13 @@ originalConsensus:
       subtitle="Upload an image to generate a protocol-scoped evaluation record with public label, notices, and non-binding engine diagnostics."
     >
         <form onSubmit={analyzeImage} className="glass-panel">
-          <label className="upload-dropzone">
-            <input
-              className="file-input-hidden"
-              type="file"
-              accept=".jpg,.jpeg,.png,.webp,.heic,.heif"
-              onChange={handleFileChange}
-            />
-            <span className="upload-dropzone__icon" aria-hidden="true">
-              ↑
-            </span>
-            <p className="upload-dropzone__title">
-              {file ? file.name : "Drop an image or tap to browse"}
-            </p>
-            <p className="upload-dropzone__hint">
-              JPG, PNG, WebP, and HEIC supported
-            </p>
-          </label>
+          <UploadDropzone
+            file={file}
+            accept=".jpg,.jpeg,.png,.webp,.heic,.heif"
+            onChange={handleFileChange}
+            title="Drop an image or tap to browse"
+            hint="JPG, PNG, WebP, and HEIC supported"
+          />
 
           {preview && (
             <div className="image-frame">
