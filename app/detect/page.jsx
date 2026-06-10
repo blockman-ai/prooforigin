@@ -236,7 +236,7 @@ export default function DetectPage() {
 
       console.log("ProofOrigin API response:", data);
 
-      if (!res.ok) {
+      if (!res.ok || data.success === false) {
         setError(data.error || "Analysis failed.");
         setLoading(false);
         return;

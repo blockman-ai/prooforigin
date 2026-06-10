@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { mapProofOriginProtocol } from "../../lib/prooforiginProtocolMapper";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -9,14 +10,21 @@ function getProtocolFields(proof) {
   const metadata =
     proof?.metadata && typeof proof.metadata === "object" ? proof.metadata : {};
 
+  const protocol = mapProofOriginProtocol({
+    ...metadata,
+    file_id: metadata.file_id || metadata.fileId || proof?.proof_id,
+  });
+
   return {
-    publicLabel: metadata.public_label || metadata.publicLabel || null,
-    evidenceBundleHash:
-      metadata.evidence_bundle_hash || metadata.evidenceBundleHash || null,
-    decisionTier: metadata.decision_tier || metadata.decisionTier || null,
-    protocolVersion:
-      metadata.protocol_version || metadata.protocolVersion || null,
-    fileId: metadata.file_id || metadata.fileId || null,
+    publicLabel: protocol.publicLabel,
+    evidenceBundleHash: protocol.evidenceBundleHash,
+    decisionTier: protocol.decisionTier,
+    protocolVersion: protocol.protocolVersion,
+    fileId: protocol.fileId,
+    verifiedScope: protocol.verifiedScope,
+    truthVerified: protocol.truthVerified,
+    verificationNotice: protocol.verificationNotice,
+    claimBoundary: protocol.claimBoundary,
   };
 }
 
@@ -124,6 +132,21 @@ export default async function VerifyPage({ params }) {
               <strong>Backend File ID:</strong> {protocol.fileId}
             </p>
           )}
+          <p>
+            <strong>Verified Scope:</strong> {protocol.verifiedScope}
+          </p>
+          <p>
+            <strong>Truth Verified:</strong>{" "}
+            {protocol.truthVerified
+              ? "Yes"
+              : "No — does not verify absolute truth"}
+          </p>
+          <p>
+            <strong>Verification Notice:</strong> {protocol.verificationNotice}
+          </p>
+          <p>
+            <strong>Claim Boundary:</strong> {protocol.claimBoundary}
+          </p>
         </>
       )}
 

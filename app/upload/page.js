@@ -83,6 +83,7 @@ export default function UploadPage() {
             protocol_version: protocol.protocolVersion,
             verification_notice: protocol.verificationNotice,
             claim_boundary: protocol.claimBoundary,
+            verified_scope: protocol.verifiedScope,
             truth_verified: protocol.truthVerified,
           },
         })

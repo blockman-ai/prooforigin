@@ -6,11 +6,34 @@ function pick(obj, snakeKey, camelKey) {
 function resolveSource(raw) {
   if (!raw || typeof raw !== "object") return {};
 
+  if (raw.report && typeof raw.report === "object") {
+    return raw.report;
+  }
+
   if (raw.evidence && typeof raw.evidence === "object") {
     return raw.evidence;
   }
 
   return raw;
+}
+
+export function parsePublicReportResponse(data) {
+  if (!data || typeof data !== "object") {
+    return { ok: false, error: "Invalid report response." };
+  }
+
+  if (data.success === false) {
+    return { ok: false, error: data.error || "Report not found." };
+  }
+
+  const record = data.report ?? data.evidence ?? data;
+  const protocol = mapProofOriginProtocol(record);
+
+  return {
+    ok: true,
+    protocol,
+    record,
+  };
 }
 
 function legacyPublicLabel(source) {

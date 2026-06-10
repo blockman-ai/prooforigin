@@ -11,3 +11,7 @@ export function getProofOriginAnalyzeUrl() {
   const base = getProofOriginAiBaseUrl();
   return `${base}/analyze`;
 }
+
+export function getProofOriginReportUrl(fileId) {
+  return `${getProofOriginAiBaseUrl()}/report/${encodeURIComponent(fileId)}`;
+}

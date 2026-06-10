@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import PremiumVerificationCard from "../../../components/PremiumVerificationCard";
-import { getProofOriginAiBaseUrl } from "../../lib/prooforiginAiConfig";
+import {
+  getProofOriginAiBaseUrl,
+  getProofOriginReportUrl,
+} from "../../lib/prooforiginAiConfig";
 import {
   getDecisionTierStatusClass,
-  mapProofOriginProtocol,
+  parsePublicReportResponse,
 } from "../../lib/prooforiginProtocolMapper";
 
 function ProtocolSection({ protocol }) {
@@ -51,7 +54,7 @@ export default function EvidenceReportPage() {
   const params = useParams();
   const id = params?.id;
 
-  const [evidence, setEvidence] = useState(null);
+  const [record, setRecord] = useState(null);
   const [protocol, setProtocol] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -59,17 +62,17 @@ export default function EvidenceReportPage() {
   useEffect(() => {
     async function loadEvidence() {
       try {
-        const apiBase = getProofOriginAiBaseUrl();
-        const res = await fetch(`${apiBase}/evidence/${id}`);
+        const res = await fetch(getProofOriginReportUrl(id));
         const data = await res.json();
+        const parsed = parsePublicReportResponse(data);
 
-        if (!res.ok || !data.success) {
-          setError(data.error || "Evidence report not found.");
+        if (!res.ok || !parsed.ok) {
+          setError(parsed.error || "Report not found.");
           return;
         }
 
-        setEvidence(data.evidence);
-        setProtocol(mapProofOriginProtocol(data.evidence));
+        setRecord(parsed.record);
+        setProtocol(parsed.protocol);
       } catch (err) {
         setError("Unable to load forensic evidence report.");
       } finally {
@@ -89,7 +92,7 @@ export default function EvidenceReportPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          file_id: evidence.report_id,
+          file_id: protocol?.fileId || record?.file_id || record?.report_id || id,
           user_label: label,
         }),
       });
@@ -101,12 +104,13 @@ export default function EvidenceReportPage() {
         return;
       }
 
-      const refreshed = await fetch(`${apiBase}/evidence/${id}`);
+      const refreshed = await fetch(getProofOriginReportUrl(id));
       const refreshedData = await refreshed.json();
+      const parsed = parsePublicReportResponse(refreshedData);
 
-      if (refreshedData.success) {
-        setEvidence(refreshedData.evidence);
-        setProtocol(mapProofOriginProtocol(refreshedData.evidence));
+      if (parsed.ok) {
+        setRecord(parsed.record);
+        setProtocol(parsed.protocol);
       }
 
       alert(`Feedback recorded: ${label}`);
@@ -125,7 +129,7 @@ export default function EvidenceReportPage() {
     );
   }
 
-  if (error || !evidence || !protocol) {
+  if (error || !record || !protocol) {
     return (
       <main className="page">
         <section className="hero">
@@ -207,13 +211,13 @@ export default function EvidenceReportPage() {
             <div>
               <p className="report-label">Record ID</p>
               <h3 style={{ wordBreak: "break-all" }}>
-                {protocol.fileId || evidence.report_id}
+                {protocol.fileId || record.file_id || record.report_id || id}
               </h3>
             </div>
 
             <div>
               <p className="report-label">Created At</p>
-              <h3>{evidence.created_at}</h3>
+              <h3>{record.created_at || record.createdAt || "Unknown"}</h3>
             </div>
 
             <div>
@@ -227,11 +231,11 @@ export default function EvidenceReportPage() {
             </div>
           </div>
 
-          {evidence?.signals?.length > 0 && (
+          {record?.signals?.length > 0 && (
             <div className="signals-box">
               <p className="report-label">Recorded Signals</p>
               <ul>
-                {evidence.signals.map((signal, index) => (
+                {record.signals.map((signal, index) => (
                   <li key={index}>{String(signal)}</li>
                 ))}
               </ul>
