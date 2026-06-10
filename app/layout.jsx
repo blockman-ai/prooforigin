@@ -3,12 +3,12 @@ import "./globals.css";
 export const metadata = {
   title: "ProofOrigin",
   description:
-    "Advanced authenticity verification for digital content in the age of AI.",
+    "Protocol-scoped evaluation records for digital media—not absolute truth verification.",
 
   openGraph: {
     title: "ProofOrigin",
     description:
-      "Advanced authenticity verification for digital content in the age of AI.",
+      "Protocol-scoped evaluation records for digital media—not absolute truth verification.",
     url: "https://www.prooforigin.org",
     siteName: "ProofOrigin",
     type: "website",
@@ -18,7 +18,7 @@ export const metadata = {
     card: "summary_large_image",
     title: "ProofOrigin",
     description:
-      "Advanced authenticity verification for digital content in the age of AI.",
+      "Protocol-scoped evaluation records for digital media—not absolute truth verification.",
   },
 };
 

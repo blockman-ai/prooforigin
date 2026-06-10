@@ -179,11 +179,11 @@ export default function UploadPage() {
         )}
 
         {file && !preview && (
-          <div className="glass-panel" style={{ marginTop: 18, padding: 16 }}>
-            <p style={{ margin: 0, color: "#dbe4f4" }}>
+          <div className="file-preview-meta">
+            <p className="file-preview-meta__name">
               <strong>Selected file:</strong> {file.name}
             </p>
-            <p style={{ margin: "8px 0 0", color: "#9eb0c8", fontSize: 14 }}>
+            <p className="file-preview-meta__detail">
               {file.type || "Unknown type"} ·{" "}
               {Math.max(1, Math.round(file.size / 1024))} KB
             </p>

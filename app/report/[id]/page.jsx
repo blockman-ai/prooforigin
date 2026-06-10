@@ -62,6 +62,8 @@ export default function EvidenceReportPage() {
   const [protocol, setProtocol] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [feedbackNotice, setFeedbackNotice] = useState("");
+  const [feedbackError, setFeedbackError] = useState("");
 
   useEffect(() => {
     async function loadEvidence() {
@@ -88,6 +90,9 @@ export default function EvidenceReportPage() {
   }, [id]);
 
   async function submitFeedback(label) {
+    setFeedbackNotice("");
+    setFeedbackError("");
+
     try {
       const apiBase = getProofOriginAiBaseUrl();
       const res = await fetch(`${apiBase}/feedback`, {
@@ -104,7 +109,7 @@ export default function EvidenceReportPage() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        alert("Feedback failed.");
+        setFeedbackError("Feedback could not be recorded. Please try again.");
         return;
       }
 
@@ -117,9 +122,9 @@ export default function EvidenceReportPage() {
         setProtocol(parsed.protocol);
       }
 
-      alert(`Feedback recorded: ${label}`);
+      setFeedbackNotice(`Feedback recorded: ${label}`);
     } catch {
-      alert("Unable to submit feedback.");
+      setFeedbackError("Unable to submit feedback.");
     }
   }
 
@@ -169,7 +174,7 @@ export default function EvidenceReportPage() {
 
       <PremiumVerificationCard />
 
-      <div className="report-card glass-panel">
+      <div className="glass-panel">
           <div className="report-header">
             <div>
               <p className="report-label">Public Evaluation Label</p>
@@ -276,6 +281,28 @@ export default function EvidenceReportPage() {
                 Disputed
               </button>
             </div>
+
+            {feedbackNotice && (
+              <div
+                className="alert-banner alert-banner--success"
+                role="status"
+                style={{ marginTop: 16 }}
+              >
+                <strong>Feedback saved</strong>
+                {feedbackNotice}
+              </div>
+            )}
+
+            {feedbackError && (
+              <div
+                className="alert-banner alert-banner--error"
+                role="alert"
+                style={{ marginTop: 16 }}
+              >
+                <strong>Feedback failed</strong>
+                {feedbackError}
+              </div>
+            )}
           </div>
 
           <div className="explanation-box">

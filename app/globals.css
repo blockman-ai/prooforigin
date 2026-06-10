@@ -2,6 +2,11 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   background:
@@ -1062,6 +1067,38 @@ p {
   margin: 0;
   color: #9eb0c8;
   font-size: 14px;
+}
+
+.file-preview-meta {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(3, 10, 22, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.file-preview-meta__name {
+  margin: 0;
+  color: #dbe4f4;
+}
+
+.file-preview-meta__detail {
+  margin: 8px 0 0;
+  color: #9eb0c8;
+  font-size: 14px;
+}
+
+.primary:focus-visible,
+.secondary:focus-visible,
+.game-button:focus-visible,
+.upload-dropzone:focus-within {
+  outline: 2px solid #00e5ff;
+  outline-offset: 3px;
+}
+
+.upload-dropzone:focus-within {
+  border-color: #00e5ff;
+  background: rgba(0, 229, 255, 0.09);
 }
 
 .progress-steps {

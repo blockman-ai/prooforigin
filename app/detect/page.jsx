@@ -537,20 +537,28 @@ originalConsensus:
       title="Protocol Evaluation Record"
       subtitle="Upload an image to generate a protocol-scoped evaluation record with public label, notices, and non-binding engine diagnostics."
     >
-        <form onSubmit={analyzeImage} className="detector-card glass-panel">
-          <label className="upload-box">
+        <form onSubmit={analyzeImage} className="glass-panel">
+          <label className="upload-dropzone">
             <input
               className="file-input-hidden"
               type="file"
               accept=".jpg,.jpeg,.png,.webp,.heic,.heif"
               onChange={handleFileChange}
             />
-            <span>{file ? file.name : "Choose an image to analyze"}</span>
+            <span className="upload-dropzone__icon" aria-hidden="true">
+              ↑
+            </span>
+            <p className="upload-dropzone__title">
+              {file ? file.name : "Drop an image or tap to browse"}
+            </p>
+            <p className="upload-dropzone__hint">
+              JPG, PNG, WebP, and HEIC supported
+            </p>
           </label>
 
           {preview && (
-            <div className="preview-wrap">
-              <img src={preview} alt="Preview" className="image-preview" />
+            <div className="image-frame">
+              <img src={preview} alt="Preview" />
             </div>
           )}
 
@@ -574,7 +582,7 @@ originalConsensus:
         )}
 
         {result && !loading && (
-          <div className="report-card glass-panel">
+          <div className="glass-panel">
             <div className="record-header">
               <div className="record-header__badges">
                 <ProtocolBadge variant="success">Evaluated</ProtocolBadge>

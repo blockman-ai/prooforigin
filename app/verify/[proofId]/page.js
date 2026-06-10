@@ -120,7 +120,7 @@ export default async function VerifyPage({ params }) {
         </div>
       </GlassPanel>
 
-      {protocol.hasStoredProtocol ? (
+      {protocol.hasStoredProtocol && (
         <GlassPanel
           title="Protocol Evaluation Metadata"
           subtitle="Protocol-scoped analysis metadata. This does not verify absolute truth."
@@ -152,8 +152,6 @@ export default async function VerifyPage({ params }) {
             <ProofField label="Claim Boundary" value={protocol.claimBoundary} />
           </div>
         </GlassPanel>
-      ) : (
-        <StatusCard variant="pending" />
       )}
 
       <GlassPanel title="Protocol Record Notice">
