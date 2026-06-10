@@ -77,6 +77,26 @@ const DEFAULT_VERIFICATION_NOTICE =
 const DEFAULT_CLAIM_BOUNDARY =
   "Claims are limited to the evaluated media file and the recorded analysis scope.";
 
+export function buildProofMetadataFromAnalyze(raw) {
+  const protocol = mapProofOriginProtocol(raw);
+  const source = resolveSource(raw);
+
+  return {
+    file_id: protocol.fileId ?? null,
+    public_label: protocol.publicLabel,
+    decision_tier: protocol.decisionTier,
+    verification_notice: protocol.verificationNotice,
+    claim_boundary: protocol.claimBoundary,
+    protocol_name: protocol.protocolName,
+    protocol_version: protocol.protocolVersion,
+    evidence_bundle_hash: protocol.evidenceBundleHash,
+    verified_scope: protocol.verifiedScope,
+    truth_verified: protocol.truthVerified === true,
+    response_meta: pick(source, "response_meta", "responseMeta") ?? null,
+    contract: pick(source, "contract", "contract") ?? null,
+  };
+}
+
 export function mapProofOriginProtocol(raw) {
   const source = resolveSource(raw);
   const responseMeta = pick(source, "response_meta", "responseMeta") ?? {};

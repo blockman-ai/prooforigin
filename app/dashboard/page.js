@@ -1,10 +1,7 @@
-import { getSupabase } from "../lib/supabase";
+import { getSupabase, isSupabaseConfigured } from "../lib/supabase";
 
 export default async function DashboardPage() {
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
+  if (!isSupabaseConfigured()) {
     return (
       <main style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
         <h1>ProofOrigin Dashboard</h1>

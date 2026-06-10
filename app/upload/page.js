@@ -1,23 +1,68 @@
 "use client";
 
 import { useState } from "react";
+import { getProofOriginAnalyzeUrl } from "../lib/prooforiginAiConfig";
 import { getSupabase } from "../lib/supabase";
-import { mapProofOriginProtocol } from "../lib/prooforiginProtocolMapper";
+import { buildProofMetadataFromAnalyze } from "../lib/prooforiginProtocolMapper";
+
+const ANALYZE_WARNING =
+  "Protocol evaluation unavailable. Basic proof record created without analysis metadata.";
 
 export default function UploadPage() {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [proof, setProof] = useState(null);
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
   const [status, setStatus] = useState("");
+
+  async function runAnalyze(selectedFile) {
+    const analyzeForm = new FormData();
+    analyzeForm.append("file", selectedFile);
+
+    const analyzeRes = await fetch(getProofOriginAnalyzeUrl(), {
+      method: "POST",
+      body: analyzeForm,
+    });
+
+    const analyzeData = await analyzeRes.json();
+
+    if (!analyzeRes.ok || analyzeData.success === false) {
+      return {
+        metadata: null,
+        warning: analyzeData.error || ANALYZE_WARNING,
+      };
+    }
+
+    return {
+      metadata: buildProofMetadataFromAnalyze(analyzeData),
+      warning: "",
+    };
+  }
 
   async function handleUpload() {
     if (!file) return;
 
     setUploading(true);
     setError("");
+    setWarning("");
     setProof(null);
-    setStatus("Creating proof record...");
+    setStatus("Running protocol evaluation...");
+
+    let analyzeMetadata = null;
+    let analyzeWarning = "";
+
+    try {
+      const analyzeResult = await runAnalyze(file);
+      analyzeMetadata = analyzeResult.metadata;
+      analyzeWarning = analyzeResult.warning;
+    } catch {
+      analyzeWarning = ANALYZE_WARNING;
+    }
+
+    if (analyzeWarning) {
+      setWarning(analyzeWarning);
+    }
 
     try {
       const supabase = getSupabase();
@@ -45,54 +90,17 @@ export default function UploadPage() {
         file_size: file.size,
         storage_path: storagePath,
         public_url: publicData.publicUrl,
-        status: "uploaded",
-        metadata: {},
+        status: analyzeMetadata ? "evaluated" : "uploaded",
+        metadata: analyzeMetadata ?? {},
       });
 
       if (insertError) throw insertError;
 
-      setStatus("Running protocol evaluation...");
-
-      const analyzeForm = new FormData();
-      analyzeForm.append("file", file);
-      analyzeForm.append("storage_path", storagePath);
-
-      const analyzeRes = await fetch("/api/analyze", {
-        method: "POST",
-        body: analyzeForm,
-      });
-
-      const analyzeData = await analyzeRes.json();
-
-      if (!analyzeRes.ok || !analyzeData.success) {
-        throw new Error(analyzeData.error || "Protocol evaluation failed.");
-      }
-
-      const protocol = mapProofOriginProtocol(analyzeData);
-
-      setStatus("Updating proof record...");
-
-      const { error: updateError } = await supabase
-        .from("proofs")
-        .update({
-          status: "evaluated",
-          metadata: {
-            file_id: protocol.fileId ?? analyzeData.file_id ?? null,
-            evidence_bundle_hash: protocol.evidenceBundleHash,
-            public_label: protocol.publicLabel,
-            decision_tier: protocol.decisionTier,
-            protocol_version: protocol.protocolVersion,
-            verification_notice: protocol.verificationNotice,
-            claim_boundary: protocol.claimBoundary,
-            verified_scope: protocol.verifiedScope,
-            truth_verified: protocol.truthVerified,
-          },
-        })
-        .eq("proof_id", proofId);
-
-      if (updateError) throw updateError;
-
-      setStatus("Proof record complete.");
+      setStatus(
+        analyzeMetadata
+          ? "Proof record complete."
+          : "Proof record saved without protocol evaluation metadata."
+      );
       setProof(proofId);
     } catch (err) {
       setError(err.message || "Upload failed");
@@ -146,6 +154,12 @@ export default function UploadPage() {
           <h2>Proof Record Created</h2>
           <a href={`/verify/${proof}`}>Open Protocol Record</a>
         </div>
+      )}
+
+      {warning && (
+        <p style={{ color: "#b8860b", marginTop: 20 }}>
+          <strong>Warning:</strong> {warning}
+        </p>
       )}
 
       {error && <p style={{ color: "red", marginTop: 20 }}>{error}</p>}
