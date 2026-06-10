@@ -1,3 +1,8 @@
+import GlassPanel from "../../../components/protocol/GlassPanel";
+import PageShell from "../../../components/protocol/PageShell";
+import ProofField from "../../../components/protocol/ProofField";
+import ProtocolBadge from "../../../components/protocol/ProtocolBadge";
+import StatusCard from "../../../components/protocol/StatusCard";
 import { getSupabase, isSupabaseConfigured } from "../../lib/supabase";
 
 function getProtocolFields(proof) {
@@ -26,15 +31,24 @@ function getProtocolFields(proof) {
   };
 }
 
+function getStatusBadge(proof, isAnchored) {
+  if (isAnchored) return { label: "Evaluated", variant: "success" };
+  if (proof.status === "evaluated") return { label: "Evaluated", variant: "success" };
+  if (proof.status === "uploaded") return { label: "Pending evaluation", variant: "pending" };
+  return { label: "Unanchored", variant: "warning" };
+}
+
 export default async function VerifyPage({ params }) {
   const { proofId } = params;
 
   if (!isSupabaseConfigured()) {
     return (
-      <main style={{ padding: 24 }}>
-        <h1>Configuration Required</h1>
-        <p>Supabase environment variables are not configured.</p>
-      </main>
+      <PageShell
+        narrow
+        badge="Configuration"
+        title="Configuration Required"
+        subtitle="Supabase environment variables are not configured."
+      />
     );
   }
 
@@ -47,10 +61,12 @@ export default async function VerifyPage({ params }) {
 
   if (error || !proof) {
     return (
-      <main style={{ padding: 24 }}>
-        <h1>Record Not Found</h1>
-        <p>This protocol record does not exist.</p>
-      </main>
+      <PageShell
+        narrow
+        badge="Protocol Record"
+        title="Record Not Found"
+        subtitle="This protocol record does not exist."
+      />
     );
   }
 
@@ -60,150 +76,103 @@ export default async function VerifyPage({ params }) {
       protocol.evidenceBundleHash &&
       protocol.publicLabel
   );
+  const statusBadge = getStatusBadge(proof, isAnchored);
 
   return (
-    <main style={{ padding: 24, maxWidth: 800, margin: "0 auto" }}>
-      {isAnchored ? (
-        <div
-          style={{
-            padding: 16,
-            borderRadius: 12,
-            marginBottom: 24,
-            border: "1px solid rgba(0,229,255,.35)",
-            background: "rgba(0,229,255,.08)",
-          }}
-        >
-          <h1 style={{ margin: 0, fontSize: 22 }}>
-            Registered ProofOrigin Protocol Record Matched
-          </h1>
-          <p style={{ marginBottom: 0, marginTop: 8 }}>
-            Structural protocol metadata is present for this upload record.
-          </p>
+    <PageShell
+      narrow
+      badge="Protocol Record"
+      title={proof.file_name || "Proof Record"}
+      subtitle="A protocol-scoped upload record. This does not verify absolute truth."
+    >
+      <div className="record-header">
+        <div className="record-header__badges">
+          <ProtocolBadge variant={statusBadge.variant}>
+            {statusBadge.label}
+          </ProtocolBadge>
+          {isAnchored ? (
+            <ProtocolBadge variant="success">Anchored metadata</ProtocolBadge>
+          ) : (
+            <ProtocolBadge variant="warning">Unanchored</ProtocolBadge>
+          )}
         </div>
-      ) : (
-        <div
-          style={{
-            padding: 16,
-            borderRadius: 12,
-            marginBottom: 24,
-            border: "1px solid rgba(255,180,0,.35)",
-            background: "rgba(255,180,0,.08)",
-          }}
-        >
-          <h1 style={{ margin: 0, fontSize: 22 }}>
-            Unanchored Protocol Record
-          </h1>
-          <p style={{ marginBottom: 0, marginTop: 8 }}>
-            This upload is registered, but protocol anchoring fields are missing.
-            No credential link should be inferred until evaluation metadata is
-            complete.
-          </p>
-        </div>
-      )}
+      </div>
 
-      <p>
-        <strong>Record ID:</strong> {proof.proof_id}
-      </p>
-      <p>
-        <strong>File Name:</strong> {proof.file_name}
-      </p>
-      <p>
-        <strong>File Type:</strong> {proof.file_type}
-      </p>
-      <p>
-        <strong>Status:</strong> {proof.status}
-      </p>
-      <p>
-        <strong>Created:</strong>{" "}
-        {new Date(proof.created_at).toLocaleString()}
-      </p>
-
-      {protocol.hasStoredProtocol && (
-        <>
-          <h2 style={{ marginTop: 24 }}>Protocol Evaluation Metadata</h2>
-          <p style={{ marginTop: 0 }}>
-            This section records protocol-scoped analysis metadata. It does not
-            verify absolute truth.
-          </p>
-
-          {protocol.publicLabel && (
-            <p>
-              <strong>Public Evaluation Label:</strong> {protocol.publicLabel}
-            </p>
-          )}
-          {protocol.decisionTier && (
-            <p>
-              <strong>Decision Tier:</strong> {protocol.decisionTier}
-            </p>
-          )}
-          {protocol.evidenceBundleHash && (
-            <p style={{ wordBreak: "break-all" }}>
-              <strong>Evidence Bundle Hash:</strong>{" "}
-              {protocol.evidenceBundleHash}
-            </p>
-          )}
-          {protocol.verifiedScope && (
-            <p>
-              <strong>Verified Scope:</strong> {protocol.verifiedScope}
-            </p>
-          )}
-          <p>
-            <strong>Truth Verified:</strong>{" "}
-            {protocol.truthVerified === true
-              ? "Yes"
-              : "No — does not verify absolute truth"}
-          </p>
-          {protocol.protocolName && (
-            <p>
-              <strong>Protocol Name:</strong> {protocol.protocolName}
-            </p>
-          )}
-          {protocol.protocolVersion && (
-            <p>
-              <strong>Protocol Version:</strong> {protocol.protocolVersion}
-            </p>
-          )}
-          {protocol.fileId && (
-            <p>
-              <strong>Backend File ID:</strong> {protocol.fileId}
-            </p>
-          )}
-          {protocol.verificationNotice && (
-            <p>
-              <strong>Verification Notice:</strong> {protocol.verificationNotice}
-            </p>
-          )}
-          {protocol.claimBoundary && (
-            <p>
-              <strong>Claim Boundary:</strong> {protocol.claimBoundary}
-            </p>
-          )}
-        </>
-      )}
+      <StatusCard variant={isAnchored ? "anchored" : "unanchored"} />
 
       {proof.public_url && proof.file_type?.startsWith("image/") && (
-        <img
-          src={proof.public_url}
-          alt={proof.file_name}
-          style={{ maxWidth: "100%", borderRadius: 16, marginTop: 20 }}
-        />
+        <div className="image-frame">
+          <img src={proof.public_url} alt={proof.file_name} />
+        </div>
       )}
 
-      <hr style={{ margin: "30px 0" }} />
+      <GlassPanel title="Record Details">
+        <div className="proof-grid">
+          <ProofField label="Record ID" value={proof.proof_id} mono />
+          <ProofField label="File Name" value={proof.file_name} />
+          <ProofField label="File Type" value={proof.file_type} />
+          <ProofField label="Status" value={proof.status} />
+          <ProofField
+            label="Created"
+            value={new Date(proof.created_at).toLocaleString()}
+          />
+          <ProofField label="Storage Path" value={proof.storage_path} mono />
+        </div>
+      </GlassPanel>
 
-      <h2>Protocol Record Notice</h2>
-      <p>
-        This file has been uploaded and indexed under a ProofOrigin protocol
-        record. This state does not verify absolute truth.
-      </p>
+      {protocol.hasStoredProtocol ? (
+        <GlassPanel
+          title="Protocol Evaluation Metadata"
+          subtitle="Protocol-scoped analysis metadata. This does not verify absolute truth."
+        >
+          <div className="proof-grid">
+            <ProofField label="Public Evaluation Label" value={protocol.publicLabel} />
+            <ProofField label="Decision Tier" value={protocol.decisionTier} />
+            <ProofField
+              label="Evidence Bundle Hash"
+              value={protocol.evidenceBundleHash}
+              mono
+            />
+            <ProofField label="Verified Scope" value={protocol.verifiedScope} />
+            <ProofField
+              label="Truth Verified"
+              value={
+                protocol.truthVerified === true
+                  ? "Yes"
+                  : "No — does not verify absolute truth"
+              }
+            />
+            <ProofField label="Protocol Name" value={protocol.protocolName} />
+            <ProofField label="Protocol Version" value={protocol.protocolVersion} />
+            <ProofField label="Backend File ID" value={protocol.fileId} mono />
+            <ProofField
+              label="Verification Notice"
+              value={protocol.verificationNotice}
+            />
+            <ProofField label="Claim Boundary" value={protocol.claimBoundary} />
+          </div>
+        </GlassPanel>
+      ) : (
+        <StatusCard variant="pending" />
+      )}
 
-      <p>
-        <strong>Bitcoin anchoring:</strong> Coming soon
-      </p>
-      <p>
-        <strong>Extended protocol evaluation:</strong>{" "}
-        {proof.status === "evaluated" ? "Recorded in metadata" : "Pending"}
-      </p>
-    </main>
+      <GlassPanel title="Protocol Record Notice">
+        <p style={{ margin: 0, color: "#c5d2e6", lineHeight: 1.55 }}>
+          This file has been uploaded and indexed under a ProofOrigin protocol
+          record. This state does not verify absolute truth.
+        </p>
+        <div className="proof-grid" style={{ marginTop: 18 }}>
+          <ProofField label="Bitcoin anchoring" value="Coming soon" />
+          <ProofField
+            label="Extended protocol evaluation"
+            value={
+              proof.status === "evaluated"
+                ? "Recorded in metadata"
+                : "Pending"
+            }
+          />
+        </div>
+      </GlassPanel>
+    </PageShell>
   );
 }

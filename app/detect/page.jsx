@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import LoadingState from "../../components/protocol/LoadingState";
+import PageShell from "../../components/protocol/PageShell";
+import ProtocolBadge from "../../components/protocol/ProtocolBadge";
 import { getProofOriginAnalyzeUrl } from "../lib/prooforiginAiConfig";
 import {
   buildProtocolShareText,
@@ -529,18 +532,12 @@ originalConsensus:
     "The image returned mixed signals. Treat the result as informational, not definitive.";
 
   return (
-    <main className="page">
-      <section className="hero">
-        <div className="badge">ProofOrigin AI Live Detector</div>
-
-        <h1>Protocol Evaluation Record</h1>
-
-        <p>
-          Upload an image to generate a protocol-scoped evaluation record with
-          public label, notices, and non-binding engine diagnostics.
-        </p>
-
-        <form onSubmit={analyzeImage} className="detector-card">
+    <PageShell
+      badge="ProofOrigin AI Live Detector"
+      title="Protocol Evaluation Record"
+      subtitle="Upload an image to generate a protocol-scoped evaluation record with public label, notices, and non-binding engine diagnostics."
+    >
+        <form onSubmit={analyzeImage} className="detector-card glass-panel">
           <label className="upload-box">
             <input
               className="file-input-hidden"
@@ -562,20 +559,36 @@ originalConsensus:
           </button>
         </form>
 
-        {error && <div className="error-box">{error}</div>}
+        {loading && (
+          <LoadingState
+            title="Running protocol evaluation"
+            message="ProofOrigin AI is analyzing your image. This does not verify absolute truth."
+          />
+        )}
 
-        {result && (
-          <div className="report-card">
+        {error && (
+          <div className="alert-banner alert-banner--error" role="alert">
+            <strong>Analysis failed</strong>
+            {error}
+          </div>
+        )}
+
+        {result && !loading && (
+          <div className="report-card glass-panel">
+            <div className="record-header">
+              <div className="record-header__badges">
+                <ProtocolBadge variant="success">Evaluated</ProtocolBadge>
+                {protocol.decisionTier &&
+                  protocol.decisionTier !== "unspecified" && (
+                    <ProtocolBadge>{protocol.decisionTier}</ProtocolBadge>
+                  )}
+              </div>
+            </div>
+
             <div className="report-header">
               <div>
                 <p className="report-label">Public Evaluation Label</p>
                 <h2 className={statusClass}>{protocol.publicLabel}</h2>
-                {protocol.decisionTier &&
-                  protocol.decisionTier !== "unspecified" && (
-                    <span className="badge" style={{ marginTop: 12 }}>
-                      Decision tier: {protocol.decisionTier}
-                    </span>
-                  )}
               </div>
 
               <div className="score-circle">
@@ -882,7 +895,6 @@ originalConsensus:
             </button>
           </div>
         )}
-      </section>
-    </main>
+    </PageShell>
   );
 }

@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import PremiumVerificationCard from "../../../components/PremiumVerificationCard";
+import LoadingState from "../../../components/protocol/LoadingState";
+import PageShell from "../../../components/protocol/PageShell";
+import ProtocolBadge from "../../../components/protocol/ProtocolBadge";
+import StatusCard from "../../../components/protocol/StatusCard";
 import {
   getProofOriginAiBaseUrl,
   getProofOriginReportUrl,
@@ -121,24 +125,24 @@ export default function EvidenceReportPage() {
 
   if (loading) {
     return (
-      <main className="page">
-        <section className="hero">
-          <h1>Loading Evidence Report...</h1>
-        </section>
-      </main>
+      <PageShell badge="Protocol Report" title="Loading Report">
+        <LoadingState
+          title="Loading evaluation record"
+          message="Fetching protocol-scoped report data from ProofOrigin AI."
+        />
+      </PageShell>
     );
   }
 
   if (error || !record || !protocol) {
     return (
-      <main className="page">
-        <section className="hero">
-          <div className="report-card">
-            <h1>Evidence Report Not Found</h1>
-            <p>{error}</p>
-          </div>
-        </section>
-      </main>
+      <PageShell
+        badge="Protocol Report"
+        title="Report Not Found"
+        subtitle={error || "This evaluation record could not be loaded."}
+      >
+        <StatusCard variant="error" body={error} />
+      </PageShell>
     );
   }
 
@@ -149,20 +153,23 @@ export default function EvidenceReportPage() {
   );
 
   return (
-    <main className="page">
-      <section className="hero">
-        <div className="badge">ProofOrigin Protocol Evaluation</div>
+    <PageShell
+      badge="ProofOrigin Protocol Evaluation"
+      title="Proof-of-Origin Evaluation Record"
+      subtitle="This is a public protocol evaluation record. It does not verify absolute truth."
+    >
+      <div className="record-header">
+        <div className="record-header__badges">
+          <ProtocolBadge variant="success">Evaluated</ProtocolBadge>
+          {protocol.decisionTier && protocol.decisionTier !== "unspecified" && (
+            <ProtocolBadge>{protocol.decisionTier}</ProtocolBadge>
+          )}
+        </div>
+      </div>
 
-        <h1>Proof-of-Origin Evaluation Record</h1>
+      <PremiumVerificationCard />
 
-        <p>
-          This is a public protocol evaluation record. It does not verify
-          absolute truth.
-        </p>
-
-        <PremiumVerificationCard />
-
-        <div className="report-card">
+      <div className="report-card glass-panel">
           <div className="report-header">
             <div>
               <p className="report-label">Public Evaluation Label</p>
@@ -291,7 +298,6 @@ export default function EvidenceReportPage() {
             <button onClick={() => window.print()}>Download PDF</button>
           </div>
         </div>
-      </section>
-    </main>
+    </PageShell>
   );
 }
