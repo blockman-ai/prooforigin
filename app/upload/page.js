@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "../lib/supabase";
+import { getSupabase } from "../lib/supabase";
 import { mapProofOriginProtocol } from "../lib/prooforiginProtocolMapper";
 
 export default function UploadPage() {
@@ -20,6 +20,7 @@ export default function UploadPage() {
     setStatus("Creating proof record...");
 
     try {
+      const supabase = getSupabase();
       const proofId = crypto.randomUUID();
       const storagePath = `uploads/${proofId}-${file.name}`;
 

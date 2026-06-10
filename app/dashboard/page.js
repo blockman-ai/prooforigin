@@ -1,11 +1,19 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+import { getSupabase } from "../lib/supabase";
 
 export default async function DashboardPage() {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    return (
+      <main style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
+        <h1>ProofOrigin Dashboard</h1>
+        <p>Supabase environment variables are not configured.</p>
+      </main>
+    );
+  }
+
+  const supabase = getSupabase();
   const { data: proofs } = await supabase
     .from("proofs")
     .select("*")

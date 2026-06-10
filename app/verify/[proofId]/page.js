@@ -1,10 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import { getSupabase } from "../../lib/supabase";
 import { mapProofOriginProtocol } from "../../lib/prooforiginProtocolMapper";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
 
 function getProtocolFields(proof) {
   const metadata =
@@ -31,6 +26,19 @@ function getProtocolFields(proof) {
 export default async function VerifyPage({ params }) {
   const { proofId } = params;
 
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    return (
+      <main style={{ padding: 24 }}>
+        <h1>Configuration Required</h1>
+        <p>Supabase environment variables are not configured.</p>
+      </main>
+    );
+  }
+
+  const supabase = getSupabase();
   const { data: proof, error } = await supabase
     .from("proofs")
     .select("*")
