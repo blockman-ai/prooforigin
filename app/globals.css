@@ -1940,6 +1940,44 @@ p {
   margin-top: 0;
 }
 
+.dataset-review-feedback-anchor {
+  margin-bottom: 4px;
+}
+
+.dataset-review-feedback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.dataset-review-feedback__content {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.dataset-review-feedback__message {
+  display: block;
+  word-break: break-word;
+}
+
+.dataset-review-feedback__dismiss {
+  flex: 0 0 auto;
+  min-height: 44px;
+  min-width: 88px;
+}
+
+@media (max-width: 599px) {
+  .dataset-review-feedback {
+    position: sticky;
+    top: 8px;
+    z-index: 5;
+  }
+}
+
 .dataset-review-toolbar {
   margin-top: 0;
   margin-bottom: 8px;

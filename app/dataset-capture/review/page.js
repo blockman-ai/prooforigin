@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import DatasetCaptureAuthGate from "../../../components/dataset/DatasetCaptureAuthGate";
 import GlassPanel from "../../../components/protocol/GlassPanel";
 import LoadingState from "../../../components/protocol/LoadingState";
@@ -21,6 +21,39 @@ import {
 const REVIEW_NOTICE =
   "OpenAI suggestions are advisory only. Images are not used for training until manually approved and the safe training gate passes.";
 
+const DEFAULT_APPROVE_SUCCESS = "Capture approved for import.";
+
+function ReviewFeedbackBanner({ variant, title, message, onDismiss }) {
+  if (!message && !title) {
+    return null;
+  }
+
+  return (
+    <div
+      className={`dataset-review-feedback alert-banner alert-banner--${variant}`}
+      role={variant === "error" ? "alert" : "status"}
+      aria-live={variant === "error" ? "assertive" : "polite"}
+    >
+      <div className="dataset-review-feedback__content">
+        {title && <strong>{title}</strong>}
+        {message && (
+          <span className="dataset-review-feedback__message">{message}</span>
+        )}
+      </div>
+      {onDismiss && (
+        <button
+          type="button"
+          className="secondary dataset-review-feedback__dismiss"
+          onClick={onDismiss}
+          aria-label="Dismiss message"
+        >
+          Dismiss
+        </button>
+      )}
+    </div>
+  );
+}
+
 function formatTimestamp(value) {
   if (!value) return "Unknown";
   try {
@@ -38,7 +71,13 @@ function bucketLabel(value) {
   );
 }
 
-function CaptureReviewCard({ capture, accessToken, onReviewed }) {
+function CaptureReviewCard({
+  capture,
+  accessToken,
+  onReviewSuccess,
+  onReviewError,
+  onReviewed,
+}) {
   const [signedUrl, setSignedUrl] = useState("");
   const [previewError, setPreviewError] = useState("");
   const [previewLoading, setPreviewLoading] = useState(true);
@@ -47,8 +86,8 @@ function CaptureReviewCard({ capture, accessToken, onReviewed }) {
   );
   const [reviewerNotes, setReviewerNotes] = useState("");
   const [actionError, setActionError] = useState("");
-  const [actionMessage, setActionMessage] = useState("");
   const [submitting, setSubmitting] = useState("");
+  const errorAnchorRef = useRef(null);
 
   const loadSignedUrl = useCallback(async () => {
     setPreviewLoading(true);
@@ -84,6 +123,12 @@ function CaptureReviewCard({ capture, accessToken, onReviewed }) {
     loadSignedUrl();
   }, [loadSignedUrl]);
 
+  useEffect(() => {
+    if (actionError && errorAnchorRef.current) {
+      errorAnchorRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [actionError]);
+
   const qualityWarnings =
     capture.quality_warnings ||
     assessCaptureQuality({
@@ -94,7 +139,6 @@ function CaptureReviewCard({ capture, accessToken, onReviewed }) {
 
   async function submitReview(action) {
     setActionError("");
-    setActionMessage("");
     setSubmitting(action);
 
     try {
@@ -111,32 +155,36 @@ function CaptureReviewCard({ capture, accessToken, onReviewed }) {
           reviewer_notes: reviewerNotes,
         }),
       });
-      const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        setActionError(data.error || "Review action failed.");
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        const failure = `Review request failed (${res.status || "network"}).`;
+        setActionError(failure);
+        onReviewError?.({ captureId: capture.id, action, error: failure });
         return;
       }
 
-      const actionLabel =
-        action === "approve"
-          ? "approved for import (safe gate required before training)"
-          : action === "reject"
-            ? "rejected"
-            : action === "duplicate"
-              ? "marked duplicate"
-              : action === "low_quality"
-                ? "marked low quality"
-                : action === "keep_for_regression_only"
-                  ? "kept for regression only"
-                  : action === "wrong_bucket"
-                    ? "bucket corrected"
-                    : "bucket updated";
+      if (!res.ok || !data.success) {
+        const failure = data.error || "Review action failed.";
+        setActionError(failure);
+        onReviewError?.({ captureId: capture.id, action, error: failure });
+        return;
+      }
 
-      setActionMessage(`Capture ${actionLabel}.`);
-      onReviewed(capture.id, action, data.capture);
+      onReviewSuccess?.({
+        captureId: capture.id,
+        action,
+        message: data.message,
+        capture: data.capture,
+        filename: capture.original_filename,
+      });
+      onReviewed?.(capture.id, action, data.capture);
     } catch {
-      setActionError("Review request failed.");
+      const failure = "Review request failed.";
+      setActionError(failure);
+      onReviewError?.({ captureId: capture.id, action, error: failure });
     } finally {
       setSubmitting("");
     }
@@ -271,11 +319,9 @@ function CaptureReviewCard({ capture, accessToken, onReviewed }) {
         </label>
 
         {actionError && (
-          <StatusCard variant="error" body={actionError} className="dataset-status" />
-        )}
-
-        {actionMessage && (
-          <StatusCard variant="success" body={actionMessage} className="dataset-status" />
+          <div ref={errorAnchorRef}>
+            <StatusCard variant="error" body={actionError} className="dataset-status" />
+          </div>
         )}
 
         <div className="protocol-actions">
@@ -353,6 +399,17 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
   const [trainSubmitting, setTrainSubmitting] = useState(false);
   const [trainMessage, setTrainMessage] = useState("");
   const [trainError, setTrainError] = useState("");
+  const [feedbackBanner, setFeedbackBanner] = useState(null);
+  const [approvedSessionCount, setApprovedSessionCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
+  const feedbackRef = useRef(null);
+
+  const showFeedback = useCallback((variant, message, title) => {
+    setFeedbackBanner({ variant, message, title });
+    requestAnimationFrame(() => {
+      feedbackRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }, []);
 
   const loadGateStatus = useCallback(async () => {
     setGateLoading(true);
@@ -387,8 +444,10 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
     }
   }, [accessToken]);
 
-  const loadCaptures = useCallback(async () => {
-    setLoading(true);
+  const loadCaptures = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setLoadError("");
 
     try {
@@ -405,15 +464,21 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
       if (!res.ok || !data.success) {
         setLoadError(data.error || "Unable to load pending captures.");
         setCaptures([]);
+        setPendingCount(0);
         return;
       }
 
-      setCaptures(data.captures || []);
+      const nextCaptures = data.captures || [];
+      setCaptures(nextCaptures);
+      setPendingCount(nextCaptures.length);
     } catch {
       setLoadError("Unable to reach the review list API.");
       setCaptures([]);
+      setPendingCount(0);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [accessToken]);
 
@@ -456,17 +521,70 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
     }
   }
 
-  function handleReviewed(captureId, action, updatedCapture) {
+  function handleReviewSuccess({ captureId, action, message, filename }) {
+    if (action === "approve") {
+      setApprovedSessionCount((count) => count + 1);
+      showFeedback(
+        "success",
+        message || "",
+        DEFAULT_APPROVE_SUCCESS
+      );
+      setCaptures((prev) => {
+        const next = prev.filter((capture) => capture.id !== captureId);
+        setPendingCount(next.length);
+        return next;
+      });
+      loadGateStatus();
+      loadCaptures({ silent: true });
+      return;
+    }
+
+    const successTitles = {
+      reject: "Capture rejected",
+      duplicate: "Marked duplicate",
+      low_quality: "Marked low quality",
+      keep_for_regression_only: "Saved for regression",
+      update_bucket: "Bucket updated",
+      wrong_bucket: "Bucket corrected",
+    };
+
     if (
-      action === "approve" ||
       action === "reject" ||
       action === "duplicate" ||
       action === "low_quality"
     ) {
-      setCaptures((prev) => prev.filter((capture) => capture.id !== captureId));
+      showFeedback(
+        "success",
+        message || `${filename || "Capture"} ${action.replace(/_/g, " ")}.`,
+        successTitles[action] || "Review saved"
+      );
+      setCaptures((prev) => {
+        const next = prev.filter((capture) => capture.id !== captureId);
+        setPendingCount(next.length);
+        return next;
+      });
+      loadCaptures({ silent: true });
       return;
     }
 
+    if (message) {
+      showFeedback(
+        "success",
+        message,
+        successTitles[action] || "Review saved"
+      );
+    }
+  }
+
+  function handleReviewError({ error }) {
+    showFeedback(
+      "error",
+      error || "Review action failed.",
+      "Approval failed"
+    );
+  }
+
+  function handleReviewed(captureId, action, updatedCapture) {
     if (
       (action === "update_bucket" || action === "wrong_bucket") &&
       updatedCapture
@@ -488,8 +606,19 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
     >
       <GlassPanel
         title="Pending captures"
-        subtitle={`Signed in as ${email}. Only pending items appear here.`}
+        subtitle={`Signed in as ${email}. ${pendingCount} pending · Approved this session: ${approvedSessionCount}`}
       >
+        <div ref={feedbackRef} className="dataset-review-feedback-anchor">
+          {feedbackBanner && (
+            <ReviewFeedbackBanner
+              variant={feedbackBanner.variant}
+              title={feedbackBanner.title}
+              message={feedbackBanner.message}
+              onDismiss={() => setFeedbackBanner(null)}
+            />
+          )}
+        </div>
+
         <p className="dataset-notice">{REVIEW_NOTICE}</p>
 
         <GlassPanel
@@ -604,6 +733,8 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
               key={capture.id}
               capture={capture}
               accessToken={accessToken}
+              onReviewSuccess={handleReviewSuccess}
+              onReviewError={handleReviewError}
               onReviewed={handleReviewed}
             />
           ))}
