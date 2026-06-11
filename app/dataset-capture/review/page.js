@@ -11,11 +11,13 @@ import StatusCard from "../../../components/protocol/StatusCard";
 import { getDatasetCaptureAuthHeaders } from "../../lib/datasetCaptureClient";
 import {
   DATASET_CAPTURE_BUCKETS,
+  SAFE_TRAINING_NOTICE,
+  assessCaptureQuality,
   formatBytes,
 } from "../../lib/datasetCapture";
 
 const REVIEW_NOTICE =
-  "OpenAI suggestions are advisory only. Images are not used for training until manually approved.";
+  "OpenAI suggestions are advisory only. Images are not used for training until manually approved and the safe training gate passes.";
 
 function formatTimestamp(value) {
   if (!value) return "Unknown";
@@ -80,6 +82,14 @@ function CaptureReviewCard({ capture, accessToken, onReviewed }) {
     loadSignedUrl();
   }, [loadSignedUrl]);
 
+  const qualityWarnings =
+    capture.quality_warnings ||
+    assessCaptureQuality({
+      width: capture.width,
+      height: capture.height,
+      fileSize: capture.file_size,
+    });
+
   async function submitReview(action) {
     setActionError("");
     setActionMessage("");
@@ -108,10 +118,18 @@ function CaptureReviewCard({ capture, accessToken, onReviewed }) {
 
       const actionLabel =
         action === "approve"
-          ? "approved for training"
+          ? "approved for import (safe gate required before training)"
           : action === "reject"
             ? "rejected"
-            : "bucket updated";
+            : action === "duplicate"
+              ? "marked duplicate"
+              : action === "low_quality"
+                ? "marked low quality"
+                : action === "keep_for_regression_only"
+                  ? "kept for regression only"
+                  : action === "wrong_bucket"
+                    ? "bucket corrected"
+                    : "bucket updated";
 
       setActionMessage(`Capture ${actionLabel}.`);
       onReviewed(capture.id, action, data.capture);
@@ -148,11 +166,45 @@ function CaptureReviewCard({ capture, accessToken, onReviewed }) {
           <ProtocolBadge variant="pending">Pending review</ProtocolBadge>
         </div>
 
+        {capture.is_duplicate && (
+          <StatusCard
+            variant="warning"
+            title="Duplicate warning"
+            body="This SHA-256 already exists in the capture vault."
+            className="dataset-status"
+          />
+        )}
+
+        {qualityWarnings.length > 0 && (
+          <StatusCard
+            variant="warning"
+            title="Image quality warning"
+            body={qualityWarnings.join(" ")}
+            className="dataset-status"
+          />
+        )}
+
+        <p className="dataset-notice">{SAFE_TRAINING_NOTICE}</p>
+
         <div className="proof-grid">
           <ProofField label="Selected bucket" value={bucketLabel(capture.selected_bucket)} />
           <ProofField
-            label="Suggested bucket"
+            label="Human selected bucket"
+            value={bucketLabel(capture.human_verified_label || capture.selected_bucket)}
+          />
+          <ProofField
+            label="OpenAI suggested bucket"
             value={bucketLabel(capture.suggested_bucket) || "None"}
+          />
+          <ProofField
+            label="Approval status"
+            value={
+              capture.approved_for_training
+                ? "Approved for import"
+                : capture.rejected
+                  ? "Rejected"
+                  : "Pending"
+            }
           />
           <ProofField label="SHA256" value={capture.sha256} mono />
           <ProofField label="File size" value={formatBytes(capture.file_size)} />
@@ -226,7 +278,7 @@ function CaptureReviewCard({ capture, accessToken, onReviewed }) {
             disabled={Boolean(submitting)}
             onClick={() => submitReview("approve")}
           >
-            {submitting === "approve" ? "Approving..." : "Approve for training"}
+            {submitting === "approve" ? "Approving..." : "Approve for import"}
           </button>
           <button
             type="button"
@@ -235,6 +287,38 @@ function CaptureReviewCard({ capture, accessToken, onReviewed }) {
             onClick={() => submitReview("update_bucket")}
           >
             {submitting === "update_bucket" ? "Saving..." : "Save bucket correction"}
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={Boolean(submitting)}
+            onClick={() => submitReview("wrong_bucket")}
+          >
+            Wrong bucket
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={Boolean(submitting)}
+            onClick={() => submitReview("duplicate")}
+          >
+            Mark duplicate
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={Boolean(submitting)}
+            onClick={() => submitReview("low_quality")}
+          >
+            Low quality
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={Boolean(submitting)}
+            onClick={() => submitReview("keep_for_regression_only")}
+          >
+            Regression only
           </button>
           <button
             type="button"
@@ -290,12 +374,20 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
   }, [loadCaptures]);
 
   function handleReviewed(captureId, action, updatedCapture) {
-    if (action === "approve" || action === "reject") {
+    if (
+      action === "approve" ||
+      action === "reject" ||
+      action === "duplicate" ||
+      action === "low_quality"
+    ) {
       setCaptures((prev) => prev.filter((capture) => capture.id !== captureId));
       return;
     }
 
-    if (action === "update_bucket" && updatedCapture) {
+    if (
+      (action === "update_bucket" || action === "wrong_bucket") &&
+      updatedCapture
+    ) {
       setCaptures((prev) =>
         prev.map((capture) =>
           capture.id === captureId ? { ...capture, ...updatedCapture } : capture

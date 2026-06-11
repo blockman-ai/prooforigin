@@ -5,6 +5,7 @@ import {
   DATASET_CAPTURE_PRIVATE_BUCKET,
   DATASET_CAPTURE_SOURCE,
   DATASET_CAPTURE_TABLE,
+  assessCaptureQuality,
   buildDatasetStoragePath,
   isDatasetCaptureBucket,
   isImageUploadFile,
@@ -72,6 +73,44 @@ export async function POST(req) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const sha256 = crypto.createHash("sha256").update(buffer).digest("hex");
+
+    const supabase = getSupabaseAdmin();
+    const { data: existing, error: duplicateLookupError } = await supabase
+      .from(DATASET_CAPTURE_TABLE)
+      .select(
+        "id, sha256, selected_bucket, suggested_bucket, approved_for_training, rejected, review_status, created_at"
+      )
+      .eq("sha256", sha256)
+      .maybeSingle();
+
+    if (duplicateLookupError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: duplicateLookupError.message || "Duplicate lookup failed.",
+        },
+        { status: 502 }
+      );
+    }
+
+    if (existing) {
+      return NextResponse.json({
+        success: true,
+        duplicate: true,
+        message: "Duplicate image skipped — already captured.",
+        sha256,
+        existing: {
+          id: existing.id,
+          selected_bucket: existing.selected_bucket,
+          suggested_bucket: existing.suggested_bucket,
+          approved_for_training: existing.approved_for_training,
+          rejected: existing.rejected,
+          review_status: existing.review_status,
+          created_at: existing.created_at,
+        },
+      });
+    }
+
     const captureId = crypto.randomUUID();
     const storagePath = buildDatasetStoragePath(
       selectedBucket,
@@ -91,7 +130,12 @@ export async function POST(req) {
       height = null;
     }
 
-    const supabase = getSupabaseAdmin();
+    const qualityWarnings = assessCaptureQuality({
+      width,
+      height,
+      fileSize: file.size || buffer.length,
+    });
+
     const { error: storageError } = await supabase.storage
       .from(DATASET_CAPTURE_PRIVATE_BUCKET)
       .upload(storagePath, buffer, {
@@ -130,7 +174,12 @@ export async function POST(req) {
       height,
       file_size: file.size || buffer.length,
       approved_for_training: false,
+      ready_for_import: false,
       rejected: false,
+      is_duplicate: false,
+      keep_for_regression_only: false,
+      quality_warnings: qualityWarnings.length ? qualityWarnings : null,
+      review_status: "pending_review",
     };
 
     const { error: insertError } = await supabase
@@ -153,11 +202,13 @@ export async function POST(req) {
 
     return NextResponse.json({
       success: true,
+      duplicate: false,
       id: captureId,
       original_filename: row.original_filename,
       selected_bucket: selectedBucket,
       suggested_bucket: normalizedSuggested,
       sha256,
+      quality_warnings: qualityWarnings,
     });
   } catch (error) {
     return NextResponse.json(

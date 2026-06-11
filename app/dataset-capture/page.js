@@ -16,6 +16,7 @@ const STATUS_LABELS = {
   pending: "Pending",
   uploading: "Uploading",
   uploaded: "Uploaded",
+  duplicate: "Duplicate skipped",
   failed: "Failed",
 };
 
@@ -158,14 +159,26 @@ function DatasetCaptureUploadPanel({ accessToken, email, onSignOut }) {
       throw new Error("Upload response was invalid.");
     }
 
-    if (!res.ok || !data.success) {
+    if (!res.ok || (!data.success && !data.duplicate)) {
       throw new Error(data.error || "Upload failed.");
+    }
+
+    if (data.duplicate) {
+      return {
+        captureId: data.existing?.id || "",
+        suggestedBucket: data.existing?.suggested_bucket || "",
+        duplicate: true,
+        duplicateMessage: data.message || "Duplicate image skipped — already captured.",
+        existing: data.existing,
+      };
     }
 
     return {
       captureId: data.id,
       suggestedBucket:
         data.suggested_bucket || classification.suggestedBucket || "",
+      duplicate: false,
+      qualityWarnings: data.quality_warnings || [],
     };
   }
 
@@ -180,10 +193,12 @@ function DatasetCaptureUploadPanel({ accessToken, email, onSignOut }) {
 
     let uploaded = 0;
     let failed = 0;
+    let duplicates = 0;
 
     for (const item of queue) {
-      if (item.status === "uploaded") {
-        uploaded += 1;
+      if (item.status === "uploaded" || item.status === "duplicate") {
+        if (item.status === "uploaded") uploaded += 1;
+        if (item.status === "duplicate") duplicates += 1;
         continue;
       }
 
@@ -191,13 +206,26 @@ function DatasetCaptureUploadPanel({ accessToken, email, onSignOut }) {
 
       try {
         const result = await uploadFile(item);
-        updateQueueItem(item.key, {
-          status: "uploaded",
-          captureId: result.captureId,
-          suggestedBucket: result.suggestedBucket,
-          error: "",
-        });
-        uploaded += 1;
+        if (result.duplicate) {
+          updateQueueItem(item.key, {
+            status: "duplicate",
+            captureId: result.captureId,
+            suggestedBucket: result.suggestedBucket,
+            duplicateMessage: result.duplicateMessage,
+            existing: result.existing,
+            error: "",
+          });
+          duplicates += 1;
+        } else {
+          updateQueueItem(item.key, {
+            status: "uploaded",
+            captureId: result.captureId,
+            suggestedBucket: result.suggestedBucket,
+            qualityWarnings: result.qualityWarnings,
+            error: "",
+          });
+          uploaded += 1;
+        }
       } catch (error) {
         updateQueueItem(item.key, {
           status: "failed",
@@ -209,7 +237,7 @@ function DatasetCaptureUploadPanel({ accessToken, email, onSignOut }) {
 
     setUploading(false);
     setBatchSummary(
-      `Batch complete: ${uploaded} uploaded, ${failed} failed, ${queue.length} total.`
+      `Batch complete: ${uploaded} uploaded, ${duplicates} duplicate${duplicates === 1 ? "" : "s"} skipped, ${failed} failed, ${queue.length} total.`
     );
   }
 

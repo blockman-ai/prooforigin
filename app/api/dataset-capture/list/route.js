@@ -40,6 +40,8 @@ export async function POST(req) {
       .select(DATASET_CAPTURE_LIST_FIELDS)
       .eq("approved_for_training", false)
       .eq("rejected", false)
+      .eq("is_duplicate", false)
+      .eq("keep_for_regression_only", false)
       .order("created_at", { ascending: false })
       .limit(limit);
 

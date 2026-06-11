@@ -12,11 +12,17 @@ import { getSupabaseAdmin, isSupabaseAdminConfigured } from "../../../lib/supaba
 
 export const dynamic = "force-dynamic";
 
+const SELECT_FIELDS =
+  "id, original_filename, sha256, selected_bucket, suggested_bucket, human_verified_label, source, consent_status, notes, vision_notes, width, height, file_size, approved_for_training, ready_for_import, rejected, review_status, is_duplicate, keep_for_regression_only, quality_warnings, reviewer_notes, reviewed_at, created_at";
+
 function buildReviewResponse(action, capture) {
   return {
     success: true,
     action,
     capture,
+    trains_immediately: false,
+    message:
+      "Approval recorded. Training runs only through the safe auto-train gate after correction targets are met.",
   };
 }
 
@@ -85,6 +91,7 @@ export async function POST(req) {
     let patch = {
       reviewer_notes: reviewerNotes,
       reviewed_at: reviewedAt,
+      review_status: action,
     };
 
     if (action === DATASET_CAPTURE_REVIEW_ACTIONS.APPROVE) {
@@ -106,17 +113,51 @@ export async function POST(req) {
       patch = {
         ...patch,
         approved_for_training: true,
+        ready_for_import: true,
         rejected: false,
+        keep_for_regression_only: false,
         selected_bucket: approvedBucket,
         human_verified_label: approvedBucket,
+        review_status: "approve",
       };
     } else if (action === DATASET_CAPTURE_REVIEW_ACTIONS.REJECT) {
       patch = {
         ...patch,
         approved_for_training: false,
+        ready_for_import: false,
         rejected: true,
+        review_status: "reject",
       };
-    } else if (action === DATASET_CAPTURE_REVIEW_ACTIONS.UPDATE_BUCKET) {
+    } else if (action === DATASET_CAPTURE_REVIEW_ACTIONS.DUPLICATE) {
+      patch = {
+        ...patch,
+        approved_for_training: false,
+        ready_for_import: false,
+        rejected: true,
+        is_duplicate: true,
+        review_status: "duplicate",
+      };
+    } else if (action === DATASET_CAPTURE_REVIEW_ACTIONS.LOW_QUALITY) {
+      patch = {
+        ...patch,
+        approved_for_training: false,
+        ready_for_import: false,
+        rejected: true,
+        review_status: "low_quality",
+      };
+    } else if (action === DATASET_CAPTURE_REVIEW_ACTIONS.KEEP_FOR_REGRESSION) {
+      patch = {
+        ...patch,
+        approved_for_training: false,
+        ready_for_import: false,
+        rejected: false,
+        keep_for_regression_only: true,
+        review_status: "keep_for_regression_only",
+      };
+    } else if (
+      action === DATASET_CAPTURE_REVIEW_ACTIONS.UPDATE_BUCKET ||
+      action === DATASET_CAPTURE_REVIEW_ACTIONS.WRONG_BUCKET
+    ) {
       if (!isDatasetCaptureBucket(correctionBucket)) {
         return NextResponse.json(
           {
@@ -132,7 +173,12 @@ export async function POST(req) {
         selected_bucket: correctionBucket,
         human_verified_label: correctionBucket,
         approved_for_training: false,
+        ready_for_import: false,
         rejected: false,
+        review_status:
+          action === DATASET_CAPTURE_REVIEW_ACTIONS.WRONG_BUCKET
+            ? "wrong_bucket"
+            : "update_bucket",
       };
     }
 
@@ -140,9 +186,7 @@ export async function POST(req) {
       .from(DATASET_CAPTURE_TABLE)
       .update(patch)
       .eq("id", captureId)
-      .select(
-        "id, original_filename, sha256, selected_bucket, suggested_bucket, human_verified_label, source, consent_status, notes, vision_notes, width, height, file_size, approved_for_training, rejected, reviewer_notes, reviewed_at, created_at"
-      )
+      .select(SELECT_FIELDS)
       .maybeSingle();
 
     if (error) {

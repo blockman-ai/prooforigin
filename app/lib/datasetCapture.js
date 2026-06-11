@@ -20,7 +20,14 @@ export const DATASET_CAPTURE_REVIEW_ACTIONS = {
   APPROVE: "approve",
   REJECT: "reject",
   UPDATE_BUCKET: "update_bucket",
+  DUPLICATE: "duplicate",
+  WRONG_BUCKET: "wrong_bucket",
+  LOW_QUALITY: "low_quality",
+  KEEP_FOR_REGRESSION: "keep_for_regression_only",
 };
+
+export const SAFE_TRAINING_NOTICE =
+  "Will be used for training only after the safe training gate passes (correction targets met + candidate model promotion gates).";
 
 export const DATASET_CAPTURE_LIST_FIELDS = [
   "id",
@@ -38,6 +45,12 @@ export const DATASET_CAPTURE_LIST_FIELDS = [
   "file_size",
   "approved_for_training",
   "rejected",
+  "review_status",
+  "ready_for_import",
+  "is_duplicate",
+  "duplicate_of_id",
+  "keep_for_regression_only",
+  "quality_warnings",
   "reviewer_notes",
   "reviewed_at",
   "created_at",
@@ -72,4 +85,21 @@ export function isImageUploadFile(file) {
 
   const lowerName = (file.name || "").toLowerCase();
   return /\.(jpe?g|png|gif|webp|heic|heif|bmp|tif?f|avif)$/i.test(lowerName);
+}
+
+const MIN_QUALITY_WIDTH = 320;
+const MIN_QUALITY_HEIGHT = 320;
+const MIN_QUALITY_BYTES = 12 * 1024;
+
+export function assessCaptureQuality({ width, height, fileSize }) {
+  const warnings = [];
+  if (width != null && height != null) {
+    if (width < MIN_QUALITY_WIDTH || height < MIN_QUALITY_HEIGHT) {
+      warnings.push("Image may be too small for reliable training.");
+    }
+  }
+  if (fileSize != null && Number(fileSize) < MIN_QUALITY_BYTES) {
+    warnings.push("File size is very small; verify image is not corrupted.");
+  }
+  return warnings;
 }
