@@ -53,6 +53,22 @@ export default function Home() {
         </GlassPanel>
       </section>
 
+      <section className="voice-promo" aria-label="Voice identity protection">
+        <GlassPanel className="voice-promo__panel" title="Protect your voice identity">
+          <p className="voice-promo__copy">
+            AI voice clones are already used in phone scams and impersonation fraud.
+            Voice Identity Anchor is ProofOrigin&apos;s first step toward helping people
+            document and protect their real voice — starting with a private fingerprint
+            hash, not a public recording.
+          </p>
+          <div className="protocol-actions voice-promo__actions">
+            <a href="/voice-anchor" className="primary">
+              Explore Voice Anchor V1
+            </a>
+          </div>
+        </GlassPanel>
+      </section>
+
       <section className="arcade-strip">
         <p className="arcade-strip__label">Protocol Arcade</p>
         <div className="protocol-actions arcade-strip__actions">

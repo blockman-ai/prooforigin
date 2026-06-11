@@ -2145,5 +2145,437 @@ p {
   line-height: 1.55;
 }
 
+.dataset-progress-dashboard {
+  margin-bottom: 24px;
+}
 
+.dataset-progress-gate-banner {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--po-border);
+}
+
+.dataset-progress-gate-banner--open {
+  color: #b8ffe0;
+  background: rgba(0, 255, 160, 0.08);
+  border-color: rgba(0, 255, 160, 0.28);
+}
+
+.dataset-progress-gate-banner--closed {
+  color: #ffe6a8;
+  background: rgba(255, 180, 0, 0.08);
+  border-color: rgba(255, 180, 0, 0.28);
+}
+
+.dataset-progress-gate-banner__label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dataset-progress-gate-banner__body {
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+
+.dataset-progress-section {
+  margin-top: 24px;
+}
+
+.dataset-progress-section__title {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.dataset-progress-section__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 10px;
+  font-family: var(--po-font-mono);
+  font-size: 18px;
+}
+
+.dataset-progress-section__percent {
+  color: var(--po-muted);
+  font-size: 15px;
+}
+
+.dataset-progress-section__hint {
+  margin: 10px 0 0;
+  color: var(--po-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.dataset-progress-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dataset-progress-row {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--po-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dataset-progress-row--met {
+  border-color: rgba(93, 255, 176, 0.35);
+}
+
+.dataset-progress-row__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dataset-progress-row__name {
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.dataset-progress-row__counts {
+  font-family: var(--po-font-mono);
+  font-size: 13px;
+  color: var(--po-text);
+}
+
+.dataset-progress-row__remaining {
+  color: var(--po-muted);
+}
+
+.dataset-progress-row__percent {
+  font-size: 13px;
+  color: var(--po-muted);
+}
+
+.dataset-progress-row__count-only {
+  font-size: 13px;
+  color: var(--po-muted);
+}
+
+.dataset-progress-row__badge {
+  justify-self: start;
+}
+
+.dataset-progress-bar {
+  display: grid;
+  gap: 6px;
+}
+
+.dataset-progress-bar__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.dataset-progress-bar__value {
+  display: none;
+}
+
+.dataset-progress-bar__track {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.dataset-progress-bar__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(0, 229, 255, 0.85), rgba(0, 255, 160, 0.85));
+  transition: width 0.25s ease;
+}
+
+.dataset-progress-list--compact .dataset-progress-row {
+  padding: 10px 12px;
+}
+
+.dataset-progress-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.dataset-progress-total {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--po-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dataset-progress-total--all {
+  grid-column: 1 / -1;
+}
+
+.dataset-progress-total__label {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--po-muted);
+}
+
+.dataset-progress-total strong {
+  font-family: var(--po-font-mono);
+  font-size: 24px;
+  line-height: 1.1;
+  word-break: break-word;
+}
+
+.dataset-progress-total__hint {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--po-muted);
+}
+
+.dataset-history-meta {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.dataset-history-meta__item {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--po-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dataset-history-meta__label {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--po-muted);
+}
+
+.dataset-history-meta__item strong {
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.dataset-history-meta__hint {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--po-muted);
+  word-break: break-word;
+}
+
+.dataset-history-row {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--po-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dataset-history-row__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.dataset-history-row__value {
+  font-family: var(--po-font-mono);
+  font-size: 13px;
+  color: var(--po-muted);
+}
+
+.dataset-progress-section--train {
+  padding-top: 8px;
+  border-top: 1px solid var(--po-border);
+}
+
+@media (max-width: 599px) {
+  .dataset-progress-section__summary {
+    font-size: 16px;
+  }
+
+  .dataset-progress-total strong {
+    font-size: 20px;
+  }
+
+  .dataset-history-meta__item strong {
+    font-size: 14px;
+  }
+
+  .dataset-progress-gate-banner__body {
+    font-size: 14px;
+  }
+}
+
+/* Voice Identity Anchor V1 */
+.voice-promo {
+  margin-top: 40px;
+}
+
+.voice-promo__panel {
+  padding: 28px 26px;
+  border-color: rgba(93, 255, 176, 0.22);
+  background: linear-gradient(
+    160deg,
+    rgba(93, 255, 176, 0.06),
+    rgba(255, 255, 255, 0.03)
+  );
+}
+
+.voice-promo__copy {
+  margin: 0 0 20px;
+  color: var(--po-muted);
+  font-size: 16px;
+  line-height: 1.65;
+  max-width: 62ch;
+}
+
+.voice-promo__actions {
+  justify-content: flex-start;
+}
+
+.voice-anchor-notices {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--po-muted);
+  line-height: 1.65;
+  display: grid;
+  gap: 10px;
+}
+
+.voice-anchor-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.voice-anchor-mode__btn {
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--po-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--po-muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.voice-anchor-mode__btn--active {
+  color: var(--po-cyan);
+  border-color: rgba(0, 229, 255, 0.35);
+  background: rgba(0, 229, 255, 0.08);
+}
+
+.voice-anchor-record {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.voice-anchor-record__hint,
+.voice-anchor-record__unsupported,
+.voice-anchor-record__ready,
+.voice-anchor-file-label {
+  margin: 0;
+  color: var(--po-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.voice-anchor-record__ready {
+  color: var(--po-mint);
+}
+
+.voice-anchor-field {
+  margin-top: 20px;
+}
+
+.voice-anchor-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 20px 0;
+  color: var(--po-muted);
+  font-size: 14px;
+  line-height: 1.55;
+  cursor: pointer;
+}
+
+.voice-anchor-consent input {
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.voice-anchor-result {
+  display: grid;
+  gap: 12px;
+}
+
+.voice-anchor-result__lead {
+  margin: 0;
+  color: var(--po-muted);
+  line-height: 1.55;
+}
+
+.voice-anchor-result__meta {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.voice-anchor-result__meta dt {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--po-muted);
+  font-weight: 700;
+}
+
+.voice-anchor-result__meta dd {
+  margin: 0 0 8px;
+  color: #fff;
+}
+
+.voice-anchor-result__mono {
+  font-family: var(--po-font-mono);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.voice-anchor-result__hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--po-muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 599px) {
+  .voice-promo__actions .primary {
+    width: 100%;
+    text-align: center;
+  }
+}
 

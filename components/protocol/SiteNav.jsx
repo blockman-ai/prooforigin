@@ -3,6 +3,7 @@ import Link from "next/link";
 const LINKS = [
   { href: "/upload", label: "Upload" },
   { href: "/detect", label: "Detect" },
+  { href: "/voice-anchor", label: "Voice Anchor" },
   { href: "/dashboard", label: "Records" },
 ];
 
