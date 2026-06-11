@@ -47,40 +47,6 @@ export function isDatasetCaptureBucket(value) {
   return DATASET_CAPTURE_BUCKET_VALUES.includes(value);
 }
 
-export function validateDatasetCaptureSecret(secret) {
-  const expected = process.env.DATASET_CAPTURE_SECRET?.trim();
-
-  if (!expected) {
-    return {
-      ok: false,
-      error: "Dataset capture is not configured on this deployment.",
-    };
-  }
-
-  if (!secret || typeof secret !== "string") {
-    return { ok: false, error: "Capture secret is required." };
-  }
-
-  if (secret.trim() !== expected) {
-    return { ok: false, error: "Invalid capture secret." };
-  }
-
-  return { ok: true };
-}
-
-export function parseDatasetCaptureRequestBody(body) {
-  if (!body || typeof body !== "object") {
-    return { ok: false, error: "Invalid request body." };
-  }
-
-  const secretValidation = validateDatasetCaptureSecret(body.secret);
-  if (!secretValidation.ok) {
-    return secretValidation;
-  }
-
-  return { ok: true, secret: body.secret.trim() };
-}
-
 export function formatBytes(bytes) {
   if (bytes == null || Number.isNaN(Number(bytes))) return "Unknown";
   const value = Number(bytes);

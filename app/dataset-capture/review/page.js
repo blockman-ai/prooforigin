@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import DatasetCaptureAuthGate from "../../../components/dataset/DatasetCaptureAuthGate";
 import GlassPanel from "../../../components/protocol/GlassPanel";
 import LoadingState from "../../../components/protocol/LoadingState";
 import PageShell from "../../../components/protocol/PageShell";
 import ProofField from "../../../components/protocol/ProofField";
 import ProtocolBadge from "../../../components/protocol/ProtocolBadge";
 import StatusCard from "../../../components/protocol/StatusCard";
+import { getDatasetCaptureAuthHeaders } from "../../lib/datasetCaptureClient";
 import {
   DATASET_CAPTURE_BUCKETS,
   formatBytes,
@@ -32,7 +34,7 @@ function bucketLabel(value) {
   );
 }
 
-function CaptureReviewCard({ capture, secret, onReviewed }) {
+function CaptureReviewCard({ capture, accessToken, onReviewed }) {
   const [signedUrl, setSignedUrl] = useState("");
   const [previewError, setPreviewError] = useState("");
   const [previewLoading, setPreviewLoading] = useState(true);
@@ -51,8 +53,11 @@ function CaptureReviewCard({ capture, secret, onReviewed }) {
     try {
       const res = await fetch("/api/dataset-capture/signed-url", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ secret, id: capture.id }),
+        headers: {
+          "Content-Type": "application/json",
+          ...getDatasetCaptureAuthHeaders(accessToken),
+        },
+        body: JSON.stringify({ id: capture.id }),
       });
       const data = await res.json();
 
@@ -69,7 +74,7 @@ function CaptureReviewCard({ capture, secret, onReviewed }) {
     } finally {
       setPreviewLoading(false);
     }
-  }, [capture.id, secret]);
+  }, [accessToken, capture.id]);
 
   useEffect(() => {
     loadSignedUrl();
@@ -83,9 +88,11 @@ function CaptureReviewCard({ capture, secret, onReviewed }) {
     try {
       const res = await fetch("/api/dataset-capture/review", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getDatasetCaptureAuthHeaders(accessToken),
+        },
         body: JSON.stringify({
-          secret,
           id: capture.id,
           action,
           correction_bucket: correctionBucket,
@@ -243,25 +250,23 @@ function CaptureReviewCard({ capture, secret, onReviewed }) {
   );
 }
 
-export default function DatasetCaptureReviewPage() {
-  const [unlocked, setUnlocked] = useState(false);
-  const [unlockSecret, setUnlockSecret] = useState("");
-  const [unlockError, setUnlockError] = useState("");
-  const [unlockLoading, setUnlockLoading] = useState(false);
-  const [secret, setSecret] = useState("");
+function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
   const [captures, setCaptures] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  const loadCaptures = useCallback(async (captureSecret) => {
+  const loadCaptures = useCallback(async () => {
     setLoading(true);
     setLoadError("");
 
     try {
       const res = await fetch("/api/dataset-capture/list", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ secret: captureSecret, limit: 50 }),
+        headers: {
+          "Content-Type": "application/json",
+          ...getDatasetCaptureAuthHeaders(accessToken),
+        },
+        body: JSON.stringify({ limit: 50 }),
       });
       const data = await res.json();
 
@@ -278,35 +283,11 @@ export default function DatasetCaptureReviewPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [accessToken]);
 
-  async function handleUnlock(event) {
-    event.preventDefault();
-    setUnlockError("");
-    setUnlockLoading(true);
-
-    try {
-      const res = await fetch("/api/dataset-capture/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ secret: unlockSecret }),
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        setUnlockError(data.error || "Unable to unlock dataset review.");
-        return;
-      }
-
-      setSecret(unlockSecret);
-      setUnlocked(true);
-      await loadCaptures(unlockSecret);
-    } catch {
-      setUnlockError("Unable to reach the dataset capture gate.");
-    } finally {
-      setUnlockLoading(false);
-    }
-  }
+  useEffect(() => {
+    loadCaptures();
+  }, [loadCaptures]);
 
   function handleReviewed(captureId, action, updatedCapture) {
     if (action === "approve" || action === "reject") {
@@ -323,48 +304,6 @@ export default function DatasetCaptureReviewPage() {
     }
   }
 
-  if (!unlocked) {
-    return (
-      <PageShell
-        narrow
-        badge="Private review"
-        title="Dataset capture review"
-        subtitle="Enter the capture secret to review pending private calibration uploads."
-      >
-        <GlassPanel title="Access gate">
-          <form className="dataset-capture-form" onSubmit={handleUnlock}>
-            <label className="dataset-field">
-              <span className="dataset-field__label">Capture secret</span>
-              <input
-                className="dataset-field__input"
-                type="password"
-                autoComplete="current-password"
-                value={unlockSecret}
-                onChange={(event) => setUnlockSecret(event.target.value)}
-                placeholder="Enter DATASET_CAPTURE_SECRET"
-                required
-              />
-            </label>
-
-            {unlockError && (
-              <StatusCard variant="error" body={unlockError} className="dataset-status" />
-            )}
-
-            <div className="protocol-actions">
-              <button
-                type="submit"
-                className="primary"
-                disabled={unlockLoading || !unlockSecret.trim()}
-              >
-                {unlockLoading ? "Checking..." : "Continue"}
-              </button>
-            </div>
-          </form>
-        </GlassPanel>
-      </PageShell>
-    );
-  }
-
   return (
     <PageShell
       narrow
@@ -374,7 +313,7 @@ export default function DatasetCaptureReviewPage() {
     >
       <GlassPanel
         title="Pending captures"
-        subtitle="Only items with approved_for_training=false and rejected=false appear here."
+        subtitle={`Signed in as ${email}. Only pending items appear here.`}
       >
         <p className="dataset-notice">{REVIEW_NOTICE}</p>
 
@@ -383,13 +322,16 @@ export default function DatasetCaptureReviewPage() {
             type="button"
             className="secondary"
             disabled={loading}
-            onClick={() => loadCaptures(secret)}
+            onClick={loadCaptures}
           >
             {loading ? "Refreshing..." : "Refresh list"}
           </button>
           <a href="/dataset-capture" className="secondary">
             Back to capture upload
           </a>
+          <button type="button" className="secondary" onClick={onSignOut}>
+            Sign out
+          </button>
         </div>
 
         {loadError && (
@@ -413,12 +355,30 @@ export default function DatasetCaptureReviewPage() {
             <CaptureReviewCard
               key={capture.id}
               capture={capture}
-              secret={secret}
+              accessToken={accessToken}
               onReviewed={handleReviewed}
             />
           ))}
         </div>
       </GlassPanel>
     </PageShell>
+  );
+}
+
+export default function DatasetCaptureReviewPage() {
+  return (
+    <DatasetCaptureAuthGate
+      badge="Private review"
+      title="Dataset capture review"
+      subtitle="Approved admins only."
+    >
+      {(auth) => (
+        <DatasetCaptureReviewPanel
+          accessToken={auth.accessToken}
+          email={auth.email}
+          onSignOut={auth.onSignOut}
+        />
+      )}
+    </DatasetCaptureAuthGate>
   );
 }

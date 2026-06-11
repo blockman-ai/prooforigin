@@ -2,14 +2,24 @@ import { NextResponse } from "next/server";
 import {
   DATASET_CAPTURE_LIST_FIELDS,
   DATASET_CAPTURE_TABLE,
-  parseDatasetCaptureRequestBody,
 } from "../../../lib/datasetCapture";
+import {
+  authorizeDatasetCaptureAdmin,
+  datasetCaptureAuthFailureResponse,
+} from "../../../lib/datasetCaptureAdmin";
 import { getSupabaseAdmin, isSupabaseAdminConfigured } from "../../../lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req) {
   try {
+    const auth = await authorizeDatasetCaptureAdmin(req);
+    if (!auth.ok) {
+      return NextResponse.json(datasetCaptureAuthFailureResponse(auth), {
+        status: auth.status,
+      });
+    }
+
     if (!isSupabaseAdminConfigured()) {
       return NextResponse.json(
         {
@@ -22,16 +32,7 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    const access = parseDatasetCaptureRequestBody(body);
-
-    if (!access.ok) {
-      return NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.error?.includes("not configured") ? 503 : 401 }
-      );
-    }
-
-    const limit = Math.min(Math.max(Number(body.limit) || 50, 1), 100);
+    const limit = Math.min(Math.max(Number(body?.limit) || 50, 1), 100);
 
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase

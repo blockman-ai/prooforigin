@@ -3,14 +3,24 @@ import {
   DATASET_CAPTURE_PRIVATE_BUCKET,
   DATASET_CAPTURE_SIGNED_URL_TTL_SECONDS,
   DATASET_CAPTURE_TABLE,
-  parseDatasetCaptureRequestBody,
 } from "../../../lib/datasetCapture";
+import {
+  authorizeDatasetCaptureAdmin,
+  datasetCaptureAuthFailureResponse,
+} from "../../../lib/datasetCaptureAdmin";
 import { getSupabaseAdmin, isSupabaseAdminConfigured } from "../../../lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req) {
   try {
+    const auth = await authorizeDatasetCaptureAdmin(req);
+    if (!auth.ok) {
+      return NextResponse.json(datasetCaptureAuthFailureResponse(auth), {
+        status: auth.status,
+      });
+    }
+
     if (!isSupabaseAdminConfigured()) {
       return NextResponse.json(
         {
@@ -23,16 +33,8 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    const access = parseDatasetCaptureRequestBody(body);
+    const captureId = (body?.id || "").toString().trim();
 
-    if (!access.ok) {
-      return NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.error?.includes("not configured") ? 503 : 401 }
-      );
-    }
-
-    const captureId = (body.id || "").toString().trim();
     if (!captureId) {
       return NextResponse.json(
         { success: false, error: "Capture id is required." },

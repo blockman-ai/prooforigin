@@ -8,14 +8,24 @@ import {
   buildDatasetStoragePath,
   isDatasetCaptureBucket,
   isImageUploadFile,
-  validateDatasetCaptureSecret,
 } from "../../../lib/datasetCapture";
+import {
+  authorizeDatasetCaptureAdmin,
+  datasetCaptureAuthFailureResponse,
+} from "../../../lib/datasetCaptureAdmin";
 import { getSupabaseAdmin, isSupabaseAdminConfigured } from "../../../lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req) {
   try {
+    const auth = await authorizeDatasetCaptureAdmin(req);
+    if (!auth.ok) {
+      return NextResponse.json(datasetCaptureAuthFailureResponse(auth), {
+        status: auth.status,
+      });
+    }
+
     if (!isSupabaseAdminConfigured()) {
       return NextResponse.json(
         {
@@ -28,21 +38,12 @@ export async function POST(req) {
     }
 
     const formData = await req.formData();
-    const secret = formData.get("secret");
     const file = formData.get("file");
     const selectedBucket = formData.get("selected_bucket");
     const suggestedBucket = formData.get("suggested_bucket");
     const notes = (formData.get("notes") || "").toString().trim();
     const visionNotes = (formData.get("vision_notes") || "").toString().trim();
     const consent = formData.get("consent");
-
-    const validation = validateDatasetCaptureSecret(secret);
-    if (!validation.ok) {
-      return NextResponse.json(
-        { success: false, error: validation.error },
-        { status: validation.error?.includes("not configured") ? 503 : 401 }
-      );
-    }
 
     if (consent !== "true" && consent !== true) {
       return NextResponse.json(

@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import DatasetCaptureAuthGate from "../../components/dataset/DatasetCaptureAuthGate";
 import GlassPanel from "../../components/protocol/GlassPanel";
 import PageShell from "../../components/protocol/PageShell";
 import ProtocolBadge from "../../components/protocol/ProtocolBadge";
 import StatusCard from "../../components/protocol/StatusCard";
+import { getDatasetCaptureAuthHeaders } from "../lib/datasetCaptureClient";
 import { DATASET_CAPTURE_BUCKETS, DATASET_CAPTURE_MAX_BATCH } from "../lib/datasetCapture";
 
 const PRIVATE_NOTICE =
@@ -29,13 +31,7 @@ function createQueueItem(file, index) {
   };
 }
 
-export default function DatasetCapturePage() {
-  const [unlocked, setUnlocked] = useState(false);
-  const [unlockSecret, setUnlockSecret] = useState("");
-  const [unlockError, setUnlockError] = useState("");
-  const [unlockLoading, setUnlockLoading] = useState(false);
-
-  const [secret, setSecret] = useState("");
+function DatasetCaptureUploadPanel({ accessToken, email, onSignOut }) {
   const [selectedBucket, setSelectedBucket] = useState(
     DATASET_CAPTURE_BUCKETS[0].value
   );
@@ -63,39 +59,7 @@ export default function DatasetCapturePage() {
   }, []);
 
   const canUpload =
-    unlocked &&
-    !uploading &&
-    queue.length > 0 &&
-    consent &&
-    secret.trim().length > 0 &&
-    selectedBucket;
-
-  async function handleUnlock(event) {
-    event.preventDefault();
-    setUnlockError("");
-    setUnlockLoading(true);
-
-    try {
-      const res = await fetch("/api/dataset-capture/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ secret: unlockSecret }),
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        setUnlockError(data.error || "Unable to unlock dataset capture.");
-        return;
-      }
-
-      setSecret(unlockSecret);
-      setUnlocked(true);
-    } catch {
-      setUnlockError("Unable to reach the dataset capture gate.");
-    } finally {
-      setUnlockLoading(false);
-    }
-  }
+    !uploading && queue.length > 0 && consent && selectedBucket && accessToken;
 
   function handleFileSelection(event) {
     const picked = Array.from(event.target.files || []);
@@ -107,7 +71,9 @@ export default function DatasetCapturePage() {
     if (!picked.length) return;
 
     const nonImages = picked.filter(
-      (file) => !file.type.startsWith("image/") && !/\.(jpe?g|png|gif|webp|heic|heif|bmp|tif?f|avif)$/i.test(file.name)
+      (file) =>
+        !file.type.startsWith("image/") &&
+        !/\.(jpe?g|png|gif|webp|heic|heif|bmp|tif?f|avif)$/i.test(file.name)
     );
 
     if (nonImages.length) {
@@ -135,14 +101,14 @@ export default function DatasetCapturePage() {
     );
   }
 
-  async function classifyFile(file, captureSecret) {
+  async function classifyFile(file) {
     const formData = new FormData();
-    formData.append("secret", captureSecret);
     formData.append("file", file);
 
     try {
       const res = await fetch("/api/dataset-capture/classify", {
         method: "POST",
+        headers: getDatasetCaptureAuthHeaders(accessToken),
         body: formData,
       });
       const data = await res.json();
@@ -164,11 +130,10 @@ export default function DatasetCapturePage() {
     }
   }
 
-  async function uploadFile(item, captureSecret) {
-    const classification = await classifyFile(item.file, captureSecret);
+  async function uploadFile(item) {
+    const classification = await classifyFile(item.file);
 
     const formData = new FormData();
-    formData.append("secret", captureSecret);
     formData.append("file", item.file);
     formData.append("selected_bucket", selectedBucket);
     formData.append("notes", notes);
@@ -182,6 +147,7 @@ export default function DatasetCapturePage() {
 
     const res = await fetch("/api/dataset-capture/upload", {
       method: "POST",
+      headers: getDatasetCaptureAuthHeaders(accessToken),
       body: formData,
     });
 
@@ -224,7 +190,7 @@ export default function DatasetCapturePage() {
       updateQueueItem(item.key, { status: "uploading", error: "" });
 
       try {
-        const result = await uploadFile(item, secret.trim());
+        const result = await uploadFile(item);
         updateQueueItem(item.key, {
           status: "uploaded",
           captureId: result.captureId,
@@ -256,48 +222,6 @@ export default function DatasetCapturePage() {
     [queue]
   );
 
-  if (!unlocked) {
-    return (
-      <PageShell
-        narrow
-        badge="Private calibration"
-        title="Dataset capture"
-        subtitle="Enter the capture secret to access the private multi-image upload tool."
-      >
-        <GlassPanel title="Access gate">
-          <form className="dataset-capture-form" onSubmit={handleUnlock}>
-            <label className="dataset-field">
-              <span className="dataset-field__label">Capture secret</span>
-              <input
-                className="dataset-field__input"
-                type="password"
-                autoComplete="current-password"
-                value={unlockSecret}
-                onChange={(event) => setUnlockSecret(event.target.value)}
-                placeholder="Enter DATASET_CAPTURE_SECRET"
-                required
-              />
-            </label>
-
-            {unlockError && (
-              <StatusCard variant="error" body={unlockError} className="dataset-status" />
-            )}
-
-            <div className="protocol-actions">
-              <button
-                type="submit"
-                className="primary"
-                disabled={unlockLoading || !unlockSecret.trim()}
-              >
-                {unlockLoading ? "Checking..." : "Continue"}
-              </button>
-            </div>
-          </form>
-        </GlassPanel>
-      </PageShell>
-    );
-  }
-
   return (
     <PageShell
       narrow
@@ -307,7 +231,7 @@ export default function DatasetCapturePage() {
     >
       <GlassPanel
         title="Private batch upload"
-        subtitle="Images stay in a private Supabase bucket. No public URLs are generated."
+        subtitle={`Signed in as ${email}. Images stay in a private Supabase bucket.`}
       >
         <p className="dataset-notice">{PRIVATE_NOTICE}</p>
 
@@ -406,18 +330,6 @@ export default function DatasetCapturePage() {
             </span>
           </label>
 
-          <label className="dataset-field">
-            <span className="dataset-field__label">Capture secret</span>
-            <input
-              className="dataset-field__input"
-              type="password"
-              autoComplete="current-password"
-              value={secret}
-              onChange={(event) => setSecret(event.target.value)}
-              required
-            />
-          </label>
-
           {batchError && (
             <StatusCard variant="error" body={batchError} className="dataset-status" />
           )}
@@ -435,9 +347,30 @@ export default function DatasetCapturePage() {
             <a href="/dataset-capture/review" className="secondary">
               Review pending captures
             </a>
+            <button type="button" className="secondary" onClick={onSignOut}>
+              Sign out
+            </button>
           </div>
         </form>
       </GlassPanel>
     </PageShell>
+  );
+}
+
+export default function DatasetCapturePage() {
+  return (
+    <DatasetCaptureAuthGate
+      badge="Private calibration"
+      title="Dataset capture"
+      subtitle="Approved admins only."
+    >
+      {(auth) => (
+        <DatasetCaptureUploadPanel
+          accessToken={auth.accessToken}
+          email={auth.email}
+          onSignOut={auth.onSignOut}
+        />
+      )}
+    </DatasetCaptureAuthGate>
   );
 }

@@ -3,8 +3,11 @@ import { NextResponse } from "next/server";
 import {
   DATASET_CAPTURE_BUCKET_VALUES,
   isImageUploadFile,
-  validateDatasetCaptureSecret,
 } from "../../../lib/datasetCapture";
+import {
+  authorizeDatasetCaptureAdmin,
+  datasetCaptureAuthFailureResponse,
+} from "../../../lib/datasetCaptureAdmin";
 
 export const dynamic = "force-dynamic";
 
@@ -18,17 +21,15 @@ const BUCKET_GUIDE = {
 
 export async function POST(req) {
   try {
-    const formData = await req.formData();
-    const secret = formData.get("secret");
-    const file = formData.get("file");
-
-    const validation = validateDatasetCaptureSecret(secret);
-    if (!validation.ok) {
-      return NextResponse.json(
-        { success: false, error: validation.error },
-        { status: validation.error?.includes("not configured") ? 503 : 401 }
-      );
+    const auth = await authorizeDatasetCaptureAdmin(req);
+    if (!auth.ok) {
+      return NextResponse.json(datasetCaptureAuthFailureResponse(auth), {
+        status: auth.status,
+      });
     }
+
+    const formData = await req.formData();
+    const file = formData.get("file");
 
     if (!file || !isImageUploadFile(file)) {
       return NextResponse.json(

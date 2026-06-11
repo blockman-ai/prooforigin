@@ -3,8 +3,11 @@ import {
   DATASET_CAPTURE_REVIEW_ACTIONS,
   DATASET_CAPTURE_TABLE,
   isDatasetCaptureBucket,
-  parseDatasetCaptureRequestBody,
 } from "../../../lib/datasetCapture";
+import {
+  authorizeDatasetCaptureAdmin,
+  datasetCaptureAuthFailureResponse,
+} from "../../../lib/datasetCaptureAdmin";
 import { getSupabaseAdmin, isSupabaseAdminConfigured } from "../../../lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +22,13 @@ function buildReviewResponse(action, capture) {
 
 export async function POST(req) {
   try {
+    const auth = await authorizeDatasetCaptureAdmin(req);
+    if (!auth.ok) {
+      return NextResponse.json(datasetCaptureAuthFailureResponse(auth), {
+        status: auth.status,
+      });
+    }
+
     if (!isSupabaseAdminConfigured()) {
       return NextResponse.json(
         {
@@ -31,19 +41,10 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    const access = parseDatasetCaptureRequestBody(body);
-
-    if (!access.ok) {
-      return NextResponse.json(
-        { success: false, error: access.error },
-        { status: access.error?.includes("not configured") ? 503 : 401 }
-      );
-    }
-
-    const captureId = (body.id || "").toString().trim();
-    const action = (body.action || "").toString().trim();
-    const correctionBucket = (body.correction_bucket || "").toString().trim();
-    const reviewerNotes = (body.reviewer_notes || "").toString().trim() || null;
+    const captureId = (body?.id || "").toString().trim();
+    const action = (body?.action || "").toString().trim();
+    const correctionBucket = (body?.correction_bucket || "").toString().trim();
+    const reviewerNotes = (body?.reviewer_notes || "").toString().trim() || null;
 
     if (!captureId) {
       return NextResponse.json(
