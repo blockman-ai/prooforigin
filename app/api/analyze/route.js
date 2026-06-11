@@ -4,6 +4,9 @@ import { mapProofOriginProtocol } from "../../lib/prooforiginProtocolMapper";
 
 export const dynamic = "force-dynamic";
 
+const PROXY_UNREACHABLE =
+  "Analysis service could not be reached through the website proxy.";
+
 export async function POST(req) {
   try {
     const formData = await req.formData();
@@ -29,14 +32,14 @@ export async function POST(req) {
 
     const data = await response.json();
 
-    if (!response.ok) {
+    if (!response.ok || data?.success === false) {
       return NextResponse.json(
         {
           success: false,
-          error: data?.error || "ProofOrigin AI backend failed",
+          error: data?.error || data?.detail || "ProofOrigin AI backend failed",
           raw: data,
         },
-        { status: response.status }
+        { status: response.ok ? 502 : response.status }
       );
     }
 
@@ -55,7 +58,21 @@ export async function POST(req) {
       verified_scope: protocol.verifiedScope,
       truth_verified: protocol.truthVerified,
       file_id: protocol.fileId,
-      percent: protocol.aiProbability ?? data?.percent ?? data?.summary?.ai_score ?? 0,
+      response_meta: data?.response_meta ?? null,
+      contract: data?.contract ?? null,
+      ai_probability: data?.ai_probability ?? null,
+      manipulation_risk: data?.manipulation_risk ?? null,
+      confidence: data?.confidence ?? null,
+      signal_summary: data?.signal_summary ?? null,
+      forensic_notes: data?.forensic_notes ?? null,
+      model_sources_used: data?.model_sources_used ?? null,
+      evaluation_mode: data?.evaluation_mode ?? null,
+      percent:
+        data?.ai_probability ??
+        protocol.aiProbability ??
+        data?.percent ??
+        data?.summary?.ai_score ??
+        0,
       verdict: data?.verdict ?? data?.summary?.label ?? "Unknown",
       proofOriginScore:
         data?.proofOriginScore ??
@@ -71,17 +88,20 @@ export async function POST(req) {
       evidence: data?.evidence ?? [],
       warnings: data?.warnings ?? [],
       training_status: data?.training_status ?? null,
+      engine_outputs: data?.engine_outputs ?? null,
+      weighted_consensus: data?.weighted_consensus ?? null,
+      forensic_context: data?.forensic_context ?? null,
+      engine_arbitration: data?.engine_arbitration ?? null,
+      human_summary: data?.human_summary ?? null,
       raw: data,
     });
-  } catch (error) {
-    console.error("ProofOrigin analyze proxy error:", error);
-
+  } catch {
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || "Analysis failed",
+        error: PROXY_UNREACHABLE,
       },
-      { status: 500 }
+      { status: 502 }
     );
   }
 }

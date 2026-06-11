@@ -6,12 +6,14 @@ import PageShell from "../../components/protocol/PageShell";
 import ProtocolBadge from "../../components/protocol/ProtocolBadge";
 import StatusCard from "../../components/protocol/StatusCard";
 import UploadDropzone from "../../components/protocol/UploadDropzone";
-import { getProofOriginAnalyzeUrl } from "../lib/prooforiginAiConfig";
 import { getSupabase } from "../lib/supabase";
 import { buildProofMetadataFromAnalyze } from "../lib/prooforiginProtocolMapper";
 
 const ANALYZE_WARNING =
   "Protocol evaluation unavailable. Basic proof record created without analysis metadata.";
+
+const PROXY_UNREACHABLE =
+  "Analysis service could not be reached through the website proxy.";
 
 const STEPS = [
   { key: "analyze", label: "Running protocol evaluation" },
@@ -50,24 +52,33 @@ export default function UploadPage() {
     const analyzeForm = new FormData();
     analyzeForm.append("file", selectedFile);
 
-    const analyzeRes = await fetch(getProofOriginAnalyzeUrl(), {
-      method: "POST",
-      body: analyzeForm,
-    });
+    try {
+      const analyzeRes = await fetch("/api/analyze", {
+        method: "POST",
+        body: analyzeForm,
+      });
 
-    const analyzeData = await analyzeRes.json();
+      let analyzeData;
+      try {
+        analyzeData = await analyzeRes.json();
+      } catch {
+        return { metadata: null, warning: PROXY_UNREACHABLE };
+      }
 
-    if (!analyzeRes.ok || analyzeData.success === false) {
+      if (!analyzeRes.ok || analyzeData.success === false) {
+        return {
+          metadata: null,
+          warning: analyzeData.error || ANALYZE_WARNING,
+        };
+      }
+
       return {
-        metadata: null,
-        warning: analyzeData.error || ANALYZE_WARNING,
+        metadata: buildProofMetadataFromAnalyze(analyzeData.raw ?? analyzeData),
+        warning: "",
       };
+    } catch {
+      return { metadata: null, warning: PROXY_UNREACHABLE };
     }
-
-    return {
-      metadata: buildProofMetadataFromAnalyze(analyzeData),
-      warning: "",
-    };
   }
 
   function markStepDone(step) {
