@@ -1,24 +1,59 @@
 import {
   IDENTITY_CARD_STORAGE_KEY,
   ROTATING_CODE_WINDOW_SECONDS,
+  cardUsesDtsAlgorithm,
   isCardExpired,
-} from "./identityCard";
+  secondsUntilNextCode,
+} from "./identityCardShared";
 
-const ROTATING_PREFIX = "prooforigin-identity-v1";
+const ROTATING_CODE_PREFIX = "prooforigin-dts-code-v1";
+const LEGACY_ROTATING_PREFIX = "prooforigin-identity-v1";
+
+async function importHmacKey(secretSeed) {
+  const keyMaterial = new TextEncoder().encode(`${ROTATING_CODE_PREFIX}:${secretSeed}`);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", keyMaterial);
+  return crypto.subtle.importKey(
+    "raw",
+    hashBuffer,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+}
 
 export async function computeRotatingCodeAsync(
   cardId,
-  secretToken,
+  secretSeed,
   windowSeconds = ROTATING_CODE_WINDOW_SECONDS
 ) {
-  const timeWindow = Math.floor(Date.now() / 1000 / windowSeconds);
-  const message = `${ROTATING_PREFIX}:${cardId}:${secretToken}:${timeWindow}`;
+  const tw = Math.floor(Date.now() / 1000 / windowSeconds);
+  const key = await importHmacKey(secretSeed);
+  const message = new TextEncoder().encode(`${cardId}:${tw}`);
+  const signature = await crypto.subtle.sign("HMAC", key, message);
+  const hashArray = Array.from(new Uint8Array(signature));
+  const hex = hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  const numeric = parseInt(hex.slice(0, 8), 16) % 1_000_000;
+  return String(numeric).padStart(6, "0");
+}
+
+async function computeLegacyRotatingCodeAsync(cardId, secretToken) {
+  const tw = Math.floor(Date.now() / 1000 / ROTATING_CODE_WINDOW_SECONDS);
+  const message = `${LEGACY_ROTATING_PREFIX}:${cardId}:${secretToken}:${tw}`;
   const data = new TextEncoder().encode(message);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const hex = hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");
   const numeric = parseInt(hex.slice(0, 8), 16) % 1_000_000;
   return String(numeric).padStart(6, "0");
+}
+
+export async function computeCardRotatingCode(card) {
+  const secret = card?.secret_seed || card?.secret_token;
+  if (!card?.card_id || !secret) return "------";
+  if (cardUsesDtsAlgorithm(card)) {
+    return computeRotatingCodeAsync(card.card_id, secret);
+  }
+  return computeLegacyRotatingCodeAsync(card.card_id, secret);
 }
 
 export function readStoredIdentityCard() {
@@ -48,6 +83,8 @@ export function clearStoredIdentityCard() {
 }
 
 export function buildVerificationUrl(cardId) {
-  if (typeof window === "undefined") return `/identity-card?verify=${cardId}`;
-  return `${window.location.origin}/identity-card?verify=${encodeURIComponent(cardId)}`;
+  if (typeof window === "undefined") return `/id/${cardId}`;
+  return `${window.location.origin}/id/${encodeURIComponent(cardId)}`;
 }
+
+export { secondsUntilNextCode };

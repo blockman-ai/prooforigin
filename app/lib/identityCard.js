@@ -1,33 +1,42 @@
 import crypto from "crypto";
+import {
+  GENESIS_STATE_HASH,
+  IDENTITY_CARD_VERSION,
+  ROTATING_CODE_WINDOW_SECONDS,
+} from "./identityCardShared";
 
-export const IDENTITY_CARD_VERSION = "v1";
-export const IDENTITY_CARD_STORAGE_KEY = "prooforigin_identity_card_v1";
-export const ROTATING_CODE_WINDOW_SECONDS = 60;
+export {
+  IDENTITY_CARD_VERSION,
+  IDENTITY_CARD_STORAGE_KEY,
+  ROTATING_CODE_WINDOW_SECONDS,
+  GENESIS_STATE_HASH,
+  TRUST_STATES,
+  STATE_EVENT_TYPES,
+  EXPIRATION_OPTIONS,
+  IDENTITY_DISCLAIMER,
+  isCardExpired,
+  secondsUntilNextCode,
+  formatCardDate,
+  formatCardDateTime,
+  resolveTrustState,
+  cardUsesDtsAlgorithm,
+  buildVerificationPath,
+} from "./identityCardShared";
 
-export const EXPIRATION_OPTIONS = [
-  { value: "1d", label: "1 day", days: 1 },
-  { value: "1w", label: "1 week", days: 7 },
-  { value: "2w", label: "2 weeks", days: 14 },
-  { value: "1m", label: "1 month", days: 30 },
-  { value: "4m", label: "4 months", days: 120 },
-  { value: "6m", label: "6 months", days: 180 },
-];
-
-export const IDENTITY_DISCLAIMER =
-  "This is a ProofOrigin online identity card. It is not a government ID or legal identity document.";
-
-const ROTATING_PREFIX = "prooforigin-identity-v1";
+const ROTATING_CODE_PREFIX = "prooforigin-dts-code-v1";
+const CARD_STATE_PREFIX = "prooforigin-card-state-v1";
+const LEGACY_ROTATING_PREFIX = "prooforigin-identity-v1";
 
 export function generateCardId() {
   return crypto.randomUUID();
 }
 
-export function generateSecretToken() {
+export function generateSecretSeed() {
   return crypto.randomUUID();
 }
 
-export function hashSecretToken(token) {
-  return crypto.createHash("sha256").update(String(token)).digest("hex");
+export function hashSecretSeed(seed) {
+  return crypto.createHash("sha256").update(String(seed)).digest("hex");
 }
 
 export function getExpirationOption(value) {
@@ -42,34 +51,155 @@ export function computeExpirationDate(issuedAt, expirationKey) {
   return expires;
 }
 
-export function computeRotatingCode(cardId, secretToken, windowSeconds = ROTATING_CODE_WINDOW_SECONDS) {
-  const timeWindow = Math.floor(Date.now() / 1000 / windowSeconds);
-  const digest = crypto
+export function getMasterKey() {
+  const source =
+    process.env.PROOFORIGIN_DTS_MASTER_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    "prooforigin-dts-dev-master-key";
+  return crypto.createHash("sha256").update(source).digest();
+}
+
+export function encryptSecretSeed(secretSeed) {
+  const key = getMasterKey();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([
+    cipher.update(String(secretSeed), "utf8"),
+    cipher.final(),
+  ]);
+  const tag = cipher.getAuthTag();
+  return {
+    secret_ciphertext: encrypted.toString("base64"),
+    secret_nonce: Buffer.concat([iv, tag]).toString("base64"),
+  };
+}
+
+export function decryptSecretSeed(secretCiphertext, secretNonce) {
+  const key = getMasterKey();
+  const nonceBuffer = Buffer.from(secretNonce, "base64");
+  const iv = nonceBuffer.subarray(0, 12);
+  const tag = nonceBuffer.subarray(12);
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(tag);
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(secretCiphertext, "base64")),
+    decipher.final(),
+  ]);
+  return decrypted.toString("utf8");
+}
+
+function rotatingCodeKey(secretSeed) {
+  return crypto
     .createHash("sha256")
-    .update(`${ROTATING_PREFIX}:${cardId}:${secretToken}:${timeWindow}`)
+    .update(`${ROTATING_CODE_PREFIX}:${secretSeed}`)
+    .digest();
+}
+
+export function computeRotatingCode(
+  cardId,
+  secretSeed,
+  windowSeconds = ROTATING_CODE_WINDOW_SECONDS,
+  timeWindow = null
+) {
+  const tw =
+    timeWindow ?? Math.floor(Date.now() / 1000 / windowSeconds);
+  const digest = crypto
+    .createHmac("sha256", rotatingCodeKey(secretSeed))
+    .update(`${cardId}:${tw}`)
     .digest("hex");
   const numeric = parseInt(digest.slice(0, 8), 16) % 1_000_000;
   return String(numeric).padStart(6, "0");
 }
 
-export function secondsUntilNextCode(windowSeconds = ROTATING_CODE_WINDOW_SECONDS) {
-  const elapsed = Math.floor(Date.now() / 1000) % windowSeconds;
-  return windowSeconds - elapsed;
+export function constantTimeEqual(a, b) {
+  const left = String(a ?? "");
+  const right = String(b ?? "");
+  if (left.length !== right.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < left.length; i += 1) {
+    mismatch |= left.charCodeAt(i) ^ right.charCodeAt(i);
+  }
+  return mismatch === 0;
 }
 
-export function formatCardDate(value) {
-  const date = value instanceof Date ? value : new Date(value);
-  return date.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+export function verifyRotatingCode(cardId, secretSeed, submittedCode) {
+  const normalized = String(submittedCode || "")
+    .replace(/\D/g, "")
+    .padStart(6, "0")
+    .slice(-6);
+  const tw = Math.floor(Date.now() / 1000 / ROTATING_CODE_WINDOW_SECONDS);
+  for (const offset of [-1, 0, 1]) {
+    const expected = computeRotatingCode(
+      cardId,
+      secretSeed,
+      ROTATING_CODE_WINDOW_SECONDS,
+      tw + offset
+    );
+    if (constantTimeEqual(normalized, expected)) return true;
+  }
+  return false;
 }
 
-export function isCardExpired(expiresAt) {
-  return new Date(expiresAt).getTime() <= Date.now();
+export function computePublicDisplayHash(displayName, username, purpose) {
+  const canonical = [
+    "prooforigin-public-display-v1",
+    String(displayName || "").trim(),
+    String(username || "").trim(),
+    String(purpose || "").trim(),
+  ].join("|");
+  return crypto.createHash("sha256").update(canonical).digest("hex");
 }
 
-export function buildVerificationPath(cardId) {
+export function computeCardStateHash({
+  cardId,
+  issuedAt,
+  expiresAt,
+  trustState,
+  publicDisplayHash,
+  voiceAnchorHash = "",
+  identityCardVersion = IDENTITY_CARD_VERSION,
+  previousStateHash = GENESIS_STATE_HASH,
+}) {
+  const canonical = [
+    CARD_STATE_PREFIX,
+    cardId,
+    new Date(issuedAt).toISOString(),
+    new Date(expiresAt).toISOString(),
+    trustState,
+    publicDisplayHash,
+    voiceAnchorHash || "",
+    identityCardVersion,
+    previousStateHash,
+  ].join("|");
+  return crypto.createHash("sha256").update(canonical).digest("hex");
+}
+
+export function buildFutureMetadata(overrides = {}) {
+  return {
+    voice_anchor_hash: null,
+    wallet_anchor_hash: null,
+    recognition_history_ref: null,
+    trustdna_score: null,
+    bitcoin_anchor_batch_id: null,
+    ...overrides,
+  };
+}
+
+export function computeLegacyRotatingCode(cardId, secretToken) {
+  const timeWindow = Math.floor(Date.now() / 1000 / ROTATING_CODE_WINDOW_SECONDS);
+  const digest = crypto
+    .createHash("sha256")
+    .update(`${LEGACY_ROTATING_PREFIX}:${cardId}:${secretToken}:${timeWindow}`)
+    .digest("hex");
+  const numeric = parseInt(digest.slice(0, 8), 16) % 1_000_000;
+  return String(numeric).padStart(6, "0");
+}
+
+/** @deprecated use buildVerificationPath from shared */
+export function buildLegacyVerificationPath(cardId) {
   return `/identity-card?verify=${encodeURIComponent(cardId)}`;
 }
+
+// Back-compat aliases
+export const generateSecretToken = generateSecretSeed;
+export const hashSecretToken = hashSecretSeed;

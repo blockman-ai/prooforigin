@@ -9,13 +9,13 @@ import {
   formatCardDate,
   IDENTITY_DISCLAIMER,
   ROTATING_CODE_WINDOW_SECONDS,
-  secondsUntilNextCode,
-} from "../lib/identityCard";
+} from "../lib/identityCardShared";
 import {
   buildVerificationUrl,
   clearStoredIdentityCard,
-  computeRotatingCodeAsync,
+  computeCardRotatingCode,
   readStoredIdentityCard,
+  secondsUntilNextCode,
   writeStoredIdentityCard,
 } from "../lib/identityCardClient";
 
@@ -59,11 +59,8 @@ export default function IdentityCardPage() {
   const [verifyCardId, setVerifyCardId] = useState("");
 
   const refreshRotatingCode = useCallback(async (activeCard) => {
-    if (!activeCard?.card_id || !activeCard?.secret_token) return;
-    const code = await computeRotatingCodeAsync(
-      activeCard.card_id,
-      activeCard.secret_token
-    );
+    if (!activeCard?.card_id) return;
+    const code = await computeCardRotatingCode(activeCard);
     setRotatingCode(code);
     setCodeSecondsLeft(secondsUntilNextCode());
   }, []);
@@ -159,7 +156,22 @@ export default function IdentityCardPage() {
     }
   }
 
-  function handleRevokeCard() {
+  async function handleRevokeCard() {
+    if (card?.card_id && (card.secret_seed || card.secret_token)) {
+      try {
+        await fetch("/api/identity-card/revoke", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            card_id: card.card_id,
+            secret_seed: card.secret_seed || card.secret_token,
+          }),
+        });
+      } catch {
+        // Local revoke still proceeds if network fails.
+      }
+    }
+
     clearStoredIdentityCard();
     setCard(null);
     setRotatingCode("------");
@@ -176,8 +188,8 @@ export default function IdentityCardPage() {
   return (
     <PageShell
       narrow
-      badge="Online Trust • V1 Preview"
-      title="ProofOrigin Online Identity Card"
+      badge="Dynamic Trust State • Holder"
+      title="ProofOrigin Online Trust Pass"
       subtitle="A temporary online identity pass for digital trust — not a government ID or legal identity document."
     >
       <GlassPanel title="What this is">
@@ -193,9 +205,10 @@ export default function IdentityCardPage() {
       {verifyCardId && !card && (
         <div className="alert-banner alert-banner--warning" role="status">
           <strong>Verification link</strong>
-          Card <span className="identity-card-inline-mono">{verifyCardId}</span> was
-          requested. Full public verification arrives in a later release — holders can
-          show the live rotating code in V1.
+          Open the public verifier at{" "}
+          <a href={`/id/${encodeURIComponent(verifyCardId)}`} className="identity-card-verify__link">
+            /id/{verifyCardId}
+          </a>
         </div>
       )}
 
@@ -265,7 +278,7 @@ export default function IdentityCardPage() {
             <div className="identity-card-verify">
               <QrPlaceholder />
               <div className="identity-card-verify__copy">
-                <p className="identity-card-verify__label">Verification link (V1 placeholder)</p>
+                <p className="identity-card-verify__label">Public verification link</p>
                 <a href={verificationUrl} className="identity-card-verify__link">
                   {verificationUrl}
                 </a>

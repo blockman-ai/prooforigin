@@ -2847,5 +2847,68 @@ p {
   .identity-card-verify {
     grid-template-columns: 1fr;
   }
+
+  .dts-verify-form__code {
+    font-size: 28px;
+    letter-spacing: 0.18em;
+    text-align: center;
+  }
+}
+
+/* Dynamic Trust State — public verify */
+.dts-verify-summary {
+  display: grid;
+  gap: 18px;
+}
+
+.dts-verify-form {
+  display: grid;
+  gap: 16px;
+}
+
+.dts-verify-form__code {
+  font-family: var(--po-font-mono);
+  font-size: 32px;
+  letter-spacing: 0.2em;
+}
+
+.dts-history-empty {
+  margin: 0;
+  color: var(--po-muted);
+}
+
+.dts-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.dts-history-item {
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--po-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dts-history-item__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dts-history-item__time {
+  margin: 8px 0 4px;
+  color: var(--po-muted);
+  font-size: 13px;
+}
+
+.dts-history-item__hash {
+  margin: 0;
+  font-size: 12px;
+  color: var(--po-muted);
 }
 

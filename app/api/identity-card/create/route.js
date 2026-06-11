@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import {
   computeExpirationDate,
+  computePublicDisplayHash,
+  encryptSecretSeed,
   generateCardId,
-  generateSecretToken,
+  generateSecretSeed,
+  hashSecretSeed,
   getExpirationOption,
-  hashSecretToken,
   IDENTITY_CARD_VERSION,
-  isCardExpired,
+  buildFutureMetadata,
 } from "../../../lib/identityCard";
+import { appendStateEvent } from "../../../lib/identityCardState";
 import {
   getSupabaseAdmin,
   isSupabaseAdminConfigured,
@@ -63,20 +66,24 @@ export async function POST(req) {
     }
 
     const cardId = generateCardId();
-    const secretToken = generateSecretToken();
-    const secretTokenHash = hashSecretToken(secretToken);
+    const secretSeed = generateSecretSeed();
+    const secretTokenHash = hashSecretSeed(secretSeed);
+    const { secret_ciphertext, secret_nonce } = encryptSecretSeed(secretSeed);
     const issuedAt = new Date();
     const expiresAt = computeExpirationDate(issuedAt, expirationKey);
+    const publicDisplayHash = computePublicDisplayHash(displayName, username, purpose);
 
     const card = {
       card_id: cardId,
-      secret_token: secretToken,
+      secret_seed: secretSeed,
       display_name: displayName,
       username: username || null,
       purpose: purpose || null,
       expiration_key: expirationKey,
       issued_at: issuedAt.toISOString(),
       expires_at: expiresAt.toISOString(),
+      identity_card_version: IDENTITY_CARD_VERSION,
+      verification_path: `/id/${cardId}`,
     };
 
     if (isSupabaseAdminConfigured()) {
@@ -85,22 +92,43 @@ export async function POST(req) {
         const { error } = await supabase.from(TABLE).insert({
           id: cardId,
           secret_token_hash: secretTokenHash,
+          secret_ciphertext,
+          secret_nonce,
+          public_display_hash: publicDisplayHash,
           display_name: displayName,
           username: username || null,
           purpose: purpose || null,
           expiration_key: expirationKey,
           issued_at: issuedAt.toISOString(),
           expires_at: expiresAt.toISOString(),
-          metadata: { version: IDENTITY_CARD_VERSION },
+          trust_state: "active",
+          identity_card_version: IDENTITY_CARD_VERSION,
+          metadata: buildFutureMetadata({ version: IDENTITY_CARD_VERSION }),
         });
 
         if (error) throw error;
+
+        await appendStateEvent(supabase, {
+          cardId,
+          eventType: "created",
+          trustState: "active",
+          card: {
+            id: cardId,
+            display_name: displayName,
+            username,
+            purpose,
+            issued_at: issuedAt.toISOString(),
+            expires_at: expiresAt.toISOString(),
+            identity_card_version: IDENTITY_CARD_VERSION,
+          },
+          metadata: { source: "create" },
+        });
 
         return NextResponse.json({
           success: true,
           stored: true,
           card,
-          message: "Online identity card metadata saved. Photo was not stored.",
+          message: "Online trust pass saved with server-verifiable trust code.",
         });
       } catch (dbError) {
         return NextResponse.json({
@@ -111,7 +139,7 @@ export async function POST(req) {
             dbError.message ||
             "Database unavailable. Card created locally only.",
           message:
-            "Card created in this browser. Run docs/sql/identity_cards.sql to enable persistence.",
+            "Card created in this browser. Run docs/sql/identity_cards_dts_foundation.sql in Supabase.",
         });
       }
     }
@@ -120,8 +148,9 @@ export async function POST(req) {
       success: true,
       stored: false,
       card,
-      warning: "Supabase service role is not configured. Card stored in this browser only.",
-      message: "Online identity card created locally.",
+      warning:
+        "Supabase service role is not configured. Card stored in this browser only.",
+      message: "Online trust pass created locally.",
     });
   } catch (error) {
     return NextResponse.json(
@@ -140,55 +169,5 @@ export async function GET(req) {
     );
   }
 
-  if (!isSupabaseAdminConfigured()) {
-    return NextResponse.json({
-      success: true,
-      stored: false,
-      message: "Verification lookup is not available in demo mode.",
-    });
-  }
-
-  try {
-    const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase
-      .from(TABLE)
-      .select("id, display_name, username, purpose, issued_at, expires_at, revoked_at")
-      .eq("id", cardId)
-      .is("revoked_at", null)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!data) {
-      return NextResponse.json(
-        { success: false, error: "Card not found." },
-        { status: 404 }
-      );
-    }
-
-    if (isCardExpired(data.expires_at)) {
-      return NextResponse.json(
-        { success: false, error: "This card has expired." },
-        { status: 410 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      stored: true,
-      card: {
-        card_id: data.id,
-        display_name: data.display_name,
-        username: data.username,
-        purpose: data.purpose,
-        issued_at: data.issued_at,
-        expires_at: data.expires_at,
-      },
-      message: "Card metadata found. Rotating code verification requires the holder's device in V1.",
-    });
-  } catch (error) {
-    return NextResponse.json(
-      { success: false, error: error.message || "Verification lookup failed." },
-      { status: 500 }
-    );
-  }
+  return NextResponse.redirect(new URL(`/id/${encodeURIComponent(cardId)}`, req.url));
 }
