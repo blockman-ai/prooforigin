@@ -4,6 +4,7 @@ const LINKS = [
   { href: "/upload", label: "Upload" },
   { href: "/detect", label: "Detect" },
   { href: "/voice-anchor", label: "Voice Anchor" },
+  { href: "/identity-card", label: "Identity Card" },
   { href: "/dashboard", label: "Records" },
 ];
 

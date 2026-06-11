@@ -69,6 +69,21 @@ export default function Home() {
         </GlassPanel>
       </section>
 
+      <section className="identity-promo" aria-label="Online identity card">
+        <GlassPanel className="identity-promo__panel" title="Create an Online Identity Card">
+          <p className="identity-promo__copy">
+            Need a temporary online identity pass for chats, communities, or digital
+            trust? Generate a ProofOrigin card with a rotating verification code — a
+            practical step for online safety, not a government ID.
+          </p>
+          <div className="protocol-actions identity-promo__actions">
+            <a href="/identity-card" className="primary">
+              Create Identity Card
+            </a>
+          </div>
+        </GlassPanel>
+      </section>
+
       <section className="arcade-strip">
         <p className="arcade-strip__label">Protocol Arcade</p>
         <div className="protocol-actions arcade-strip__actions">

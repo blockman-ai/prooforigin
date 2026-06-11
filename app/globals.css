@@ -2579,3 +2579,273 @@ p {
   }
 }
 
+/* Online Identity Card V1 */
+.identity-promo {
+  margin-top: 24px;
+}
+
+.identity-promo__panel {
+  padding: 28px 26px;
+  border-color: rgba(167, 139, 250, 0.24);
+  background: linear-gradient(
+    160deg,
+    rgba(167, 139, 250, 0.08),
+    rgba(255, 255, 255, 0.03)
+  );
+}
+
+.identity-promo__copy {
+  margin: 0 0 20px;
+  color: var(--po-muted);
+  font-size: 16px;
+  line-height: 1.65;
+  max-width: 62ch;
+}
+
+.identity-promo__actions {
+  justify-content: flex-start;
+}
+
+.identity-card-notices {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--po-muted);
+  line-height: 1.65;
+  display: grid;
+  gap: 10px;
+}
+
+.identity-card-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 20px 0;
+  color: var(--po-muted);
+  font-size: 14px;
+  line-height: 1.55;
+  cursor: pointer;
+}
+
+.identity-card-consent input {
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.identity-card-photo-preview {
+  margin: 16px 0;
+  width: 120px;
+  height: 120px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid var(--po-border);
+}
+
+.identity-card-photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.identity-card-inline-mono {
+  font-family: var(--po-font-mono);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.identity-card-preview {
+  position: relative;
+  overflow: hidden;
+  padding: 28px 26px;
+  border-radius: 24px;
+  border: 1px solid rgba(167, 139, 250, 0.28);
+  background: linear-gradient(
+    155deg,
+    rgba(167, 139, 250, 0.12),
+    rgba(0, 229, 255, 0.06) 45%,
+    rgba(255, 255, 255, 0.04)
+  );
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.identity-card-preview__glow {
+  position: absolute;
+  inset: auto -20% -40% auto;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 229, 255, 0.18), transparent 70%);
+  pointer-events: none;
+}
+
+.identity-card-preview__header {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.identity-card-preview__brand {
+  margin: 0 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--po-cyan);
+  font-weight: 700;
+}
+
+.identity-card-preview__title {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
+.identity-card-preview__body {
+  position: relative;
+  display: grid;
+  gap: 22px;
+}
+
+.identity-card-preview__photo-wrap {
+  width: 88px;
+  height: 88px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+}
+
+.identity-card-preview__photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.identity-card-preview__fields {
+  margin: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.identity-card-preview__fields dt {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--po-muted);
+  font-weight: 700;
+}
+
+.identity-card-preview__fields dd {
+  margin: 4px 0 0;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.identity-card-code {
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 229, 255, 0.24);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.identity-card-code__label {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--po-muted);
+  font-weight: 700;
+}
+
+.identity-card-code__value {
+  margin: 0;
+  font-family: var(--po-font-mono);
+  font-size: 42px;
+  letter-spacing: 0.22em;
+  line-height: 1;
+  color: var(--po-cyan);
+}
+
+.identity-card-code__timer {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--po-muted);
+}
+
+.identity-card-verify {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.identity-qr {
+  display: grid;
+  grid-template-columns: repeat(8, 10px);
+  gap: 2px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.identity-qr__cell {
+  width: 10px;
+  height: 10px;
+  border-radius: 1px;
+  background: transparent;
+}
+
+.identity-qr__cell--on {
+  background: #0b1220;
+}
+
+.identity-card-verify__label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--po-muted);
+  font-weight: 700;
+}
+
+.identity-card-verify__link {
+  color: var(--po-cyan);
+  font-size: 13px;
+  word-break: break-all;
+  line-height: 1.45;
+}
+
+.identity-card-preview__footer {
+  position: relative;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--po-border);
+}
+
+.identity-card-preview__footer p {
+  margin: 0 0 10px;
+  color: var(--po-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.identity-card-preview__hint {
+  color: var(--po-muted);
+}
+
+@media (max-width: 599px) {
+  .identity-promo__actions .primary {
+    width: 100%;
+    text-align: center;
+  }
+
+  .identity-card-code__value {
+    font-size: 34px;
+  }
+
+  .identity-card-verify {
+    grid-template-columns: 1fr;
+  }
+}
+
