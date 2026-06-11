@@ -1,14 +1,78 @@
-export const DATASET_CAPTURE_BUCKETS = [
-  { value: "real_pet_photos", label: "Real pet photos" },
-  { value: "phone_screen_photos", label: "Phone screen photos" },
-  { value: "indoor_soft_light", label: "Indoor soft light" },
-  { value: "screenshots", label: "Screenshots" },
-  { value: "ai_controls", label: "AI controls" },
+export const DATASET_CAPTURE_V02_BUCKETS = [
+  { value: "real_pet_photos", label: "Real pet photos", gateTarget: 50 },
+  { value: "phone_screen_photos", label: "Phone screen photos", gateTarget: 25 },
+  { value: "indoor_soft_light", label: "Indoor soft light", gateTarget: 25 },
+  { value: "screenshots", label: "Screenshots", gateTarget: 25 },
+  { value: "ai_controls", label: "AI controls", gateTarget: 25 },
 ];
+
+export const DATASET_CAPTURE_EXPANSION_BUCKETS = [
+  { value: "real_people_photos", label: "Real people photos" },
+  { value: "real_document_photos", label: "Real document photos" },
+  { value: "real_food_photos", label: "Real food photos" },
+  { value: "real_vehicle_photos", label: "Real vehicle photos" },
+  { value: "real_nature_sky", label: "Real nature / sky" },
+  { value: "real_low_light", label: "Real low light" },
+  { value: "real_reflections_glass", label: "Real reflections / glass" },
+  { value: "photo_of_photo", label: "Photo of photo" },
+  { value: "social_media_screenshots", label: "Social media screenshots" },
+  { value: "edited_real", label: "Edited real" },
+  { value: "ai_generated_people", label: "AI generated people" },
+  { value: "ai_generated_objects", label: "AI generated objects" },
+  { value: "ai_generated_art", label: "AI generated art" },
+  { value: "ai_generated_screenshot_like", label: "AI generated screenshot-like" },
+  { value: "uncertain_mixed", label: "Uncertain / mixed" },
+];
+
+export const DATASET_CAPTURE_BUCKETS = [
+  ...DATASET_CAPTURE_V02_BUCKETS,
+  ...DATASET_CAPTURE_EXPANSION_BUCKETS,
+];
+
+export const DATASET_CAPTURE_BUCKET_GROUPS = [
+  {
+    label: "v0.2 correction buckets (count toward training gate)",
+    buckets: DATASET_CAPTURE_V02_BUCKETS,
+  },
+  {
+    label: "General dataset expansion",
+    buckets: DATASET_CAPTURE_EXPANSION_BUCKETS,
+  },
+];
+
+export const DATASET_CAPTURE_V02_GATE_BUCKET_VALUES = DATASET_CAPTURE_V02_BUCKETS.map(
+  (bucket) => bucket.value
+);
 
 export const DATASET_CAPTURE_BUCKET_VALUES = DATASET_CAPTURE_BUCKETS.map(
   (bucket) => bucket.value
 );
+
+export const DATASET_CAPTURE_EXPANSION_NOTICE =
+  "Some buckets are for general dataset expansion and may not count toward the current v0.2 training gate.";
+
+export const DATASET_CAPTURE_BUCKET_GUIDE = {
+  real_pet_photos: "Natural photos of real pets or animals.",
+  phone_screen_photos: "Photos taken of a phone screen showing content.",
+  indoor_soft_light: "Indoor scenes with soft or diffuse lighting.",
+  screenshots: "Direct device screenshots or screen captures.",
+  ai_controls: "Known AI-generated or synthetic control images.",
+  real_people_photos: "Natural photos of real people.",
+  real_document_photos: "Photos of documents, receipts, forms, or paper.",
+  real_food_photos: "Photos of real food or meals.",
+  real_vehicle_photos: "Photos of cars, trucks, or other vehicles.",
+  real_nature_sky: "Outdoor nature scenes, landscapes, or sky.",
+  real_low_light: "Real photos captured in low-light conditions.",
+  real_reflections_glass: "Scenes with reflections, glass, mirrors, or glare.",
+  photo_of_photo: "A photo taken of another photo or print.",
+  social_media_screenshots: "Screenshots from social media apps or feeds.",
+  edited_real: "Real-origin images with visible editing or filters.",
+  ai_generated_people: "Synthetic or AI-generated images of people.",
+  ai_generated_objects: "Synthetic or AI-generated objects or products.",
+  ai_generated_art: "Synthetic or AI-generated art or illustration.",
+  ai_generated_screenshot_like: "AI images that resemble screenshots or UI.",
+  uncertain_mixed: "Mixed, ambiguous, or uncertain category.",
+};
 
 export const DATASET_CAPTURE_MAX_BATCH = 10;
 export const DATASET_CAPTURE_PRIVATE_BUCKET = "po-private-dataset";

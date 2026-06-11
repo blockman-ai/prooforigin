@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import {
+  DATASET_CAPTURE_BUCKET_GUIDE,
   DATASET_CAPTURE_BUCKET_VALUES,
   isImageUploadFile,
 } from "../../../lib/datasetCapture";
@@ -10,14 +11,6 @@ import {
 } from "../../../lib/datasetCaptureAdmin";
 
 export const dynamic = "force-dynamic";
-
-const BUCKET_GUIDE = {
-  real_pet_photos: "Natural photos of real pets or animals.",
-  phone_screen_photos: "Photos taken of a phone screen showing content.",
-  indoor_soft_light: "Indoor scenes with soft or diffuse lighting.",
-  screenshots: "Direct device screenshots or screen captures.",
-  ai_controls: "Known AI-generated or synthetic control images.",
-};
 
 export async function POST(req) {
   try {
@@ -53,7 +46,7 @@ export async function POST(req) {
     const mimeType = file.type || "image/jpeg";
 
     const bucketDescriptions = DATASET_CAPTURE_BUCKET_VALUES.map(
-      (bucket) => `- ${bucket}: ${BUCKET_GUIDE[bucket]}`
+      (bucket) => `- ${bucket}: ${DATASET_CAPTURE_BUCKET_GUIDE[bucket]}`
     ).join("\n");
 
     const response = await openai.responses.create({

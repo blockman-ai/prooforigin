@@ -7,7 +7,7 @@ import PageShell from "../../components/protocol/PageShell";
 import ProtocolBadge from "../../components/protocol/ProtocolBadge";
 import StatusCard from "../../components/protocol/StatusCard";
 import { getDatasetCaptureAuthHeaders } from "../lib/datasetCaptureClient";
-import { DATASET_CAPTURE_BUCKETS, DATASET_CAPTURE_MAX_BATCH } from "../lib/datasetCapture";
+import { DATASET_CAPTURE_BUCKET_GROUPS, DATASET_CAPTURE_BUCKETS, DATASET_CAPTURE_EXPANSION_NOTICE, DATASET_CAPTURE_MAX_BATCH } from "../lib/datasetCapture";
 
 const PRIVATE_NOTICE =
   "Uploads are stored privately for ProofOrigin calibration and are not used for training until manually approved.";
@@ -326,12 +326,17 @@ function DatasetCaptureUploadPanel({ accessToken, email, onSignOut }) {
               onChange={(event) => setSelectedBucket(event.target.value)}
               disabled={uploading}
             >
-              {DATASET_CAPTURE_BUCKETS.map((bucket) => (
-                <option key={bucket.value} value={bucket.value}>
-                  {bucket.label}
-                </option>
+              {DATASET_CAPTURE_BUCKET_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.buckets.map((bucket) => (
+                    <option key={bucket.value} value={bucket.value}>
+                      {bucket.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
+            <span className="dataset-field__hint">{DATASET_CAPTURE_EXPANSION_NOTICE}</span>
           </label>
 
           <label className="dataset-field">
