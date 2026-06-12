@@ -132,6 +132,14 @@ export async function registerVaultDeviceWithServer() {
 
   const data = await response.json();
   if (!response.ok || !data.success) {
+    if (response.status === 409 && data.code === "DEVICE_ALREADY_REGISTERED") {
+      markVaultDeviceRegisteredLocally(device.vault_device_id);
+      return {
+        vault_device_id: device.vault_device_id,
+        device_public_id: data.registration?.device_public_id || null,
+        already_registered: true,
+      };
+    }
     throw new Error(data.error || "Unable to register vault device.");
   }
 
