@@ -12,17 +12,34 @@ Counters must never store:
 - Document content, ciphertext, or Trust Pass secret seeds
 - API keys, service role keys, or other secrets
 
-Counter keys are **fixed event names** chosen at development time (for example `guide.request.blocked`), not derived from user input.
+Counter keys are **fixed event names** chosen at development time (for example `guide.request.total`), not derived from user input.
 
-Allowed key prefixes (S1-C2):
+## Guide counters (S1-C3)
+
+Wired in `/api/guide` via `app/lib/guideSentinelCounters.js`. Best-effort only — counter write failures never break guide responses.
+
+| Counter key | When incremented |
+|-------------|------------------|
+| `guide.request.total` | Valid guide request answered or abuse-refused |
+| `guide.mode.openai` | OpenAI answer returned |
+| `guide.mode.deterministic` | Deterministic answer returned |
+| `guide.refusal.prompt_injection` | Abuse guard blocked injection pattern |
+| `guide.refusal.secret_request` | Abuse guard blocked secret/file request |
+| `guide.refusal.empty_question` | Empty/whitespace question rejected |
+| `guide.rate_limited` | Guide rate limit exceeded |
+| `guide.output_filter.rejected` | OpenAI output failed safety filter |
+
+Topic-level counters (for example `guide.topic.passkey`) are planned for a later commit.
+
+Allowed key prefixes (S1-C2+):
 
 | Prefix | Example keys |
 |--------|----------------|
 | `vault.auth.` | `vault.auth.nonce_replay`, `vault.auth.signature_invalid` |
-| `guide.` | `guide.request.success`, `guide.request.blocked` |
+| `guide.` | `guide.request.total`, `guide.mode.openai`, `guide.refusal.prompt_injection` |
 | `trust.verify.` | `trust.verify.success`, `trust.verify.rate_limited` |
 
-Keys containing forbidden fragments (`pin`, `secret`, `ip`, `question`, `raw`, etc.) are rejected by the server helper.
+Keys containing forbidden fragments (`pin`, `secret`, `ip`, `question`, `raw`, etc.) are rejected unless the key is in the operational allowlist (`SENTINEL_OPERATIONAL_COUNTER_KEYS`).
 
 ## SQL required before use
 
@@ -49,7 +66,7 @@ Security: RLS enabled; `anon`, `authenticated`, and `public` revoked; **service_
 | `getSentinelCounters(prefix?)` | Read counters, optionally filtered by prefix |
 | `validateSentinelCounterKey(key)` | Allowlist + forbidden-fragment validation |
 
-**S1-C2 is foundation only** — counters are not wired into vault/guide/trust routes yet. Future commits will call `incrementSentinelCounter` from route handlers; failures must not break user flows.
+**S1-C3** wires guide counters in `/api/guide`. Vault and trust verify counters remain foundation-only until later commits.
 
 ## Ops read API
 

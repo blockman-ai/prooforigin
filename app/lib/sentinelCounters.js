@@ -8,6 +8,17 @@ export const SENTINEL_COUNTER_PREFIXES = [
   "trust.verify.",
 ];
 
+export const SENTINEL_OPERATIONAL_COUNTER_KEYS = new Set([
+  "guide.request.total",
+  "guide.mode.openai",
+  "guide.mode.deterministic",
+  "guide.refusal.prompt_injection",
+  "guide.refusal.secret_request",
+  "guide.refusal.empty_question",
+  "guide.rate_limited",
+  "guide.output_filter.rejected",
+]);
+
 const COUNTER_KEY_PATTERN = /^[a-z0-9]+(?:[._][a-z0-9]+)*$/;
 
 const FORBIDDEN_COUNTER_KEY_FRAGMENTS = [
@@ -52,6 +63,10 @@ export function validateSentinelCounterKey(counterKey) {
   const allowedPrefix = SENTINEL_COUNTER_PREFIXES.find((prefix) => key.startsWith(prefix));
   if (!allowedPrefix) {
     return { valid: false, error: "counter_key_prefix_not_allowed" };
+  }
+
+  if (SENTINEL_OPERATIONAL_COUNTER_KEYS.has(key)) {
+    return { valid: true, prefix: allowedPrefix };
   }
 
   const suffix = key.slice(allowedPrefix.length);

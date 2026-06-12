@@ -1,4 +1,4 @@
-import { GUIDE_ABUSE_REFUSAL, isGuideQuestionBlocked } from "../../lib/guideAbuseGuard.js";
+import { GUIDE_ABUSE_REFUSAL, classifyGuideAbuse } from "../../lib/guideAbuseGuard.js";
 import { buildGuideAnswer } from "../../lib/guideAnswer.js";
 import {
   getGuideSuggestedFollowUps,
@@ -7,6 +7,11 @@ import {
 } from "../../lib/guideHelpMap.js";
 import { GUIDE_DISCLAIMER } from "../../lib/guidePrompt.js";
 import { checkGuideRateLimit } from "../../lib/guideRateLimit.js";
+import {
+  GUIDE_SENTINEL_COUNTERS,
+  recordGuideSentinelCounter,
+  recordGuideSentinelRefusal,
+} from "../../lib/guideSentinelCounters.js";
 import { validateGuideRequest } from "../../lib/guideSchema.js";
 
 export const GUIDE_CACHE_CONTROL = "no-store";
@@ -29,6 +34,7 @@ export async function POST(request) {
 
   const rateLimit = checkGuideRateLimit(request);
   if (!rateLimit.allowed) {
+    recordGuideSentinelCounter(GUIDE_SENTINEL_COUNTERS.RATE_LIMITED);
     const retryAfterSeconds = Math.max(1, Math.ceil(rateLimit.retryAfterMs / 1000));
     return guideJsonResponse(
       { error: "Guide rate limit exceeded. Try again later." },
@@ -52,10 +58,16 @@ export async function POST(request) {
   try {
     validated = validateGuideRequest(body);
   } catch (error) {
+    if (error.message === "question is required.") {
+      recordGuideSentinelCounter(GUIDE_SENTINEL_COUNTERS.REFUSAL_EMPTY_QUESTION);
+    }
     return guideJsonResponse({ error: error.message || "Invalid guide request." }, 400);
   }
 
-  if (isGuideQuestionBlocked(validated.question)) {
+  const abuse = classifyGuideAbuse(validated.question);
+  if (abuse.blocked) {
+    recordGuideSentinelCounter(GUIDE_SENTINEL_COUNTERS.REQUEST_TOTAL);
+    recordGuideSentinelRefusal(abuse.reason);
     return guideJsonResponse({
       answer: GUIDE_ABUSE_REFUSAL,
       disclaimer: GUIDE_DISCLAIMER,
@@ -65,6 +77,7 @@ export async function POST(request) {
     });
   }
 
+  recordGuideSentinelCounter(GUIDE_SENTINEL_COUNTERS.REQUEST_TOTAL);
   const topicId = resolveGuideTopic(validated.question, validated.context);
   const snippet = loadGuideHelpSnippet(topicId);
   const result = await buildGuideAnswer({
@@ -73,6 +86,12 @@ export async function POST(request) {
     topicId,
     snippet,
   });
+
+  recordGuideSentinelCounter(
+    result.mode === "openai"
+      ? GUIDE_SENTINEL_COUNTERS.MODE_OPENAI
+      : GUIDE_SENTINEL_COUNTERS.MODE_DETERMINISTIC
+  );
 
   return guideJsonResponse({
     answer: result.answer,

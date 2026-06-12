@@ -5,6 +5,10 @@ import {
   GUIDE_DISCLAIMER,
 } from "./guidePrompt.js";
 import { filterGuideModelOutput } from "./guideOutputFilter.js";
+import {
+  GUIDE_SENTINEL_COUNTERS,
+  recordGuideSentinelCounter,
+} from "./guideSentinelCounters.js";
 
 export function isGuideOpenAIConfigured() {
   return Boolean(String(process.env.OPENAI_API_KEY || "").trim());
@@ -38,7 +42,8 @@ export async function generateGuideOpenAIAnswer({
 
   const filtered = filterGuideModelOutput(rawText);
   if (!filtered.ok) {
-    return null;
+    recordGuideSentinelCounter(GUIDE_SENTINEL_COUNTERS.OUTPUT_FILTER_REJECTED);
+    return { outputFilterRejected: true };
   }
 
   return {

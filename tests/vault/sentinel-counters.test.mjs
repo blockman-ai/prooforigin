@@ -197,6 +197,16 @@ test("secret-looking counter keys are rejected", () => {
 
   const safe = validateSentinelCounterKey("guide.request.blocked");
   assert.equal(safe.valid, true);
+
+  for (const counterKey of [
+    "guide.request.total",
+    "guide.mode.openai",
+    "guide.refusal.secret_request",
+    "guide.refusal.empty_question",
+    "guide.output_filter.rejected",
+  ]) {
+    assert.equal(validateSentinelCounterKey(counterKey).valid, true, counterKey);
+  }
 });
 
 test("ops route exposes sentinel_counters action", () => {

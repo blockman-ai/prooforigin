@@ -93,7 +93,7 @@ test("generateGuideOpenAIAnswer rejects unsafe model output", async () => {
     }),
   });
 
-  assert.equal(result, null);
+  assert.equal(result?.outputFilterRejected, true);
 });
 
 test("generateGuideOpenAIAnswer returns filtered text for safe output", async () => {
