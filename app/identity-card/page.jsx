@@ -4,6 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import GlassPanel from "../../components/protocol/GlassPanel";
 import PageShell from "../../components/protocol/PageShell";
 import ProtocolBadge from "../../components/protocol/ProtocolBadge";
+import LiveTrustCode from "../../components/trust/LiveTrustCode";
+import ProofOriginSeal from "../../components/trust/ProofOriginSeal";
+import QrPlaceholder from "../../components/trust/QrPlaceholder";
+import TrustDNAV0 from "../../components/trust/TrustDNAV0";
+import TrustPricingTeaser from "../../components/trust/TrustPricingTeaser";
 import {
   EXPIRATION_OPTIONS,
   formatCardDate,
@@ -20,29 +25,8 @@ import {
 } from "../lib/identityCardClient";
 import { preparePhotoForLocalStorage } from "../lib/identityCardPhoto";
 
-function QrPlaceholder() {
-  const cells = Array.from({ length: 64 }, (_, index) => {
-    const row = Math.floor(index / 8);
-    const col = index % 8;
-    const filled =
-      (row < 3 && col < 3) ||
-      (row < 3 && col > 4) ||
-      (row > 4 && col < 3) ||
-      (index % 5 === 0 || index % 7 === 2);
-    return filled;
-  });
-
-  return (
-    <div className="identity-qr" aria-hidden="true">
-      {cells.map((filled, index) => (
-        <span
-          key={index}
-          className={`identity-qr__cell ${filled ? "identity-qr__cell--on" : ""}`.trim()}
-        />
-      ))}
-    </div>
-  );
-}
+const TRUST_PASS_DISCLAIMER =
+  "This is a ProofOrigin Online Trust Pass, not a government ID.";
 
 export default function IdentityCardPage() {
   const [displayName, setDisplayName] = useState("");
@@ -193,19 +177,15 @@ export default function IdentityCardPage() {
   return (
     <PageShell
       narrow
-      badge="Dynamic Trust State • Holder"
-      title="ProofOrigin Online Trust Pass"
-      subtitle="A temporary online identity pass for digital trust — not a government ID or legal identity document."
+      badge="Premium Trust Credential • Holder"
+      title="Forge your digital reputation."
+      subtitle={`Trust is built through history, verification, and proof. ${TRUST_PASS_DISCLAIMER}`}
+      className="trust-cred-page"
     >
-      <GlassPanel title="What this is">
-        <ul className="identity-card-notices">
-          <li>Optional temporary pass you generate for online interactions.</li>
-          <li>Includes a rotating verification code similar to authenticator apps.</li>
-          <li>Optional photo stays in this browser only and is never uploaded.</li>
-          <li>No SSN, driver license, date of birth, or legal ID verification.</li>
-          <li>{IDENTITY_DISCLAIMER}</li>
-        </ul>
-      </GlassPanel>
+      <p className="trust-cred-lead">
+        {TRUST_PASS_DISCLAIMER} A temporary online pass for digital trust — not a legal
+        identity document.
+      </p>
 
       {verifyCardId && !card && (
         <div className="alert-banner alert-banner--warning" role="status">
@@ -218,194 +198,224 @@ export default function IdentityCardPage() {
       )}
 
       {card ? (
-        <article className="identity-card-preview" aria-label="ProofOrigin online identity card">
-          <div className="identity-card-preview__glow" aria-hidden="true" />
-          <header className="identity-card-preview__header">
-            <div>
-              <p className="identity-card-preview__brand">ProofOrigin</p>
-              <h2 className="identity-card-preview__title">Online Identity Card</h2>
-            </div>
-            <ProtocolBadge variant="success">Active</ProtocolBadge>
-          </header>
+        <>
+          <article className="titanium-pass" aria-label="ProofOrigin Online Trust Pass">
+            <div className="titanium-pass__sheen" aria-hidden="true" />
+            <div className="titanium-pass__grain" aria-hidden="true" />
 
-          <div className="identity-card-preview__body">
-            {card.photo_preview && (
-              <div className="identity-card-preview__photo-wrap">
-                <img
-                  src={card.photo_preview}
-                  alt=""
-                  className="identity-card-preview__photo"
-                />
-              </div>
-            )}
-
-            <dl className="identity-card-preview__fields">
-              <div>
-                <dt>Display name</dt>
-                <dd>{card.display_name}</dd>
-              </div>
-              {card.username && (
+            <header className="titanium-pass__header">
+              <div className="titanium-pass__brand-row">
+                <ProofOriginSeal size={44} />
                 <div>
-                  <dt>Handle</dt>
-                  <dd>@{card.username.replace(/^@/, "")}</dd>
+                  <p className="titanium-pass__brand">ProofOrigin</p>
+                  <h2 className="titanium-pass__title">Online Trust Pass</h2>
                 </div>
-              )}
-              {card.purpose && (
-                <div>
-                  <dt>Purpose</dt>
-                  <dd>{card.purpose}</dd>
-                </div>
-              )}
-              <div>
-                <dt>Card ID</dt>
-                <dd className="identity-card-inline-mono">{card.card_id}</dd>
               </div>
-              <div>
-                <dt>Issued</dt>
-                <dd>{formatCardDate(card.issued_at)}</dd>
-              </div>
-              <div>
-                <dt>Expires</dt>
-                <dd>{formatCardDate(card.expires_at)}</dd>
-              </div>
-            </dl>
+              <ProtocolBadge variant="success">Active</ProtocolBadge>
+            </header>
 
-            <div className="identity-card-code">
-              <p className="identity-card-code__label">Rotating verification code</p>
-              <p className="identity-card-code__value" aria-live="polite">
-                {rotatingCode}
-              </p>
-              <p className="identity-card-code__timer">
-                Refreshes in {codeSecondsLeft}s · changes every {ROTATING_CODE_WINDOW_SECONDS}s
-              </p>
+            <div className="titanium-pass__body">
+              <div className="titanium-pass__identity">
+                {card.photo_preview && (
+                  <div className="titanium-pass__photo-wrap">
+                    <img
+                      src={card.photo_preview}
+                      alt=""
+                      className="titanium-pass__photo"
+                    />
+                  </div>
+                )}
+                <dl className="identity-card-preview__fields titanium-pass__fields">
+                  <div>
+                    <dt>Display name</dt>
+                    <dd>{card.display_name}</dd>
+                  </div>
+                  {card.username && (
+                    <div>
+                      <dt>Handle</dt>
+                      <dd>@{card.username.replace(/^@/, "")}</dd>
+                    </div>
+                  )}
+                  {card.purpose && (
+                    <div>
+                      <dt>Purpose</dt>
+                      <dd>{card.purpose}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt>Card ID</dt>
+                    <dd className="identity-card-inline-mono">{card.card_id}</dd>
+                  </div>
+                  <div>
+                    <dt>Issued</dt>
+                    <dd>{formatCardDate(card.issued_at)}</dd>
+                  </div>
+                  <div>
+                    <dt>Expires</dt>
+                    <dd>{formatCardDate(card.expires_at)}</dd>
+                  </div>
+                </dl>
+              </div>
+
+              <LiveTrustCode
+                code={rotatingCode}
+                secondsLeft={codeSecondsLeft}
+                windowSeconds={ROTATING_CODE_WINDOW_SECONDS}
+                variant="holder"
+              />
+
+              <div className="titanium-pass__verify-row">
+                <QrPlaceholder />
+                <div className="identity-card-verify__copy">
+                  <p className="identity-card-verify__label">Public verification link</p>
+                  <a href={verificationUrl} className="identity-card-verify__link">
+                    {verificationUrl}
+                  </a>
+                </div>
+              </div>
             </div>
 
-            <div className="identity-card-verify">
-              <QrPlaceholder />
-              <div className="identity-card-verify__copy">
-                <p className="identity-card-verify__label">Public verification link</p>
-                <a href={verificationUrl} className="identity-card-verify__link">
-                  {verificationUrl}
-                </a>
+            <footer className="titanium-pass__footer">
+              <p>{IDENTITY_DISCLAIMER}</p>
+              {!card.stored && (
+                <p className="identity-card-preview__hint">
+                  Stored in this browser only. Clearing site data removes the card, rotating code
+                  secret{card.photo_preview ? ", and photo" : ""}.
+                </p>
+              )}
+              {card.photo_preview && (
+                <p className="identity-card-preview__hint">
+                  Photo is saved only in this browser and is not uploaded.
+                </p>
+              )}
+              <div className="protocol-actions">
+                <button type="button" className="secondary" onClick={handleRevokeCard}>
+                  Revoke this pass
+                </button>
               </div>
-            </div>
-          </div>
+            </footer>
+          </article>
 
-          <footer className="identity-card-preview__footer">
-            <p>{IDENTITY_DISCLAIMER}</p>
-            {!card.stored && (
-              <p className="identity-card-preview__hint">
-                Stored in this browser only. Clearing site data removes the card, rotating code
-                secret{card.photo_preview ? ", and photo" : ""}.
-              </p>
-            )}
-            {card.photo_preview && (
-              <p className="identity-card-preview__hint">
+          <TrustDNAV0
+            issuedAt={card.issued_at}
+            verificationCount={0}
+            historyCount={1}
+          />
+        </>
+      ) : (
+        <>
+          <GlassPanel title="Forge your pass" className="trust-forge-panel">
+            <p className="trust-forge-panel__intro">
+              Generate a rotating Live Trust Code and share a verification link. Optional photo
+              stays in this browser only.
+            </p>
+
+            <label className="dataset-field">
+              <span className="dataset-field__label">Display name</span>
+              <input
+                className="dataset-field__input"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="How you want to be recognized online"
+                maxLength={80}
+              />
+            </label>
+
+            <label className="dataset-field">
+              <span className="dataset-field__label">Username / handle (optional)</span>
+              <input
+                className="dataset-field__input"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="@yourhandle"
+                maxLength={40}
+              />
+            </label>
+
+            <label className="dataset-field">
+              <span className="dataset-field__label">Purpose / note (optional)</span>
+              <textarea
+                className="dataset-field__textarea"
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                placeholder="Why you're issuing this temporary online pass"
+                maxLength={240}
+                rows={3}
+              />
+            </label>
+
+            <label className="dataset-field">
+              <span className="dataset-field__label">Expiration</span>
+              <select
+                className="dataset-field__input"
+                value={expirationKey}
+                onChange={(e) => setExpirationKey(e.target.value)}
+              >
+                {EXPIRATION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="dataset-field">
+              <span className="dataset-field__label">Photo (optional)</span>
+              <input
+                className="dataset-field__file"
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoChange}
+                disabled={photoProcessing}
+              />
+              <span className="dataset-field__hint">
                 Photo is saved only in this browser and is not uploaded.
-              </p>
+              </span>
+            </label>
+
+            {photoProcessing && (
+              <p className="dataset-field__hint">Compressing photo…</p>
             )}
+
+            {photoPreview && (
+              <div className="identity-card-photo-preview trust-photo-preview">
+                <img src={photoPreview} alt="Card photo preview" />
+              </div>
+            )}
+
+            <label className="identity-card-consent">
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+              />
+              <span>
+                {TRUST_PASS_DISCLAIMER} I understand this is for online trust only.
+              </span>
+            </label>
+
             <div className="protocol-actions">
-              <button type="button" className="secondary" onClick={handleRevokeCard}>
-                Revoke this card
+              <button
+                type="button"
+                className="primary trust-forge-panel__cta"
+                onClick={handleCreateCard}
+                disabled={submitting || photoProcessing}
+              >
+                {submitting ? "Forging pass…" : "Forge Trust Pass"}
               </button>
             </div>
-          </footer>
-        </article>
-      ) : (
-        <GlassPanel title="Create an Online Identity Card">
-          <label className="dataset-field">
-            <span className="dataset-field__label">Display name</span>
-            <input
-              className="dataset-field__input"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="How you want to be recognized online"
-              maxLength={80}
-            />
-          </label>
+          </GlassPanel>
 
-          <label className="dataset-field">
-            <span className="dataset-field__label">Username / handle (optional)</span>
-            <input
-              className="dataset-field__input"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="@yourhandle"
-              maxLength={40}
-            />
-          </label>
-
-          <label className="dataset-field">
-            <span className="dataset-field__label">Purpose / note (optional)</span>
-            <textarea
-              className="dataset-field__textarea"
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value)}
-              placeholder="Why you're issuing this temporary online pass"
-              maxLength={240}
-              rows={3}
-            />
-          </label>
-
-          <label className="dataset-field">
-            <span className="dataset-field__label">Expiration</span>
-            <select
-              className="dataset-field__input"
-              value={expirationKey}
-              onChange={(e) => setExpirationKey(e.target.value)}
-            >
-              {EXPIRATION_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="dataset-field">
-            <span className="dataset-field__label">Photo (optional)</span>
-            <input
-              className="dataset-field__file"
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoChange}
-              disabled={photoProcessing}
-            />
-            <span className="dataset-field__hint">
-              Photo is saved only in this browser and is not uploaded.
-            </span>
-          </label>
-
-          {photoProcessing && (
-            <p className="dataset-field__hint">Compressing photo…</p>
-          )}
-
-          {photoPreview && (
-            <div className="identity-card-photo-preview">
-              <img src={photoPreview} alt="Card photo preview" />
-            </div>
-          )}
-
-          <label className="identity-card-consent">
-            <input
-              type="checkbox"
-              checked={consent}
-              onChange={(e) => setConsent(e.target.checked)}
-            />
-            <span>{IDENTITY_DISCLAIMER} I understand this is for online trust only.</span>
-          </label>
-
-          <div className="protocol-actions">
-            <button
-              type="button"
-              className="primary"
-              onClick={handleCreateCard}
-              disabled={submitting || photoProcessing}
-            >
-              {submitting ? "Generating card…" : "Generate identity card"}
-            </button>
-          </div>
-        </GlassPanel>
+          <GlassPanel title="How trust works">
+            <ul className="identity-card-notices trust-manifesto">
+              <li>Live Trust Code rotates every 60 seconds — like an authenticator for trust.</li>
+              <li>Trust History records created and verified events on ProofOrigin servers.</li>
+              <li>Optional photo stays in this browser only and is never uploaded.</li>
+              <li>No SSN, driver license, date of birth, or legal ID verification.</li>
+              <li>Trust is built through history, verification, and proof.</li>
+            </ul>
+          </GlassPanel>
+        </>
       )}
 
       {warning && (
@@ -421,6 +431,8 @@ export default function IdentityCardPage() {
           {error}
         </div>
       )}
+
+      <TrustPricingTeaser />
     </PageShell>
   );
 }

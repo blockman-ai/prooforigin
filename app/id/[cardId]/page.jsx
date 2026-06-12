@@ -6,22 +6,25 @@ import { useParams } from "next/navigation";
 import GlassPanel from "../../../components/protocol/GlassPanel";
 import PageShell from "../../../components/protocol/PageShell";
 import ProtocolBadge from "../../../components/protocol/ProtocolBadge";
+import ProofOriginSeal from "../../../components/trust/ProofOriginSeal";
+import TrustDNAV0 from "../../../components/trust/TrustDNAV0";
+import TrustPricingTeaser from "../../../components/trust/TrustPricingTeaser";
+import TrustTimeline from "../../../components/trust/TrustTimeline";
+import TrustRing from "../../../components/trust/TrustRing";
 import {
   formatCardDate,
-  formatCardDateTime,
   IDENTITY_DISCLAIMER,
   formatTrustStateLabel,
   trustStateBadgeVariant,
+  ROTATING_CODE_WINDOW_SECONDS,
 } from "../../lib/identityCardShared";
+
+const TRUST_PASS_DISCLAIMER =
+  "This is a ProofOrigin Online Trust Pass, not a government ID.";
 
 function truncateHash(hash, head = 12, tail = 8) {
   if (!hash || hash.length <= head + tail + 3) return hash || "—";
   return `${hash.slice(0, head)}…${hash.slice(-tail)}`;
-}
-
-function formatEventLabel(eventType) {
-  if (!eventType) return "Event";
-  return eventType.charAt(0).toUpperCase() + eventType.slice(1);
 }
 
 export default function PublicTrustPassPage() {
@@ -95,6 +98,10 @@ export default function PublicTrustPassPage() {
               ...prev,
               trust_state: data.trust_state || prev.trust_state,
               last_verified_at: data.verified_at || prev.last_verified_at,
+              verification_count:
+                data.valid && typeof prev.verification_count === "number"
+                  ? prev.verification_count + 1
+                  : prev.verification_count,
               verification_status: data.valid
                 ? "Verified just now"
                 : prev.verification_status,
@@ -109,6 +116,9 @@ export default function PublicTrustPassPage() {
         const historyData = await historyRes.json();
         if (historyData.success) {
           setTrustHistory(historyData.trust_history || []);
+          if (historyData.card) {
+            setCard((prev) => (prev ? { ...prev, ...historyData.card, card_id: prev.card_id } : prev));
+          }
         }
       }
     } catch (err) {
@@ -118,23 +128,22 @@ export default function PublicTrustPassPage() {
     }
   }
 
-  const badgeVariant = card
-    ? trustStateBadgeVariant(card.trust_state)
-    : "pending";
+  const badgeVariant = card ? trustStateBadgeVariant(card.trust_state) : "pending";
+  const verifiedCount =
+    card?.verification_count ??
+    trustHistory.filter((event) => event.event_type === "verified").length;
 
   return (
     <PageShell
       narrow
-      badge="Dynamic Trust State • Public Verify"
+      badge="Premium Trust Credential • Verify"
       title="Verify Online Trust Pass"
-      subtitle="Confirm a live ProofOrigin trust code — not a government ID or legal identity document."
+      subtitle={`Trust is built through history, verification, and proof. ${TRUST_PASS_DISCLAIMER}`}
+      className="trust-cred-page trust-cred-page--verify"
     >
-      <GlassPanel title="Disclaimer">
-        <p className="identity-card-notices" style={{ margin: 0, listStyle: "none" }}>
-          {IDENTITY_DISCLAIMER} Ask the holder to show a live code that refreshes every 60
-          seconds. A screenshot is not sufficient proof.
-        </p>
-      </GlassPanel>
+      <p className="trust-cred-lead">
+        Confirm a live ProofOrigin trust code in real time. A screenshot is not sufficient proof.
+      </p>
 
       {loading && (
         <div className="alert-banner alert-banner--warning" role="status">
@@ -142,7 +151,7 @@ export default function PublicTrustPassPage() {
         </div>
       )}
 
-      {error && (
+      {error && !card && (
         <div className="alert-banner alert-banner--error" role="alert">
           <strong>Unable to load</strong>
           {error}
@@ -151,19 +160,30 @@ export default function PublicTrustPassPage() {
 
       {card && (
         <>
-          <GlassPanel title="Trust Pass Status">
-            <div className="dts-verify-summary">
+          <article className="titanium-pass titanium-pass--verify" aria-label="Trust pass verification">
+            <div className="titanium-pass__sheen" aria-hidden="true" />
+            <div className="titanium-pass__grain" aria-hidden="true" />
+
+            <header className="titanium-pass__header">
+              <div className="titanium-pass__brand-row">
+                <TrustRing progress={1} size={52} label="Trust state ring">
+                  <ProofOriginSeal size={28} />
+                </TrustRing>
+                <div>
+                  <p className="titanium-pass__brand">ProofOrigin</p>
+                  <h2 className="titanium-pass__title">{card.display_name}</h2>
+                </div>
+              </div>
               <ProtocolBadge variant={badgeVariant}>
                 {formatTrustStateLabel(card.trust_state)}
               </ProtocolBadge>
-              <dl className="identity-card-preview__fields">
+            </header>
+
+            <div className="titanium-pass__body">
+              <dl className="identity-card-preview__fields titanium-pass__fields titanium-pass__fields--compact">
                 <div>
                   <dt>Card ID</dt>
                   <dd className="identity-card-inline-mono">{card.card_id}</dd>
-                </div>
-                <div>
-                  <dt>Display name</dt>
-                  <dd>{card.display_name}</dd>
                 </div>
                 {card.username && (
                   <div>
@@ -178,20 +198,16 @@ export default function PublicTrustPassPage() {
                   </div>
                 )}
                 <div>
-                  <dt>Issue date</dt>
+                  <dt>Issued</dt>
                   <dd>{formatCardDate(card.issued_at)}</dd>
                 </div>
                 <div>
-                  <dt>Expiration date</dt>
+                  <dt>Expires</dt>
                   <dd>{formatCardDate(card.expires_at)}</dd>
                 </div>
                 <div>
                   <dt>Verification status</dt>
                   <dd>{card.verification_status}</dd>
-                </div>
-                <div>
-                  <dt>Trust state</dt>
-                  <dd>{formatTrustStateLabel(card.trust_state)}</dd>
                 </div>
                 <div>
                   <dt>Latest state hash</dt>
@@ -201,14 +217,22 @@ export default function PublicTrustPassPage() {
                 </div>
               </dl>
             </div>
-          </GlassPanel>
 
-          <GlassPanel title="Verify Trust Code">
-            <form className="dts-verify-form" onSubmit={handleVerifyCode}>
+            <footer className="titanium-pass__footer">
+              <p>{IDENTITY_DISCLAIMER}</p>
+            </footer>
+          </article>
+
+          <GlassPanel title="Live Trust Code" className="trust-verify-panel">
+            <form className="dts-verify-form trust-verify-form" onSubmit={handleVerifyCode}>
+              <div className="trust-verify-form__hero">
+                <ProofOriginSeal size={36} />
+                <p className="trust-live-code__eyebrow">Enter holder&apos;s Live Trust Code</p>
+              </div>
               <label className="dataset-field">
                 <span className="dataset-field__label">6-digit trust code</span>
                 <input
-                  className="dataset-field__input dts-verify-form__code"
+                  className="dataset-field__input dts-verify-form__code trust-verify-form__code"
                   inputMode="numeric"
                   pattern="[0-9]*"
                   maxLength={6}
@@ -216,14 +240,16 @@ export default function PublicTrustPassPage() {
                   onChange={(e) => setTrustCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   placeholder="000000"
                   autoComplete="one-time-code"
+                  aria-describedby="trust-code-hint"
                 />
-                <span className="dataset-field__hint">
-                  Enter the live code from the holder&apos;s ProofOrigin trust pass.
+                <span id="trust-code-hint" className="dataset-field__hint">
+                  Code refreshes every {ROTATING_CODE_WINDOW_SECONDS} seconds on the holder&apos;s
+                  device.
                 </span>
               </label>
               <div className="protocol-actions">
                 <button type="submit" className="primary" disabled={verifying}>
-                  {verifying ? "Verifying…" : "Verify"}
+                  {verifying ? "Verifying…" : "Verify Live Trust Code"}
                 </button>
               </div>
             </form>
@@ -239,40 +265,34 @@ export default function PublicTrustPassPage() {
                   : "The code did not match or the trust pass is not active."}
               </div>
             )}
+
+            {error && card && (
+              <div className="alert-banner alert-banner--error" role="alert">
+                <strong>Verification issue</strong>
+                {error}
+              </div>
+            )}
           </GlassPanel>
 
           <GlassPanel title="Trust History">
-            {trustHistory.length === 0 ? (
-              <p className="dts-history-empty">No trust events recorded yet.</p>
-            ) : (
-              <ul className="dts-history-list">
-                {trustHistory.map((event) => (
-                  <li key={event.id} className="dts-history-item">
-                    <div className="dts-history-item__header">
-                      <strong>{formatEventLabel(event.event_type)}</strong>
-                      <ProtocolBadge variant={trustStateBadgeVariant(event.trust_state)}>
-                        {formatTrustStateLabel(event.trust_state)}
-                      </ProtocolBadge>
-                    </div>
-                    <p className="dts-history-item__time">
-                      {formatCardDateTime(event.created_at)}
-                    </p>
-                    <p className="dts-history-item__hash identity-card-inline-mono">
-                      {truncateHash(event.card_state_hash)}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <TrustTimeline events={trustHistory} />
           </GlassPanel>
+
+          <TrustDNAV0
+            issuedAt={card.issued_at}
+            verificationCount={verifiedCount}
+            historyCount={trustHistory.length}
+          />
         </>
       )}
 
       <div className="protocol-actions">
         <Link href="/identity-card" className="secondary">
-          Create your own trust pass
+          Forge your own trust pass
         </Link>
       </div>
+
+      <TrustPricingTeaser />
     </PageShell>
   );
 }
