@@ -2,7 +2,7 @@
 
 
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import PageShell from "../../components/protocol/PageShell";
 
@@ -101,8 +101,11 @@ import VaultPasskeySection from "../../components/vault/VaultPasskeySection";
 
 import VaultPasskeyUnsupportedNotice from "../../components/vault/VaultPasskeyUnsupportedNotice";
 
-import ProofOriginGuideWidget from "../../components/guide/ProofOriginGuideWidget";
-
+import { useGuideContextOverride } from "../../components/guide/GuideAppShell";
+import PrivacyScreenGuard, {
+  PRIVACY_CAPTURE_DISCLAIMER,
+} from "../../components/security/PrivacyScreenGuard";
+import { VAULT_WATERMARK } from "../lib/privacyCapture";
 import { buildVaultGuideSafeContext } from "../lib/guideSafeContext";
 import { isVaultUsingMasterVaultKey } from "../lib/vaultKeyRingStorage";
 import { isVaultRecoveryKitConfigured } from "../lib/vaultRecoveryStatus";
@@ -951,15 +954,29 @@ export default function VaultPage() {
     passkeySupported: passkeyUnlockSupported,
   });
 
-  const guideContext = buildVaultGuideSafeContext({
-    vaultLocked: isLocked || isVanish,
-    mvkMode: isVaultUsingMasterVaultKey(),
-    pinConfigured: hasVaultPinConfigured(),
-    passkeyEnrolled: isVaultPasskeyEnrolled(),
-    passkeySupported: passkeyUnlockSupported,
-    recoveryConfigured: isVaultRecoveryKitConfigured(),
-    protectedViewActive: showProtectedView,
-  });
+  const guideContext = useMemo(
+    () =>
+      buildVaultGuideSafeContext({
+        vaultLocked: isLocked || isVanish,
+        mvkMode: isVaultUsingMasterVaultKey(),
+        pinConfigured: hasVaultPinConfigured(),
+        passkeyEnrolled: isVaultPasskeyEnrolled(),
+        passkeySupported: passkeyUnlockSupported,
+        recoveryConfigured: isVaultRecoveryKitConfigured(),
+        protectedViewActive: showProtectedView,
+      }),
+    [
+      isLocked,
+      isVanish,
+      passkeyUnlockSupported,
+      showProtectedView,
+      recoveryStatusTick,
+      passkeyStatusTick,
+      vaultState,
+    ]
+  );
+
+  useGuideContextOverride(guideContext);
 
 
 
@@ -1060,7 +1077,16 @@ export default function VaultPage() {
 
           {isUnlocked ? (
 
-            <>
+            <PrivacyScreenGuard
+              enabled={!showProtectedOverlay}
+              strict
+              className="privacy-screen-guard--vault privacy-print-hide"
+              watermarkText={VAULT_WATERMARK}
+              showWatermark
+            >
+              <p className="privacy-capture-disclaimer" role="note">
+                {PRIVACY_CAPTURE_DISCLAIMER}
+              </p>
 
               <section className="vault-genesis-card" aria-label="Vault Genesis">
 
@@ -1242,7 +1268,7 @@ export default function VaultPage() {
 
               </div>
 
-            </>
+            </PrivacyScreenGuard>
 
           ) : (
 
@@ -1623,8 +1649,6 @@ export default function VaultPage() {
         />
 
       )}
-
-      <ProofOriginGuideWidget context={guideContext} />
 
     </PageShell>
 

@@ -11,6 +11,10 @@ import TrustDNAV0 from "../../../components/trust/TrustDNAV0";
 import TrustPricingTeaser from "../../../components/trust/TrustPricingTeaser";
 import TrustTimeline from "../../../components/trust/TrustTimeline";
 import TrustRing from "../../../components/trust/TrustRing";
+import PrivacyScreenGuard, {
+  PRIVACY_CAPTURE_DISCLAIMER,
+} from "../../../components/security/PrivacyScreenGuard";
+import { TRUST_PASS_WATERMARK } from "../../lib/privacyCapture";
 import {
   formatCardDate,
   IDENTITY_DISCLAIMER,
@@ -240,7 +244,13 @@ export default function PublicTrustPassPage() {
             </footer>
           </article>
 
-          <GlassPanel title="Live Trust Code" className="trust-verify-panel">
+          <GlassPanel title="Live Trust Code" className="trust-verify-panel privacy-print-hide">
+            <PrivacyScreenGuard
+              strict
+              className="privacy-screen-guard--trust-pass privacy-protected-live"
+              watermarkText={TRUST_PASS_WATERMARK}
+              showWatermark
+            >
             <form className="dts-verify-form trust-verify-form" onSubmit={handleVerifyCode}>
               <div className="trust-verify-form__hero">
                 <ProofOriginSeal size={36} />
@@ -292,6 +302,11 @@ export default function PublicTrustPassPage() {
                 {error}
               </div>
             )}
+
+            <p className="privacy-capture-disclaimer" role="note">
+              {PRIVACY_CAPTURE_DISCLAIMER}
+            </p>
+            </PrivacyScreenGuard>
           </GlassPanel>
 
           <GlassPanel title="Trust History">

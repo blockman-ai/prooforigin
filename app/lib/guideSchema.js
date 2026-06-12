@@ -8,6 +8,7 @@ export const GUIDE_FEATURES = new Set([
   "voice_anchor",
   "protected_view",
   "timeline",
+  "provenance",
   "general",
 ]);
 

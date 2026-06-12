@@ -7,6 +7,10 @@ import ProtocolBadge from "../../components/protocol/ProtocolBadge";
 import LiveTrustCode from "../../components/trust/LiveTrustCode";
 import ProofOriginSeal from "../../components/trust/ProofOriginSeal";
 import QrPlaceholder from "../../components/trust/QrPlaceholder";
+import PrivacyScreenGuard, {
+  PRIVACY_CAPTURE_DISCLAIMER,
+} from "../../components/security/PrivacyScreenGuard";
+import { TRUST_PASS_WATERMARK } from "../lib/privacyCapture";
 import TrustDNAV0 from "../../components/trust/TrustDNAV0";
 import TrustPricingTeaser from "../../components/trust/TrustPricingTeaser";
 import {
@@ -203,7 +207,7 @@ export default function IdentityCardPage() {
 
       {card ? (
         <>
-          <article className="titanium-pass" aria-label="ProofOrigin Online Trust Pass">
+          <article className="titanium-pass privacy-protected-live privacy-print-hide" aria-label="ProofOrigin Online Trust Pass">
             <div className="titanium-pass__sheen" aria-hidden="true" />
             <div className="titanium-pass__grain" aria-hidden="true" />
 
@@ -269,22 +273,33 @@ export default function IdentityCardPage() {
                 </dl>
               </div>
 
-              <LiveTrustCode
-                code={rotatingCode}
-                secondsLeft={codeSecondsLeft}
-                windowSeconds={rotationWindow}
-                variant="holder"
-              />
+              <PrivacyScreenGuard
+                strict
+                className="privacy-screen-guard--trust-pass"
+                watermarkText={TRUST_PASS_WATERMARK}
+                showWatermark
+              >
+                <LiveTrustCode
+                  code={rotatingCode}
+                  secondsLeft={codeSecondsLeft}
+                  windowSeconds={rotationWindow}
+                  variant="holder"
+                />
 
-              <div className="titanium-pass__verify-row">
-                <QrPlaceholder />
-                <div className="identity-card-verify__copy">
-                  <p className="identity-card-verify__label">Public verification link</p>
-                  <a href={verificationUrl} className="identity-card-verify__link">
-                    {verificationUrl}
-                  </a>
+                <div className="titanium-pass__verify-row">
+                  <QrPlaceholder />
+                  <div className="identity-card-verify__copy">
+                    <p className="identity-card-verify__label">Public verification link</p>
+                    <a href={verificationUrl} className="identity-card-verify__link">
+                      {verificationUrl}
+                    </a>
+                  </div>
                 </div>
-              </div>
+
+                <p className="privacy-capture-disclaimer" role="note">
+                  {PRIVACY_CAPTURE_DISCLAIMER}
+                </p>
+              </PrivacyScreenGuard>
             </div>
 
             <footer className="titanium-pass__footer">

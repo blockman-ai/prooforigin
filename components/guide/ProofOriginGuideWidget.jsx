@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { GUIDE_DISCLAIMER } from "../../app/lib/guidePrompt.js";
-import { GUIDE_VAULT_SUGGESTIONS } from "../../app/lib/guideSafeContext.js";
+import {
+  getGuideSuggestionsForFeature,
+  getGuideTitleForFeature,
+} from "../../app/lib/guideSafeContext.js";
 
 export default function ProofOriginGuideWidget({ context }) {
   const [open, setOpen] = useState(false);
@@ -14,6 +17,10 @@ export default function ProofOriginGuideWidget({ context }) {
   const panelRef = useRef(null);
   const inputRef = useRef(null);
   const titleId = useId();
+
+  const feature = context?.feature || "general";
+  const panelTitle = useMemo(() => getGuideTitleForFeature(feature), [feature]);
+  const suggestions = useMemo(() => getGuideSuggestionsForFeature(feature), [feature]);
 
   useEffect(() => {
     if (!open) {
@@ -74,11 +81,11 @@ export default function ProofOriginGuideWidget({ context }) {
   );
 
   return (
-    <div className="prooforigin-guide">
+    <div className={`prooforigin-guide ${open ? "prooforigin-guide--open" : ""}`.trim()}>
       {open && (
         <div
           ref={panelRef}
-          className="prooforigin-guide__panel"
+          className="prooforigin-guide__panel prooforigin-guide--mobile-sheet"
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
@@ -87,7 +94,7 @@ export default function ProofOriginGuideWidget({ context }) {
             <div>
               <p className="prooforigin-guide__eyebrow">ProofOrigin Guide</p>
               <h2 id={titleId} className="prooforigin-guide__title">
-                Vault help
+                {panelTitle}
               </h2>
             </div>
             <button
@@ -105,7 +112,7 @@ export default function ProofOriginGuideWidget({ context }) {
           </div>
 
           <div className="prooforigin-guide__chips" aria-label="Suggested questions">
-            {GUIDE_VAULT_SUGGESTIONS.map((entry) => (
+            {suggestions.map((entry) => (
               <button
                 key={entry.label}
                 type="button"
@@ -136,7 +143,7 @@ export default function ProofOriginGuideWidget({ context }) {
               maxLength={500}
               value={question}
               disabled={busy}
-              placeholder="Ask how unlock, passkeys, or recovery work…"
+              placeholder="Ask about ProofOrigin features, unlock, or verification…"
               onChange={(event) => setQuestion(event.target.value)}
             />
             <button type="submit" className="primary prooforigin-guide__submit" disabled={busy}>

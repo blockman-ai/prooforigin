@@ -1,4 +1,5 @@
 import "./globals.css";
+import GuideAppShell from "../components/guide/GuideAppShell.jsx";
 
 export const metadata = {
   title: "ProofOrigin",
@@ -37,7 +38,9 @@ export default function RootLayout({ children }) {
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <GuideAppShell>{children}</GuideAppShell>
+      </body>
     </html>
   );
 }
