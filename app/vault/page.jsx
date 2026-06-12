@@ -86,6 +86,8 @@ import {
 
 import VaultRecoveryWarning from "../../components/vault/VaultRecoveryWarning";
 
+import VaultRecoverySection from "../../components/vault/VaultRecoverySection";
+
 import { shouldSuspendVaultFocusVanish } from "../lib/vaultVanishPolicy";
 
 
@@ -125,6 +127,8 @@ export default function VaultPage() {
   const [lastUnlockTime, setLastUnlockTime] = useState(null);
 
   const [vanishNotice, setVanishNotice] = useState("");
+
+  const [recoveryStatusTick, setRecoveryStatusTick] = useState(0);
 
   const [genesis, setGenesis] = useState(null);
 
@@ -912,7 +916,10 @@ export default function VaultPage() {
 
 
 
-        <VaultRecoveryWarning className="vault-shell__recovery-warning" />
+        <VaultRecoveryWarning
+          key={recoveryStatusTick}
+          className="vault-shell__recovery-warning"
+        />
 
 
 
@@ -1019,6 +1026,12 @@ export default function VaultPage() {
                 </div>
 
               </section>
+
+
+
+              <VaultRecoverySection
+                onRecoveryConfirmed={() => setRecoveryStatusTick((value) => value + 1)}
+              />
 
 
 

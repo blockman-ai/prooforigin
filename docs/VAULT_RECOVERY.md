@@ -67,9 +67,9 @@ User marks vault **compromised** (existing flow). Attacker needs PIN/passkey to 
 | **1 — Commit 1** | `vaultKeyRing.js` + spec; tests only; no production change |
 | **1 — Commit 2** | MVK storage on **new** vault setup; `isVaultUsingMasterVaultKey()`; legacy unlock/crypto unchanged |
 | **1 — Commit 3** | Unlock branching + MVK-mode crypto; `encryption_version` 2 for MVK uploads; legacy vaults unchanged |
-| **1 — Commit 4** | Legacy vault migration to MVK on unlock (optional future commit) |
-| **1 — Commit 5** | Passkey enroll/unlock (no recovery UI) |
-| **1 — Commit 6** | Recovery kit generate/export + acknowledgment gate |
+| **1 — Commit 4** | Recovery kit generate/export + acknowledgment gate (export only; no cross-device restore) |
+| **1 — Commit 5** | Legacy vault migration to MVK on unlock (optional future commit) |
+| **1 — Commit 6** | Passkey enroll/unlock (no recovery UI) |
 | **2** | Cross-device recovery, `vault_id` device registry, ciphertext re-homing |
 
 ## Storage
@@ -91,7 +91,19 @@ Run `docs/sql/vault_encryption_v2.sql` on Supabase before MVK-mode uploads (`enc
 
 Wrapped records must never contain plaintext MVK.
 
+### Commit 4 — recovery kit export
+
+- Available for **MVK vaults only** while unlocked.
+- User generates a **12-word recovery phrase** and downloads a **recovery kit JSON** containing `vault_id`, `wrapped_mvk`, `version`, and `created_at`.
+- The recovery phrase is **never** included in the kit file or sent to ProofOrigin servers.
+- After the user confirms they saved phrase + kit, this device marks recovery as configured (`prooforigin_vault_recovery_kit_confirmed_v1`).
+- **No cross-device restore** and **no server-side recovery** in Commit 4.
+
 ## Related code
+
+- `app/lib/vaultRecovery.js` — recovery phrase, key derivation, kit export/import
+- `app/lib/vaultRecoveryStatus.js` — recovery configured flag + warnings
+- `components/vault/VaultRecoverySection.jsx` — generate/download/confirm UI
 
 - `app/lib/vaultUnlock.js` — unlock branching (MVK vs legacy)
 - `app/lib/vaultKeyRing.js` — MVK wrap/unwrap foundation

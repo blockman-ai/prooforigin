@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { buildEnvHealthReport, checkEnvVarPresence } from "../../app/lib/productionConfig.js";
 import {
   shouldShowVaultRecoveryWarning,
+  VAULT_RECOVERY_NOT_CONFIGURED_WARNING,
   VAULT_RECOVERY_WARNING,
 } from "../../app/lib/vaultRecoveryStatus.js";
 
@@ -48,8 +49,8 @@ test("checkEnvVarPresence never returns secret values", () => {
   }
 });
 
-test("vault recovery warning is shown until recovery kit ships", () => {
+test("vault recovery warning is shown until recovery kit is confirmed", () => {
   assert.equal(shouldShowVaultRecoveryWarning(), true);
-  assert.match(VAULT_RECOVERY_WARNING, /No Recovery Kit yet/i);
+  assert.match(VAULT_RECOVERY_NOT_CONFIGURED_WARNING, /No Recovery Kit configured/i);
   assert.match(VAULT_RECOVERY_WARNING, /permanently lock your vault/i);
 });

@@ -1,5 +1,6 @@
 import {
   shouldShowVaultRecoveryWarning,
+  VAULT_RECOVERY_NOT_CONFIGURED_WARNING,
   VAULT_RECOVERY_WARNING,
 } from "../../app/lib/vaultRecoveryStatus.js";
 
@@ -13,7 +14,8 @@ export default function VaultRecoveryWarning({ className = "" }) {
       className={`alert-banner alert-banner--warning vault-recovery-warning ${className}`.trim()}
       role="status"
     >
-      <strong>Recovery not available yet</strong>
+      <strong>Recovery not configured</strong>
+      <p>{VAULT_RECOVERY_NOT_CONFIGURED_WARNING}</p>
       <p>{VAULT_RECOVERY_WARNING}</p>
     </div>
   );
