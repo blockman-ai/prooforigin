@@ -47,11 +47,26 @@ Wired in `/api/identity-card/verify-code` via `app/lib/trustVerifySentinelCounte
 
 No card IDs, submitted codes, IPs, or user content are stored in counter keys or values.
 
+## Vault auth counters (S1-C5)
+
+Wired in `authorizeVaultRequest` (`app/lib/vaultAuth.js`) and `/api/vault/register-device` via `app/lib/vaultAuthSentinelCounters.js`. Best-effort only — counter write failures never break vault auth or registration responses.
+
+| Counter key | When incremented |
+|-------------|------------------|
+| `vault.auth.missing_headers` | Required vault auth headers absent |
+| `vault.auth.device_not_registered` | Device id not found in registrations |
+| `vault.auth.signature_failed` | HMAC signature verification failed |
+| `vault.auth.replay_rejected` | Nonce already used (replay) |
+| `vault.auth.replay_expired_nonce` | Nonce expired in replay guard |
+| `vault.auth.rate_limited` | Device registration rate limit exceeded |
+
+No device IDs, nonces, IPs, or request bodies are stored in counter keys or values.
+
 Allowed key prefixes (S1-C2+):
 
 | Prefix | Example keys |
 |--------|----------------|
-| `vault.auth.` | `vault.auth.nonce_replay`, `vault.auth.signature_invalid` |
+| `vault.auth.` | `vault.auth.replay_rejected`, `vault.auth.signature_failed`, `vault.auth.rate_limited` |
 | `guide.` | `guide.request.total`, `guide.mode.openai`, `guide.refusal.prompt_injection` |
 | `trust.verify.` | `trust.verify.success`, `trust.verify.invalid_code`, `trust.verify.rate_limited` |
 
@@ -82,7 +97,7 @@ Security: RLS enabled; `anon`, `authenticated`, and `public` revoked; **service_
 | `getSentinelCounters(prefix?)` | Read counters, optionally filtered by prefix |
 | `validateSentinelCounterKey(key)` | Allowlist + forbidden-fragment validation |
 
-**S1-C4** wires trust verify counters in `/api/identity-card/verify-code`. Vault auth counters remain foundation-only until later commits.
+**S1-C5** wires vault auth counters in `authorizeVaultRequest` and `/api/vault/register-device`. Guide, trust verify, and vault auth all emit aggregate Sentinel counters.
 
 ## Ops read API
 

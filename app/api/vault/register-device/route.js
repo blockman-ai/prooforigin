@@ -12,6 +12,10 @@ import {
   VAULT_REGISTRATION_IP_LIMIT,
   VAULT_REGISTRATION_IP_WINDOW_MS,
 } from "../../../lib/vaultRateLimit";
+import {
+  recordVaultAuthSentinelCounter,
+  VAULT_AUTH_SENTINEL_COUNTERS,
+} from "../../../lib/vaultAuthSentinelCounters";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +66,7 @@ export async function POST(req) {
     });
 
     if (!ipLimit.allowed) {
+      recordVaultAuthSentinelCounter(VAULT_AUTH_SENTINEL_COUNTERS.RATE_LIMITED);
       return rateLimitResponse(ipLimit.retryAfterMs);
     }
 
@@ -88,6 +93,7 @@ export async function POST(req) {
     });
 
     if (!deviceLimit.allowed) {
+      recordVaultAuthSentinelCounter(VAULT_AUTH_SENTINEL_COUNTERS.RATE_LIMITED);
       return rateLimitResponse(deviceLimit.retryAfterMs);
     }
 

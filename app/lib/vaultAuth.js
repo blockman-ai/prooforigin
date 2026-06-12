@@ -5,6 +5,10 @@ import {
   touchVaultDeviceLastSeen,
 } from "./vaultAdmin";
 import { reserveVaultRequestNonce } from "./vaultReplayGuard";
+import {
+  recordVaultAuthSentinelCounter,
+  VAULT_AUTH_SENTINEL_COUNTERS,
+} from "./vaultAuthSentinelCounters";
 
 export const VAULT_AUTH_SKEW_MS = 5 * 60 * 1000;
 export const VAULT_AUTH_HEADER_DEVICE_ID = "x-prooforigin-vault-device-id";
@@ -77,6 +81,7 @@ export async function authorizeVaultRequest(req, { method, path, bodyText = "" }
     !headers.signature ||
     !headers.nonce
   ) {
+    recordVaultAuthSentinelCounter(VAULT_AUTH_SENTINEL_COUNTERS.MISSING_HEADERS);
     return {
       ok: false,
       status: 401,
@@ -180,6 +185,7 @@ export async function authorizeVaultRequest(req, { method, path, bodyText = "" }
   }
 
   if (!registration) {
+    recordVaultAuthSentinelCounter(VAULT_AUTH_SENTINEL_COUNTERS.DEVICE_NOT_REGISTERED);
     return {
       ok: false,
       status: 401,
@@ -199,6 +205,7 @@ export async function authorizeVaultRequest(req, { method, path, bodyText = "" }
   });
 
   if (!signatureValid) {
+    recordVaultAuthSentinelCounter(VAULT_AUTH_SENTINEL_COUNTERS.SIGNATURE_FAILED);
     return {
       ok: false,
       status: 401,
@@ -213,6 +220,11 @@ export async function authorizeVaultRequest(req, { method, path, bodyText = "" }
   });
 
   if (!replayCheck.ok) {
+    recordVaultAuthSentinelCounter(
+      replayCheck.expired
+        ? VAULT_AUTH_SENTINEL_COUNTERS.REPLAY_EXPIRED_NONCE
+        : VAULT_AUTH_SENTINEL_COUNTERS.REPLAY_REJECTED
+    );
     return {
       ok: false,
       status: 401,

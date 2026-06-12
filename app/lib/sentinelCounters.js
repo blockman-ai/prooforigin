@@ -24,6 +24,12 @@ export const SENTINEL_OPERATIONAL_COUNTER_KEYS = new Set([
   "trust.verify.expired",
   "trust.verify.rate_limited",
   "trust.verify.server_error",
+  "vault.auth.replay_rejected",
+  "vault.auth.replay_expired_nonce",
+  "vault.auth.signature_failed",
+  "vault.auth.missing_headers",
+  "vault.auth.device_not_registered",
+  "vault.auth.rate_limited",
 ]);
 
 const COUNTER_KEY_PATTERN = /^[a-z0-9]+(?:[._][a-z0-9]+)*$/;
