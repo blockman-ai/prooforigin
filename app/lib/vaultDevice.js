@@ -138,13 +138,10 @@ export async function signVaultRequest({ method, path, bodyHash, timestamp }) {
 
 export function buildVaultAuthHeaders({ method, path, bodyHash, timestamp, signature, vaultDeviceId }) {
   return {
-    Authorization: `Vault device_id=${vaultDeviceId}, ts=${timestamp}, sig=${signature}`,
-    "X-Vault-Device-Id": vaultDeviceId,
-    "X-Vault-Timestamp": String(timestamp),
-    "X-Vault-Signature": signature,
-    "X-Vault-Method": String(method).toUpperCase(),
-    "X-Vault-Path": path,
-    "X-Vault-Body-Hash": bodyHash,
+    "x-prooforigin-vault-device-id": vaultDeviceId,
+    "x-prooforigin-vault-timestamp": String(timestamp),
+    "x-prooforigin-vault-body-hash": bodyHash,
+    "x-prooforigin-vault-signature": signature,
   };
 }
 
