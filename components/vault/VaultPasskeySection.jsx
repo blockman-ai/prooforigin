@@ -12,6 +12,7 @@ import {
   mapPasskeyEnrollmentError,
 } from "../../app/lib/vaultPasskeyStatus.js";
 import { getVaultSessionUnlockKeys } from "../../app/lib/vaultSession.js";
+import VaultPasskeyUnsupportedNotice from "./VaultPasskeyUnsupportedNotice.jsx";
 
 export default function VaultPasskeySection({ onPasskeyChanged }) {
   const [busy, setBusy] = useState(false);
@@ -123,15 +124,7 @@ export default function VaultPasskeySection({ onPasskeyChanged }) {
         </p>
       )}
 
-      {passkeySupported === false && (
-        <div className="alert-banner alert-banner--warning" role="status">
-          <strong>Passkey unavailable</strong>
-          <p>
-            This device or browser does not support vault passkeys with PRF. Continue using your
-            PIN to unlock.
-          </p>
-        </div>
-      )}
+      {passkeySupported === false && <VaultPasskeyUnsupportedNotice variant="section" />}
 
       <div className="protocol-actions vault-recovery-card__actions">
         {!status.enrolled && (

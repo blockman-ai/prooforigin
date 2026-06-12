@@ -1,3 +1,31 @@
+export const PASSKEY_UNSUPPORTED_HEADLINE = "Passkey unavailable on this browser or device";
+
+export const PASSKEY_UNSUPPORTED_LEAD =
+  "This browser or device does not support secure passkey encryption for this vault.";
+
+export const PASSKEY_UNSUPPORTED_PIN_RECOVERY =
+  "Your PIN and Recovery Kit still work on this device.";
+
+export const PASSKEY_UNSUPPORTED_RECOMMENDATIONS = [
+  { platform: "iPhone / iPad", browser: "Safari (latest)" },
+  { platform: "Android", browser: "Chrome (latest)" },
+  { platform: "Windows", browser: "Edge or Chrome with Windows Hello" },
+  { platform: "Mac", browser: "Safari or Chrome with Touch ID" },
+];
+
+export const PASSKEY_UNSUPPORTED_IN_APP_WARNING =
+  "In-app browsers (social apps, email wrappers) often block secure passkey encryption.";
+
+export const PASSKEY_WHY_SUMMARY = "Why?";
+
+export const PASSKEY_WHY_DETAILS = [
+  "ProofOrigin requires secure passkey encryption support, not just basic passkey login.",
+  "We do not enable fake passkey mode because it would weaken vault security.",
+];
+
+export const PASSKEY_UNLOCK_UNAVAILABLE_MESSAGE =
+  "Passkey unavailable on this browser. Use PIN instead.";
+
 export function formatPasskeyEnrolledAt(enrolledAt) {
   if (typeof enrolledAt !== "string" || !enrolledAt.trim()) {
     return null;
@@ -38,8 +66,66 @@ export function canEnrollVaultPasskey({ mvkVault, unlockKeys }) {
   );
 }
 
-export function isPasskeyUnlockButtonVisible({ isSetupMode, enrolled }) {
-  return !isSetupMode && Boolean(enrolled);
+export function isPasskeyUnlockButtonVisible({
+  isSetupMode,
+  enrolled,
+  passkeySupported = null,
+}) {
+  if (isSetupMode || !enrolled || passkeySupported !== true) {
+    return false;
+  }
+
+  return true;
+}
+
+export function getPasskeyUnlockLockScreenState({
+  isSetupMode,
+  enrolled,
+  passkeySupported = null,
+}) {
+  const pinFallbackVisible = !isSetupMode;
+
+  if (isSetupMode || !enrolled) {
+    return {
+      showUnlockButton: false,
+      unavailableMessage: null,
+      pinFallbackVisible,
+    };
+  }
+
+  if (passkeySupported === true) {
+    return {
+      showUnlockButton: true,
+      unavailableMessage: null,
+      pinFallbackVisible,
+    };
+  }
+
+  if (passkeySupported === false) {
+    return {
+      showUnlockButton: false,
+      unavailableMessage: PASSKEY_UNLOCK_UNAVAILABLE_MESSAGE,
+      pinFallbackVisible,
+    };
+  }
+
+  return {
+    showUnlockButton: false,
+    unavailableMessage: null,
+    pinFallbackVisible,
+  };
+}
+
+export function getPasskeyUnsupportedSectionCopy() {
+  return {
+    headline: PASSKEY_UNSUPPORTED_HEADLINE,
+    lead: PASSKEY_UNSUPPORTED_LEAD,
+    pinRecovery: PASSKEY_UNSUPPORTED_PIN_RECOVERY,
+    recommendations: PASSKEY_UNSUPPORTED_RECOMMENDATIONS,
+    inAppWarning: PASSKEY_UNSUPPORTED_IN_APP_WARNING,
+    whySummary: PASSKEY_WHY_SUMMARY,
+    whyDetails: PASSKEY_WHY_DETAILS,
+  };
 }
 
 export function mapPasskeyEnrollmentError(error) {
@@ -54,7 +140,7 @@ export function mapPasskeyEnrollmentError(error) {
   const message = error instanceof Error ? error.message : String(error);
 
   if (/requires WebAuthn PRF support/i.test(message)) {
-    return "This device or browser does not support vault passkeys. Continue using your PIN.";
+    return PASSKEY_UNSUPPORTED_LEAD;
   }
 
   if (/WebAuthn credential creation is unavailable/i.test(message)) {

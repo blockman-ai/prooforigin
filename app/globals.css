@@ -4226,6 +4226,72 @@ p {
   text-transform: lowercase;
 }
 
+.vault-passkey-unsupported {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.vault-passkey-unsupported--unlock {
+  margin-bottom: 18px;
+}
+
+.vault-passkey-unsupported--unlock p {
+  margin: 0;
+}
+
+.vault-passkey-unsupported__banner p {
+  margin: 8px 0 0;
+}
+
+.vault-passkey-unsupported__banner p:first-of-type {
+  margin-top: 10px;
+}
+
+.vault-passkey-unsupported__label {
+  margin: 0 0 8px;
+  font-size: 0.92rem;
+  color: var(--po-muted);
+}
+
+.vault-passkey-unsupported__list {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--po-muted);
+  line-height: 1.6;
+}
+
+.vault-passkey-unsupported__list strong {
+  color: #f4f7ff;
+  font-weight: 600;
+}
+
+.vault-passkey-unsupported__why {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.vault-passkey-unsupported__why summary {
+  cursor: pointer;
+  color: #f4f7ff;
+  font-weight: 600;
+}
+
+.vault-passkey-unsupported__why-body {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.vault-passkey-unsupported__why-body p {
+  margin: 0;
+  color: var(--po-muted);
+  line-height: 1.55;
+  font-size: 0.92rem;
+}
+
 .vault-secure-documents {
   padding: 22px;
   border-radius: 22px;

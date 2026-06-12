@@ -16,8 +16,12 @@ import {
   canEnrollVaultPasskey,
   formatPasskeyEnrolledAt,
   getPasskeyStatusSummary,
+  getPasskeyUnlockLockScreenState,
+  getPasskeyUnsupportedSectionCopy,
   isPasskeyUnlockButtonVisible,
   mapPasskeyEnrollmentError,
+  PASSKEY_UNLOCK_UNAVAILABLE_MESSAGE,
+  PASSKEY_WHY_DETAILS,
 } from "../../app/lib/vaultPasskeyStatus.js";
 import { generateRandomBytes } from "../../app/lib/vaultCrypto.js";
 
@@ -134,17 +138,72 @@ test("canEnrollVaultPasskey requires unlocked MVK session keys", () => {
 
 test("isPasskeyUnlockButtonVisible hides during setup and when not enrolled", () => {
   assert.equal(
-    isPasskeyUnlockButtonVisible({ isSetupMode: true, enrolled: true }),
+    isPasskeyUnlockButtonVisible({ isSetupMode: true, enrolled: true, passkeySupported: true }),
     false
   );
   assert.equal(
-    isPasskeyUnlockButtonVisible({ isSetupMode: false, enrolled: false }),
+    isPasskeyUnlockButtonVisible({ isSetupMode: false, enrolled: false, passkeySupported: true }),
     false
   );
   assert.equal(
-    isPasskeyUnlockButtonVisible({ isSetupMode: false, enrolled: true }),
+    isPasskeyUnlockButtonVisible({ isSetupMode: false, enrolled: true, passkeySupported: true }),
     true
   );
+});
+
+test("isPasskeyUnlockButtonVisible hides when passkey encryption is unsupported", () => {
+  assert.equal(
+    isPasskeyUnlockButtonVisible({ isSetupMode: false, enrolled: true, passkeySupported: false }),
+    false
+  );
+  assert.equal(
+    isPasskeyUnlockButtonVisible({ isSetupMode: false, enrolled: true, passkeySupported: null }),
+    false
+  );
+});
+
+test("getPasskeyUnlockLockScreenState shows unavailable copy when enrolled but unsupported", () => {
+  const state = getPasskeyUnlockLockScreenState({
+    isSetupMode: false,
+    enrolled: true,
+    passkeySupported: false,
+  });
+
+  assert.equal(state.showUnlockButton, false);
+  assert.equal(state.unavailableMessage, PASSKEY_UNLOCK_UNAVAILABLE_MESSAGE);
+  assert.equal(state.pinFallbackVisible, true);
+});
+
+test("getPasskeyUnlockLockScreenState keeps PIN fallback visible without broken passkey CTA", () => {
+  const unsupportedNotEnrolled = getPasskeyUnlockLockScreenState({
+    isSetupMode: false,
+    enrolled: false,
+    passkeySupported: false,
+  });
+
+  assert.equal(unsupportedNotEnrolled.showUnlockButton, false);
+  assert.equal(unsupportedNotEnrolled.unavailableMessage, null);
+  assert.equal(unsupportedNotEnrolled.pinFallbackVisible, true);
+
+  const supportedEnrolled = getPasskeyUnlockLockScreenState({
+    isSetupMode: false,
+    enrolled: true,
+    passkeySupported: true,
+  });
+
+  assert.equal(supportedEnrolled.showUnlockButton, true);
+  assert.equal(supportedEnrolled.pinFallbackVisible, true);
+});
+
+test("unsupported section copy includes guidance and fail-closed why details", () => {
+  const copy = getPasskeyUnsupportedSectionCopy();
+
+  assert.match(copy.lead, /secure passkey encryption/i);
+  assert.match(copy.pinRecovery, /PIN and Recovery Kit/i);
+  assert.ok(copy.recommendations.some((item) => /iPhone \/ iPad/i.test(item.platform)));
+  assert.match(copy.inAppWarning, /In-app browsers/i);
+  assert.match(PASSKEY_WHY_DETAILS.join(" "), /fake passkey mode/i);
+  assert.match(PASSKEY_WHY_DETAILS.join(" "), /secure passkey encryption/i);
 });
 
 test("mapPasskeyEnrollmentError returns user-friendly messages", () => {
@@ -154,7 +213,7 @@ test("mapPasskeyEnrollmentError returns user-friendly messages", () => {
   assert.match(mapPasskeyEnrollmentError(cancelError), /cancelled/i);
   assert.match(
     mapPasskeyEnrollmentError(new Error("Passkey enrollment requires WebAuthn PRF support on this device.")),
-    /does not support vault passkeys/i
+    /secure passkey encryption/i
   );
 });
 

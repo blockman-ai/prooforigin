@@ -44,7 +44,10 @@ import {
   VaultPasskeyUnlockCancelledError,
 } from "../lib/vaultUnlock";
 import { isVaultPasskeyEnrolled } from "../lib/vaultPasskeyStorage";
-import { isPasskeyUnlockButtonVisible } from "../lib/vaultPasskeyStatus";
+import {
+  getPasskeyUnlockLockScreenState,
+} from "../lib/vaultPasskeyStatus";
+import { detectPasskeyCapabilities } from "../lib/vaultPasskey";
 
 import {
 
@@ -96,6 +99,8 @@ import VaultRecoverySection from "../../components/vault/VaultRecoverySection";
 
 import VaultPasskeySection from "../../components/vault/VaultPasskeySection";
 
+import VaultPasskeyUnsupportedNotice from "../../components/vault/VaultPasskeyUnsupportedNotice";
+
 import { shouldSuspendVaultFocusVanish } from "../lib/vaultVanishPolicy";
 
 
@@ -139,6 +144,8 @@ export default function VaultPage() {
   const [recoveryStatusTick, setRecoveryStatusTick] = useState(0);
 
   const [passkeyStatusTick, setPasskeyStatusTick] = useState(0);
+
+  const [passkeyUnlockSupported, setPasskeyUnlockSupported] = useState(null);
 
   const [genesis, setGenesis] = useState(null);
 
@@ -586,7 +593,45 @@ export default function VaultPage() {
 
 
 
+  useEffect(() => {
+
+    if (!showUnlockPanel || isSetupMode) {
+
+      return undefined;
+
+    }
+
+
+
+    let active = true;
+
+
+
+    detectPasskeyCapabilities().then((capabilities) => {
+
+      if (active) {
+
+        setPasskeyUnlockSupported(capabilities.passkeyUnlockSupported);
+
+      }
+
+    });
+
+
+
+    return () => {
+
+      active = false;
+
+    };
+
+  }, [showUnlockPanel, isSetupMode, passkeyStatusTick]);
+
+
+
   function openUnlockPanel() {
+
+    setPasskeyUnlockSupported(null);
 
     setError("");
 
@@ -894,9 +939,10 @@ export default function VaultPage() {
 
   const hasDocument = Boolean(vaultDocument);
 
-  const passkeyUnlockAvailable = isPasskeyUnlockButtonVisible({
+  const passkeyLockScreen = getPasskeyUnlockLockScreenState({
     isSetupMode,
     enrolled: isVaultPasskeyEnrolled(),
+    passkeySupported: passkeyUnlockSupported,
   });
 
 
@@ -1298,7 +1344,15 @@ export default function VaultPage() {
 
             <form className="vault-modal__form" onSubmit={handlePinSubmit}>
 
-              {passkeyUnlockAvailable && (
+              {passkeyLockScreen.unavailableMessage && (
+
+                <VaultPasskeyUnsupportedNotice variant="unlock" />
+
+              )}
+
+
+
+              {passkeyLockScreen.showUnlockButton && (
 
                 <div className="vault-unlock-passkey">
 
