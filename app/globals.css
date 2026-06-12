@@ -3911,6 +3911,22 @@ p {
   justify-content: flex-start;
 }
 
+.vault-recovery-warning {
+  margin: 0 0 16px;
+}
+
+.vault-shell__recovery-warning {
+  margin: 0 24px 16px;
+}
+
+.vault-modal__recovery-warning {
+  margin: 0 0 16px;
+}
+
+.vault-recovery-warning p {
+  margin: 6px 0 0;
+}
+
 .vault-learn-more {
   margin: 18px 0 0;
   padding-left: 1.2rem;

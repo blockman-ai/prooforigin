@@ -84,6 +84,8 @@ import {
 
 } from "../lib/vaultSession";
 
+import VaultRecoveryWarning from "../../components/vault/VaultRecoveryWarning";
+
 import { shouldSuspendVaultFocusVanish } from "../lib/vaultVanishPolicy";
 
 
@@ -910,6 +912,10 @@ export default function VaultPage() {
 
 
 
+        <VaultRecoveryWarning className="vault-shell__recovery-warning" />
+
+
+
         {showProtectedOverlay && (
 
           <div className="vault-vanish-overlay" role="status" aria-live="polite">
@@ -1110,6 +1116,8 @@ export default function VaultPage() {
 
               </p>
 
+              <VaultRecoveryWarning />
+
               <div className="protocol-actions vault-locked-panel__actions">
 
                 <button type="button" className="primary" onClick={openUnlockPanel}>
@@ -1203,6 +1211,10 @@ export default function VaultPage() {
               </div>
 
             </header>
+
+
+
+            <VaultRecoveryWarning className="vault-modal__recovery-warning" />
 
 
 

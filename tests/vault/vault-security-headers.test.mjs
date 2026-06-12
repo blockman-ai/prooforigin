@@ -8,6 +8,8 @@ const {
   buildVaultApiSecurityHeaders,
   buildVaultContentSecurityPolicy,
   buildVaultPageSecurityHeaders,
+  buildGlobalSecurityHeaders,
+  buildTrustPassSecurityHeaders,
 } = await import("../../app/lib/vaultSecurityHeaders.js");
 
 test("vault page CSP allows self-hosted worker and blob rendering", () => {
@@ -40,4 +42,25 @@ test("vault API security headers use minimal CSP and no-store cache", () => {
   assert.match(headers["Content-Security-Policy"], /default-src 'none'/);
   assert.equal(headers["Cache-Control"], "no-store");
   assert.equal(headers["X-Frame-Options"], "DENY");
+});
+
+test("global security headers harden non-vault pages without strict vault CSP", () => {
+  const headers = Object.fromEntries(
+    buildGlobalSecurityHeaders().map(({ key, value }) => [key, value])
+  );
+
+  assert.equal(headers["X-Content-Type-Options"], "nosniff");
+  assert.equal(headers["Referrer-Policy"], "strict-origin-when-cross-origin");
+  assert.equal(headers["X-Frame-Options"], "SAMEORIGIN");
+  assert.ok(headers["Cross-Origin-Opener-Policy"]);
+});
+
+test("trust pass security headers deny framing and disable caching", () => {
+  const headers = Object.fromEntries(
+    buildTrustPassSecurityHeaders().map(({ key, value }) => [key, value])
+  );
+
+  assert.equal(headers["X-Frame-Options"], "DENY");
+  assert.equal(headers["Referrer-Policy"], "no-referrer");
+  assert.equal(headers["Cache-Control"], "no-store");
 });
