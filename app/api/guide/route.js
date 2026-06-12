@@ -1,10 +1,11 @@
 import { GUIDE_ABUSE_REFUSAL, isGuideQuestionBlocked } from "../../lib/guideAbuseGuard.js";
+import { buildGuideAnswer } from "../../lib/guideAnswer.js";
 import {
   getGuideSuggestedFollowUps,
   loadGuideHelpSnippet,
   resolveGuideTopic,
 } from "../../lib/guideHelpMap.js";
-import { buildDeterministicGuideAnswer, GUIDE_DISCLAIMER } from "../../lib/guidePrompt.js";
+import { GUIDE_DISCLAIMER } from "../../lib/guidePrompt.js";
 import { checkGuideRateLimit } from "../../lib/guideRateLimit.js";
 import { validateGuideRequest } from "../../lib/guideSchema.js";
 
@@ -66,9 +67,10 @@ export async function POST(request) {
 
   const topicId = resolveGuideTopic(validated.question, validated.context);
   const snippet = loadGuideHelpSnippet(topicId);
-  const result = buildDeterministicGuideAnswer({
+  const result = await buildGuideAnswer({
     question: validated.question,
     context: validated.context,
+    topicId,
     snippet,
   });
 
@@ -76,7 +78,7 @@ export async function POST(request) {
     answer: result.answer,
     disclaimer: result.disclaimer,
     topic: result.topic,
-    suggestedFollowUps: getGuideSuggestedFollowUps(topicId),
-    mode: "deterministic",
+    suggestedFollowUps: result.suggestedFollowUps ?? getGuideSuggestedFollowUps(topicId),
+    mode: result.mode,
   });
 }

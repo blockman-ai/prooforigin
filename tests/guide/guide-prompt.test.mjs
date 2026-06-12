@@ -3,7 +3,9 @@ import { test } from "node:test";
 import { loadGuideHelpSnippet, resolveGuideTopic } from "../../app/lib/guideHelpMap.js";
 import {
   buildDeterministicGuideAnswer,
+  buildGuideOpenAIPromptBundle,
   buildGuidePromptPayload,
+  buildOpenAIGuideRequest,
   promptContainsForbiddenTerms,
 } from "../../app/lib/guidePrompt.js";
 import { buildVaultGuideSafeContext } from "../../app/lib/guideSafeContext.js";
@@ -65,4 +67,29 @@ test("forbidden secret keys in prompt fixture are detected", () => {
   };
 
   assert.equal(promptContainsForbiddenTerms(prompt), true);
+});
+
+test("OpenAI prompt bundle includes snippet body and safe context only", () => {
+  const context = buildVaultGuideSafeContext({
+    vaultLocked: true,
+    passkeySupported: false,
+    passkeyEnrolled: true,
+  });
+  const snippet = loadGuideHelpSnippet("passkey");
+  const bundle = buildGuideOpenAIPromptBundle({
+    question: "Why doesn't passkey work?",
+    context,
+    snippet,
+  });
+
+  assert.equal(bundle.mode, "openai");
+  assert.ok(bundle.snippets[0].body);
+  assert.equal(promptContainsForbiddenTerms(bundle), false);
+
+  const request = buildOpenAIGuideRequest(bundle);
+  const serialized = JSON.stringify(request);
+  assert.match(serialized, /Approved Help Snippet/i);
+  assert.match(serialized, /passkeySupported.*false/);
+  assert.doesNotMatch(serialized, /"masterVaultKey"\s*:/i);
+  assert.doesNotMatch(serialized, /"recoveryPhrase"\s*:/i);
 });

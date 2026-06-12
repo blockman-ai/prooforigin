@@ -17,6 +17,7 @@ import {
   countExpiredVaultNonces,
   verifyVaultBucketPrivacy,
 } from "./vaultOps.js";
+import { isGuideOpenAIConfigured } from "./guideOpenAI.js";
 
 export const PROOFORIGIN_HEALTH_VERSION = "phase-1";
 
@@ -113,6 +114,9 @@ export async function buildProofOriginHealthReport({ includeStorageAudit = true 
     },
     voice_anchor: {
       tables: { reachable: false, tables: [] },
+    },
+    guide: {
+      openai_configured: isGuideOpenAIConfigured(),
     },
     storage_audit: null,
     nonces: null,
