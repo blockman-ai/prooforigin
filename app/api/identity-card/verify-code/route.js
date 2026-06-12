@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import {
   decryptSecretSeed,
+  getDtsConfigurationError,
   isCardExpired,
   resolveTrustState,
+  resolveCardRotationSeconds,
+  resolveCardTrustTier,
   verifyRotatingCode,
 } from "../../../lib/identityCard";
 import {
@@ -62,6 +65,19 @@ export async function POST(req) {
           valid: false,
           trust_state: "unverified",
           error: "Server verification requires Supabase configuration.",
+        },
+        { status: 503 }
+      );
+    }
+
+    const dtsConfigError = getDtsConfigurationError();
+    if (dtsConfigError) {
+      return NextResponse.json(
+        {
+          success: false,
+          valid: false,
+          trust_state: "unverified",
+          error: dtsConfigError,
         },
         { status: 503 }
       );
@@ -142,7 +158,13 @@ export async function POST(req) {
       );
     }
 
-    const valid = verifyRotatingCode(cardId, secretSeed, currentCode);
+    const rotationSeconds = resolveCardRotationSeconds(activeCard);
+    const valid = verifyRotatingCode(
+      cardId,
+      secretSeed,
+      currentCode,
+      rotationSeconds
+    );
 
     if (valid) {
       await appendStateEvent(supabase, {
@@ -169,6 +191,8 @@ export async function POST(req) {
       trust_state: valid ? "active" : trustState,
       expires_at: activeCard.expires_at,
       verified_at: verifiedAt,
+      trust_tier: resolveCardTrustTier(activeCard),
+      rotation_seconds: rotationSeconds,
     });
   } catch (error) {
     return NextResponse.json(

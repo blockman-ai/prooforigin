@@ -4,6 +4,13 @@ import {
   GENESIS_STATE_HASH,
   IDENTITY_CARD_VERSION,
   ROTATING_CODE_WINDOW_SECONDS,
+  getVerifyWindowOffsets,
+  normalizeTrustTier,
+  getTierRotationSeconds,
+  resolveCardRotationSeconds,
+  resolveCardTrustTier,
+  formatTrustTierLabel,
+  buildDefaultTierMetadata,
 } from "./identityCardShared";
 
 export {
@@ -15,6 +22,9 @@ export {
   STATE_EVENT_TYPES,
   EXPIRATION_OPTIONS,
   IDENTITY_DISCLAIMER,
+  TRUST_TIER_IDS,
+  TIER_ROTATION_SECONDS,
+  FAST_TIER_MAX_SECONDS,
   isCardExpired,
   secondsUntilNextCode,
   formatCardDate,
@@ -22,6 +32,13 @@ export {
   resolveTrustState,
   cardUsesDtsAlgorithm,
   buildVerificationPath,
+  normalizeTrustTier,
+  getTierRotationSeconds,
+  resolveCardRotationSeconds,
+  resolveCardTrustTier,
+  formatTrustTierLabel,
+  getVerifyWindowOffsets,
+  buildDefaultTierMetadata,
 } from "./identityCardShared";
 
 const ROTATING_CODE_PREFIX = "prooforigin-dts-code-v1";
@@ -52,12 +69,37 @@ export function computeExpirationDate(issuedAt, expirationKey) {
   return expires;
 }
 
+export function isProductionRuntime() {
+  return process.env.NODE_ENV === "production";
+}
+
+export function isDtsMasterKeyConfigured() {
+  const key = process.env.PROOFORIGIN_DTS_MASTER_KEY;
+  return Boolean(key && String(key).trim() && !String(key).includes("YOUR_"));
+}
+
+export function getDtsConfigurationError() {
+  if (isDtsMasterKeyConfigured()) return null;
+  if (isProductionRuntime()) {
+    return "PROOFORIGIN_DTS_MASTER_KEY is required in production for Dynamic Trust State encryption and verification.";
+  }
+  return null;
+}
+
 export function getMasterKey() {
-  const source =
-    process.env.PROOFORIGIN_DTS_MASTER_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    "prooforigin-dts-dev-master-key";
-  return crypto.createHash("sha256").update(source).digest();
+  const dtsKey = process.env.PROOFORIGIN_DTS_MASTER_KEY;
+  if (dtsKey && String(dtsKey).trim() && !String(dtsKey).includes("YOUR_")) {
+    return crypto.createHash("sha256").update(String(dtsKey)).digest();
+  }
+
+  if (isProductionRuntime()) {
+    throw new Error(getDtsConfigurationError());
+  }
+
+  return crypto
+    .createHash("sha256")
+    .update("prooforigin-dts-dev-master-key")
+    .digest();
 }
 
 export function encryptSecretSeed(secretSeed) {
@@ -123,17 +165,22 @@ export function constantTimeEqual(a, b) {
   return mismatch === 0;
 }
 
-export function verifyRotatingCode(cardId, secretSeed, submittedCode) {
+export function verifyRotatingCode(
+  cardId,
+  secretSeed,
+  submittedCode,
+  windowSeconds = ROTATING_CODE_WINDOW_SECONDS
+) {
   const normalized = String(submittedCode || "")
     .replace(/\D/g, "")
     .padStart(6, "0")
     .slice(-6);
-  const tw = Math.floor(Date.now() / 1000 / ROTATING_CODE_WINDOW_SECONDS);
-  for (const offset of [-1, 0, 1]) {
+  const tw = Math.floor(Date.now() / 1000 / windowSeconds);
+  for (const offset of getVerifyWindowOffsets(windowSeconds)) {
     const expected = computeRotatingCode(
       cardId,
       secretSeed,
-      ROTATING_CODE_WINDOW_SECONDS,
+      windowSeconds,
       tw + offset
     );
     if (constantTimeEqual(normalized, expected)) return true;
@@ -176,12 +223,15 @@ export function computeCardStateHash({
 }
 
 export function buildFutureMetadata(overrides = {}) {
+  const tierMeta = buildDefaultTierMetadata(overrides.trust_tier || "free");
   return {
     voice_anchor_hash: null,
     wallet_anchor_hash: null,
     recognition_history_ref: null,
     trustdna_score: null,
     bitcoin_anchor_batch_id: null,
+    trust_tier: tierMeta.trust_tier,
+    rotation_seconds: tierMeta.rotation_seconds,
     ...overrides,
   };
 }

@@ -12,15 +12,17 @@ import TrustPricingTeaser from "../../components/trust/TrustPricingTeaser";
 import {
   EXPIRATION_OPTIONS,
   formatCardDate,
+  formatTrustTierLabel,
   IDENTITY_DISCLAIMER,
+  resolveCardRotationSeconds,
   ROTATING_CODE_WINDOW_SECONDS,
 } from "../lib/identityCardShared";
 import {
   buildVerificationUrl,
   clearStoredIdentityCard,
   computeCardRotatingCode,
+  getCardSecondsUntilNextCode,
   readStoredIdentityCard,
-  secondsUntilNextCode,
   writeStoredIdentityCard,
 } from "../lib/identityCardClient";
 import { preparePhotoForLocalStorage } from "../lib/identityCardPhoto";
@@ -48,7 +50,7 @@ export default function IdentityCardPage() {
     if (!activeCard?.card_id) return;
     const code = await computeCardRotatingCode(activeCard);
     setRotatingCode(code);
-    setCodeSecondsLeft(secondsUntilNextCode());
+    setCodeSecondsLeft(getCardSecondsUntilNextCode(activeCard));
   }, []);
 
   useEffect(() => {
@@ -173,6 +175,8 @@ export default function IdentityCardPage() {
   }
 
   const verificationUrl = card ? buildVerificationUrl(card.card_id) : "";
+  const rotationWindow = card ? resolveCardRotationSeconds(card) : ROTATING_CODE_WINDOW_SECONDS;
+  const trustTierLabel = card ? formatTrustTierLabel(card.trust_tier || "free") : "Free";
 
   return (
     <PageShell
@@ -254,13 +258,21 @@ export default function IdentityCardPage() {
                     <dt>Expires</dt>
                     <dd>{formatCardDate(card.expires_at)}</dd>
                   </div>
+                  <div>
+                    <dt>Trust tier</dt>
+                    <dd>{trustTierLabel}</dd>
+                  </div>
+                  <div>
+                    <dt>Code refresh</dt>
+                    <dd>{rotationWindow}s</dd>
+                  </div>
                 </dl>
               </div>
 
               <LiveTrustCode
                 code={rotatingCode}
                 secondsLeft={codeSecondsLeft}
-                windowSeconds={ROTATING_CODE_WINDOW_SECONDS}
+                windowSeconds={rotationWindow}
                 variant="holder"
               />
 
@@ -408,7 +420,7 @@ export default function IdentityCardPage() {
 
           <GlassPanel title="How trust works">
             <ul className="identity-card-notices trust-manifesto">
-              <li>Live Trust Code rotates every 60 seconds — like an authenticator for trust.</li>
+              <li>Live Trust Code rotates on your plan&apos;s refresh window — Free tier uses 60 seconds.</li>
               <li>Trust History records created and verified events on ProofOrigin servers.</li>
               <li>Optional photo stays in this browser only and is never uploaded.</li>
               <li>No SSN, driver license, date of birth, or legal ID verification.</li>

@@ -15,7 +15,9 @@ import {
   formatCardDate,
   IDENTITY_DISCLAIMER,
   formatTrustStateLabel,
+  formatTrustTierLabel,
   trustStateBadgeVariant,
+  resolveCardRotationSeconds,
   ROTATING_CODE_WINDOW_SECONDS,
 } from "../../lib/identityCardShared";
 
@@ -132,6 +134,10 @@ export default function PublicTrustPassPage() {
   const verifiedCount =
     card?.verification_count ??
     trustHistory.filter((event) => event.event_type === "verified").length;
+  const rotationWindow = card
+    ? resolveCardRotationSeconds(card)
+    : ROTATING_CODE_WINDOW_SECONDS;
+  const trustTierLabel = card ? formatTrustTierLabel(card.trust_tier || "free") : "Free";
 
   return (
     <PageShell
@@ -210,6 +216,14 @@ export default function PublicTrustPassPage() {
                   <dd>{card.verification_status}</dd>
                 </div>
                 <div>
+                  <dt>Trust tier</dt>
+                  <dd>{trustTierLabel}</dd>
+                </div>
+                <div>
+                  <dt>Code refresh</dt>
+                  <dd>{rotationWindow}s</dd>
+                </div>
+                <div>
                   <dt>Latest state hash</dt>
                   <dd className="identity-card-inline-mono">
                     {truncateHash(card.latest_state_hash)}
@@ -243,8 +257,8 @@ export default function PublicTrustPassPage() {
                   aria-describedby="trust-code-hint"
                 />
                 <span id="trust-code-hint" className="dataset-field__hint">
-                  Code refreshes every {ROTATING_CODE_WINDOW_SECONDS} seconds on the holder&apos;s
-                  device.
+                  {trustTierLabel} tier — code refreshes every {rotationWindow}s on the holder&apos;s
+                  device. Enter the live code shown right now.
                 </span>
               </label>
               <div className="protocol-actions">

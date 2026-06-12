@@ -3,6 +3,7 @@ import {
   ROTATING_CODE_WINDOW_SECONDS,
   cardUsesDtsAlgorithm,
   isCardExpired,
+  resolveCardRotationSeconds,
   secondsUntilNextCode,
 } from "./identityCardShared";
 
@@ -51,9 +52,14 @@ export async function computeCardRotatingCode(card) {
   const secret = card?.secret_seed || card?.secret_token;
   if (!card?.card_id || !secret) return "------";
   if (cardUsesDtsAlgorithm(card)) {
-    return computeRotatingCodeAsync(card.card_id, secret);
+    const windowSeconds = resolveCardRotationSeconds(card);
+    return computeRotatingCodeAsync(card.card_id, secret, windowSeconds);
   }
   return computeLegacyRotatingCodeAsync(card.card_id, secret);
+}
+
+export function getCardSecondsUntilNextCode(card) {
+  return secondsUntilNextCode(resolveCardRotationSeconds(card));
 }
 
 export function readStoredIdentityCard() {

@@ -3,6 +3,24 @@ export const IDENTITY_CARD_STORAGE_KEY = "prooforigin_identity_card_v1";
 export const ROTATING_CODE_WINDOW_SECONDS = 60;
 export const GENESIS_STATE_HASH = "0".repeat(64);
 
+export const TRUST_TIER_IDS = [
+  "free",
+  "plus",
+  "professional",
+  "business",
+  "enterprise",
+];
+
+export const TIER_ROTATION_SECONDS = {
+  free: 60,
+  plus: 30,
+  professional: 15,
+  business: 3,
+  enterprise: 3,
+};
+
+export const FAST_TIER_MAX_SECONDS = 3;
+
 export const TRUST_STATES = [
   "active",
   "expired",
@@ -31,6 +49,53 @@ export const EXPIRATION_OPTIONS = [
 
 export const IDENTITY_DISCLAIMER =
   "This is a ProofOrigin online identity card. It is not a government ID or legal identity document.";
+
+export function normalizeTrustTier(tier) {
+  const normalized = String(tier || "free").trim().toLowerCase();
+  if (TRUST_TIER_IDS.includes(normalized)) return normalized;
+  return "free";
+}
+
+export function getTierRotationSeconds(tier) {
+  return TIER_ROTATION_SECONDS[normalizeTrustTier(tier)];
+}
+
+export function resolveCardTrustTier(card) {
+  const meta = card?.metadata && typeof card.metadata === "object" ? card.metadata : {};
+  if (meta.trust_tier) return normalizeTrustTier(meta.trust_tier);
+  if (card?.trust_tier) return normalizeTrustTier(card.trust_tier);
+  return "free";
+}
+
+export function resolveCardRotationSeconds(card) {
+  const meta = card?.metadata && typeof card.metadata === "object" ? card.metadata : {};
+  const explicit = meta.rotation_seconds ?? card?.rotation_seconds;
+  if (typeof explicit === "number" && explicit > 0) return explicit;
+  if (typeof explicit === "string" && explicit.trim()) {
+    const parsed = parseInt(explicit, 10);
+    if (parsed > 0) return parsed;
+  }
+  return getTierRotationSeconds(resolveCardTrustTier(card));
+}
+
+export function formatTrustTierLabel(tier) {
+  const normalized = normalizeTrustTier(tier);
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+/** Drift windows for server verify: ±1 for standard tiers; current + previous only for 3s tiers. */
+export function getVerifyWindowOffsets(windowSeconds) {
+  if (windowSeconds <= FAST_TIER_MAX_SECONDS) return [-1, 0];
+  return [-1, 0, 1];
+}
+
+export function buildDefaultTierMetadata(tier = "free") {
+  const trust_tier = normalizeTrustTier(tier);
+  return {
+    trust_tier,
+    rotation_seconds: getTierRotationSeconds(trust_tier),
+  };
+}
 
 export function isCardExpired(expiresAt) {
   return new Date(expiresAt).getTime() <= Date.now();

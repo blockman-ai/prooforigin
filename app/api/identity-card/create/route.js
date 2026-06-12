@@ -9,6 +9,8 @@ import {
   getExpirationOption,
   IDENTITY_CARD_VERSION,
   buildFutureMetadata,
+  buildDefaultTierMetadata,
+  getDtsConfigurationError,
 } from "../../../lib/identityCard";
 import { appendStateEvent } from "../../../lib/identityCardState";
 import {
@@ -65,10 +67,27 @@ export async function POST(req) {
       );
     }
 
+    const tierMeta = buildDefaultTierMetadata("free");
+    const dtsConfigError = getDtsConfigurationError();
+
     const cardId = generateCardId();
     const secretSeed = generateSecretSeed();
     const secretTokenHash = hashSecretSeed(secretSeed);
-    const { secret_ciphertext, secret_nonce } = encryptSecretSeed(secretSeed);
+
+    let secret_ciphertext;
+    let secret_nonce;
+    try {
+      ({ secret_ciphertext, secret_nonce } = encryptSecretSeed(secretSeed));
+    } catch (encryptError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: encryptError.message || "Dynamic Trust State encryption is not configured.",
+        },
+        { status: 503 }
+      );
+    }
+
     const issuedAt = new Date();
     const expiresAt = computeExpirationDate(issuedAt, expirationKey);
     const publicDisplayHash = computePublicDisplayHash(displayName, username, purpose);
@@ -84,9 +103,18 @@ export async function POST(req) {
       expires_at: expiresAt.toISOString(),
       identity_card_version: IDENTITY_CARD_VERSION,
       verification_path: `/id/${cardId}`,
+      trust_tier: tierMeta.trust_tier,
+      rotation_seconds: tierMeta.rotation_seconds,
     };
 
     if (isSupabaseAdminConfigured()) {
+      if (dtsConfigError) {
+        return NextResponse.json(
+          { success: false, error: dtsConfigError },
+          { status: 503 }
+        );
+      }
+
       try {
         const supabase = getSupabaseAdmin();
         const { error } = await supabase.from(TABLE).insert({
@@ -103,7 +131,11 @@ export async function POST(req) {
           expires_at: expiresAt.toISOString(),
           trust_state: "active",
           identity_card_version: IDENTITY_CARD_VERSION,
-          metadata: buildFutureMetadata({ version: IDENTITY_CARD_VERSION }),
+          metadata: buildFutureMetadata({
+            version: IDENTITY_CARD_VERSION,
+            trust_tier: tierMeta.trust_tier,
+            rotation_seconds: tierMeta.rotation_seconds,
+          }),
         });
 
         if (error) throw error;

@@ -2,12 +2,22 @@ const PLANS = [
   {
     name: "Free",
     price: "$0",
-    features: ["1 Trust Pass", "Voice Anchor", "Basic Trust History"],
+    features: [
+      "1 Trust Pass",
+      "Voice Anchor",
+      "Basic Trust History",
+      "60s Live Trust Code refresh",
+    ],
   },
   {
     name: "Plus",
     price: "$9.99/month",
-    features: ["10 Trust Passes", "TrustDNA Timeline", "Extended Expiration"],
+    features: [
+      "10 Trust Passes",
+      "TrustDNA Timeline",
+      "Extended Expiration",
+      "30s Live Trust Code refresh",
+    ],
     featured: true,
   },
   {
@@ -17,6 +27,7 @@ const PLANS = [
       "Unlimited Trust Passes",
       "Wallet Anchor Ready",
       "Advanced Verification History",
+      "15s Live Trust Code refresh",
     ],
   },
   {
@@ -26,6 +37,7 @@ const PLANS = [
       "Team Trust Passes",
       "Organization Verification",
       "Audit Trail",
+      "3s Live Trust Code refresh",
     ],
   },
   {
@@ -35,6 +47,7 @@ const PLANS = [
       "API Access",
       "Private Trust Infrastructure",
       "Bitcoin Anchor Scheduling",
+      "3s Live Trust Code refresh",
     ],
   },
 ];

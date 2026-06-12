@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resolveTrustState } from "../../../../lib/identityCard";
+import { resolveTrustState, resolveCardRotationSeconds, resolveCardTrustTier } from "../../../../lib/identityCard";
 import {
   ensureExpiredStateEvent,
   getTrustHistory,
@@ -37,7 +37,7 @@ export async function GET(_req, { params }) {
     const { data: card, error } = await supabase
       .from(CARDS_TABLE)
       .select(
-        "id, display_name, username, purpose, issued_at, expires_at, revoked_at, trust_state, latest_state_hash, verification_count, last_verified_at, identity_card_version"
+        "id, display_name, username, purpose, issued_at, expires_at, revoked_at, trust_state, latest_state_hash, verification_count, last_verified_at, identity_card_version, metadata"
       )
       .eq("id", cardId)
       .maybeSingle();
@@ -55,7 +55,7 @@ export async function GET(_req, { params }) {
     const { data: refreshedCard } = await supabase
       .from(CARDS_TABLE)
       .select(
-        "id, display_name, username, purpose, issued_at, expires_at, revoked_at, trust_state, latest_state_hash, verification_count, last_verified_at, identity_card_version"
+        "id, display_name, username, purpose, issued_at, expires_at, revoked_at, trust_state, latest_state_hash, verification_count, last_verified_at, identity_card_version, metadata"
       )
       .eq("id", cardId)
       .maybeSingle();
@@ -63,6 +63,7 @@ export async function GET(_req, { params }) {
     const activeCard = refreshedCard || card;
     const trustState = resolveTrustState(activeCard);
     const trustHistory = await getTrustHistory(supabase, cardId);
+    const rotationSeconds = resolveCardRotationSeconds(activeCard);
 
     return NextResponse.json({
       success: true,
@@ -82,6 +83,8 @@ export async function GET(_req, { params }) {
           ? "Previously verified"
           : "Awaiting verification",
         identity_card_version: activeCard.identity_card_version,
+        trust_tier: resolveCardTrustTier(activeCard),
+        rotation_seconds: rotationSeconds,
       },
       trust_history: trustHistory,
     });
