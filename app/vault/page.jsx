@@ -38,7 +38,12 @@ import {
   isValidPinFormat,
   VAULT_PIN_MIN_LENGTH,
 } from "../lib/vaultPin";
-import { resolveVaultUnlockKeys } from "../lib/vaultUnlock";
+import {
+  resolveVaultUnlockKeys,
+  resolveVaultUnlockKeysWithPasskey,
+  VaultPasskeyUnlockCancelledError,
+} from "../lib/vaultUnlock";
+import { isVaultPasskeyEnrolled } from "../lib/vaultPasskeyStorage";
 
 import {
 
@@ -592,6 +597,38 @@ export default function VaultPage() {
 
 
 
+  async function completeVaultUnlock(unlockKeys) {
+
+    setVaultSessionUnlockKeys(unlockKeys);
+
+
+
+    const genesisRecord = await ensureVaultGenesis();
+
+    setGenesis(genesisRecord);
+
+
+
+    setShowUnlockPanel(false);
+
+    setPinInput("");
+
+    setConfirmPinInput("");
+
+    setVaultState(VAULT_STATES.UNLOCKED);
+
+    setLastUnlockTime(new Date());
+
+    setVanishNotice("");
+
+
+
+    await bootstrapUnlockedSession();
+
+  }
+
+
+
   async function handlePinSubmit(event) {
 
     event.preventDefault();
@@ -628,37 +665,49 @@ export default function VaultPage() {
 
       }
 
-      setVaultSessionUnlockKeys(unlockKeys);
-
-
-
-      const genesisRecord = await ensureVaultGenesis();
-
-      setGenesis(genesisRecord);
-
-
-
-      setShowUnlockPanel(false);
-
-      setPinInput("");
-
-      setConfirmPinInput("");
-
-      setVaultState(VAULT_STATES.UNLOCKED);
-
-      setLastUnlockTime(new Date());
-
-      setVanishNotice("");
-
-
-
-      await bootstrapUnlockedSession();
+      await completeVaultUnlock(unlockKeys);
 
     } catch (err) {
 
       clearVaultSessionSecrets();
 
       setError(err.message || "Could not unlock vault.");
+
+    } finally {
+
+      setBusy(false);
+
+    }
+
+  }
+
+
+
+  async function handlePasskeyUnlock() {
+
+    setError("");
+
+    setBusy(true);
+
+
+
+    try {
+
+      const unlockKeys = await resolveVaultUnlockKeysWithPasskey();
+
+      await completeVaultUnlock(unlockKeys);
+
+    } catch (err) {
+
+      if (err instanceof VaultPasskeyUnlockCancelledError) {
+
+        return;
+
+      }
+
+      clearVaultSessionSecrets();
+
+      setError(err.message || "Could not unlock vault with passkey.");
 
     } finally {
 
@@ -839,6 +888,8 @@ export default function VaultPage() {
   const isSealed = genesis?.vault_state === VAULT_IDENTITY_STATES.SEALED;
 
   const hasDocument = Boolean(vaultDocument);
+
+  const passkeyUnlockAvailable = !isSetupMode && isVaultPasskeyEnrolled();
 
 
 
@@ -1297,13 +1348,25 @@ export default function VaultPage() {
 
 
 
-              <button type="button" className="secondary vault-passkey-placeholder" disabled>
+              {passkeyUnlockAvailable && (
 
-                Unlock with Passkey
+                <button
 
-                <span className="vault-passkey-placeholder__hint">Coming in a future release</span>
+                  type="button"
 
-              </button>
+                  className="secondary"
+
+                  disabled={busy}
+
+                  onClick={handlePasskeyUnlock}
+
+                >
+
+                  {busy ? "Working…" : "Unlock with Passkey"}
+
+                </button>
+
+              )}
 
 
 

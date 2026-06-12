@@ -29,7 +29,7 @@ PIN (fallback)           ──wraps──► MVK
 - **MVK:** Random 256-bit secret generated at vault setup. Never sent to ProofOrigin servers.
 - **Document key:** Derived from MVK via HKDF (see `app/lib/vaultCrypto.js`). AAD still binds ciphertext to device scope until Phase 2 custody transfer.
 - **PIN wrap:** PBKDF2 + AES-256-GCM protects MVK locally (`app/lib/vaultKeyRing.js`).
-- **Passkey wrap:** WebAuthn PRF wraps MVK locally (`vaultPasskey.js`, `vaultPasskeyEnroll.js`); enroll orchestration shipped in P1-C2; UI/unlock later.
+- **Passkey wrap:** WebAuthn PRF wraps MVK locally (`vaultPasskey.js`, `vaultPasskeyEnroll.js`, `vaultUnlock.js`); enrollment orchestration in P1-C2; unlock wiring in P1-C3; enroll UI in P1-C4.
 - **Recovery kit:** Planned — user-held phrase encrypts MVK export; setup/export UI in a later commit.
 
 ## Unlock priority (target behavior)
@@ -71,8 +71,8 @@ User marks vault **compromised** (existing flow). Attacker needs PIN/passkey to 
 | **1 — Commit 5** | Legacy vault migration to MVK on unlock (optional future commit) |
 | **1 — P1-C1** | `vaultPasskey.js` PRF wrap/unwrap primitives + capability detection; tests only |
 | **1 — P1-C2** | `vaultPasskeyStorage.js` + `vaultPasskeyEnroll.js`; local passkey wrap persistence + enroll orchestration; no UI/unlock yet |
-| **1 — P1-C3** | Passkey unlock integration in `vaultUnlock.js` |
-| **1 — P1-C4** | Passkey enroll/unlock UI |
+| **1 — P1-C3** | Passkey unlock in `vaultUnlock.js` + minimal vault page unlock button; PIN fallback unchanged |
+| **1 — P1-C4** | Passkey enrollment UI |
 | **2** | Cross-device recovery, `vault_id` device registry, ciphertext re-homing |
 
 ## Storage
@@ -104,14 +104,22 @@ Wrapped records must never contain plaintext MVK.
 
 ### P1-C2 — passkey storage + enrollment orchestration
 
-- Passkey wrap records persist in browser `localStorage` (`prooforigin_vault_wrapped_mvk_v1`).
+- Passkey wrap records persist in browser `localStorage` (`prooforigin_vault_passkey_wrap_v1`).
 - `enrollVaultPasskey()` requires unlocked MVK + legacy PIN key, WebAuthn PRF support, and creates:
   1. A resident platform passkey credential
   2. A PRF evaluation using `vault_id + credential_id` salt
   3. A local wrap record for MVK and legacy PIN key
 - Enrollment returns **safe metadata only** (`vault_id`, `credential_id`, `enrolled_at`, version).
-- **No UI**, **no unlock wiring**, and **no server passkey registration** in P1-C2.
+- **No UI** and **no server passkey registration** in P1-C2.
 - PIN wrap and recovery kit flows remain unchanged.
+
+### P1-C3 — passkey unlock wiring
+
+- `resolveVaultUnlockKeysWithPasskey()` loads the local passkey wrap record, performs WebAuthn `get` + PRF evaluation, unwraps MVK + legacy PIN key, and returns the same session shape as MVK PIN unlock: `{ mode: "mvk", masterVaultKey, legacyPinKey }`.
+- **Fail closed:** no enrolled record, missing PRF support, or unwrap failure returns clear errors; unwrap failure suggests PIN fallback.
+- **User cancel:** WebAuthn `NotAllowedError` / `AbortError` is treated as a graceful cancel (no error banner).
+- **Vault page:** when a passkey wrap record exists and the vault is not in first-time PIN setup, **Unlock with Passkey** is shown alongside PIN unlock. Successful passkey unlock calls `setVaultSessionUnlockKeys()` and continues the normal unlock bootstrap.
+- **Not in P1-C3:** passkey enrollment UI (P1-C4), cross-device restore, server routes.
 
 ## Related code
 
@@ -121,8 +129,7 @@ Wrapped records must never contain plaintext MVK.
 - `app/lib/vaultPasskey.js` — passkey PRF wrap/unwrap foundation + capability detection (P1-C1)
 - `app/lib/vaultPasskeyStorage.js` — passkey wrap record persistence (P1-C2)
 - `app/lib/vaultPasskeyEnroll.js` — passkey enrollment orchestration (P1-C2)
-
-- `app/lib/vaultUnlock.js` — unlock branching (MVK vs legacy)
+- `app/lib/vaultUnlock.js` — unlock branching (MVK vs legacy) + passkey unlock (P1-C3)
 - `app/lib/vaultKeyRing.js` — MVK wrap/unwrap foundation
 - `app/lib/vaultKeyRingStorage.js` — wrapped MVK persistence and MVK mode detection
 - `app/lib/vaultPin.js` — PIN normalization and PBKDF2
