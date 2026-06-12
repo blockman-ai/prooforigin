@@ -7,6 +7,7 @@ import {
 } from "../../../../lib/sentinelSnapshotHistory.js";
 import { getSentinelCounters } from "../../../../lib/sentinelCounters.js";
 import { buildSentinelTrend } from "../../../../lib/sentinelTrend.js";
+import { buildSentinelRecommendations } from "../../../../lib/sentinelRecommendations.js";
 import {
   auditVaultCiphertextStorage,
   cleanupExpiredVaultNonces,
@@ -23,6 +24,7 @@ export const SENTINEL_OPS_ACTIONS = [
   "sentinel_trend",
   "sentinel_pin_baseline",
   "sentinel_counters",
+  "sentinel_recommendations",
 ];
 
 export const dynamic = "force-dynamic";
@@ -206,6 +208,31 @@ export async function POST(req) {
           action,
           prefix: body.prefix ?? null,
           counters: result.counters,
+        })
+      );
+    }
+
+    if (action === "sentinel_recommendations") {
+      const baselineLabel = body.baseline_label || body.label || "baseline_v1";
+      const [snapshot, counterResult, trend] = await Promise.all([
+        buildSentinelSnapshot(),
+        getSentinelCounters(null),
+        buildSentinelTrend({ baselineLabel }),
+      ]);
+
+      const report = buildSentinelRecommendations({
+        snapshot,
+        trend,
+        counters: counterResult.ok ? counterResult.counters : [],
+      });
+
+      return withSecurityHeaders(
+        NextResponse.json({
+          success: true,
+          action,
+          baseline_label: baselineLabel,
+          counters_available: counterResult.ok,
+          ...report,
         })
       );
     }

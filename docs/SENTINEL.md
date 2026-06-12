@@ -99,7 +99,60 @@ Security: RLS enabled; `anon`, `authenticated`, and `public` revoked; **service_
 
 **S1-C5** wires vault auth counters in `authorizeVaultRequest` and `/api/vault/register-device`. Guide, trust verify, and vault auth all emit aggregate Sentinel counters.
 
-## Ops read API
+## Recommendations (S2)
+
+S2 adds a **read-only recommendation engine** in `app/lib/sentinelRecommendations.js`. It turns snapshot, trend, and counter data into deterministic ops-readable recommendations.
+
+| Property | Guarantee |
+|----------|-----------|
+| Auto-actions | **None** — recommendations only |
+| OpenAI | **Not used** |
+| Secrets | **Never read or returned** |
+| User alerts | **Not implemented** — ops endpoint only |
+
+`buildSentinelRecommendations({ snapshot, trend, counters })` returns fixed-shape items:
+
+| Field | Purpose |
+|-------|---------|
+| `id` | Stable rule identifier |
+| `severity` | `info` \| `low` \| `medium` \| `high` \| `critical` |
+| `category` | `vault` \| `trust` \| `guide` \| `storage` \| `auth` \| `ops` |
+| `title` / `message` | Human-readable summary |
+| `recommended_action` | Suggested investigation step (no execution) |
+| `source` | Which input produced the rule (`snapshot.storage`, `counters.guide`, etc.) |
+| `guide_topic` | Optional help topic id when Guide content may help |
+| `evidence` | Counts and booleans only |
+
+### V1 rules (deterministic)
+
+| Signal | Severity |
+|--------|----------|
+| `storage.orphan_count > 0` | medium |
+| `storage.missing_ciphertext_count > 0` | high |
+| `storage.bucket_public === true` | critical |
+| `replay.expired_nonce_count > 1000` | low / medium (housekeeping) |
+| `guide.refusal.prompt_injection > 0` | low |
+| `guide.refusal.secret_request > 0` | medium |
+| `guide.output_filter.rejected > 0` | medium |
+| `trust.verify.invalid_code > trust.verify.success * 3` and `invalid_code >= 5` | medium |
+| `vault.auth.replay_rejected > 0` | medium |
+| `vault.auth.signature_failed > 0` | medium |
+| `vault.auth.device_not_registered > 0` | low / medium |
+| `health.status !== "ok"` | high / critical (by blocker type) |
+
+### Ops read API
+
+```http
+POST /api/health/prooforigin/ops
+Authorization: Bearer <PROOFORIGIN_OPS_SECRET>
+Content-Type: application/json
+
+{ "action": "sentinel_recommendations", "baseline_label": "baseline_v1" }
+```
+
+This builds a live snapshot, includes trend when a baseline exists, loads durable counters, and returns recommendations only — **no mutations**.
+
+## Ops read API (counters)
 
 Requires `PROOFORIGIN_OPS_SECRET` and vault admin Supabase config:
 
