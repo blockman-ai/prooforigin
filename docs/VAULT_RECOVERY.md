@@ -64,21 +64,23 @@ User marks vault **compromised** (existing flow). Attacker needs PIN/passkey to 
 
 | Phase | Scope |
 |-------|--------|
-| **1 — Commit 1** (this doc + `vaultKeyRing.js`) | MVK generate/wrap/unwrap with PIN; tests only; **no production unlock change** |
-| **1 — Commit 2** | Migrate unlock/upload to MVK root; legacy PIN-only migration on next unlock |
-| **1 — Commit 3** | Passkey enroll/unlock (no recovery UI) |
-| **1 — Commit 4** | Recovery kit generate/export + acknowledgment gate |
+| **1 — Commit 1** | `vaultKeyRing.js` + spec; tests only; no production change |
+| **1 — Commit 2** | MVK storage on **new** vault setup; `isVaultUsingMasterVaultKey()`; legacy unlock/crypto unchanged |
+| **1 — Commit 3** | Migrate unlock/upload to MVK root; legacy PIN-only migration on next unlock |
+| **1 — Commit 4** | Passkey enroll/unlock (no recovery UI) |
+| **1 — Commit 5** | Recovery kit generate/export + acknowledgment gate |
 | **2** | Cross-device recovery, `vault_id` device registry, ciphertext re-homing |
 
 ## Storage
 
-Phase 1 foundation defines wrapped MVK **records** (versioned JSON). Production `localStorage` integration arrives in Commit 2. Until then, existing PIN-derived unlock remains in production.
+Wrapped MVK records live in browser `localStorage` (`prooforigin_vault_wrapped_mvk_v1`) after **brand-new vault setup** only. Existing vaults without this key remain on the legacy PIN-derived path until Commit 3 migration.
 
 Wrapped records must never contain plaintext MVK.
 
 ## Related code
 
 - `app/lib/vaultKeyRing.js` — MVK wrap/unwrap foundation
+- `app/lib/vaultKeyRingStorage.js` — wrapped MVK persistence and MVK mode detection
 - `app/lib/vaultPin.js` — PIN normalization and PBKDF2
-- `app/lib/vaultCrypto.js` — document encrypt/decrypt (MVK root in Commit 2)
+- `app/lib/vaultCrypto.js` — document encrypt/decrypt (MVK root in Commit 3)
 - `app/lib/vaultDevice.js` — device-bound API auth (unchanged in Phase 1)

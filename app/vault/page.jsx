@@ -42,6 +42,7 @@ import {
   verifyVaultPinAndDeriveMasterKey,
   VAULT_PIN_MIN_LENGTH,
 } from "../lib/vaultPin";
+import { initializeMasterVaultKeyForNewVault } from "../lib/vaultKeyRingStorage";
 
 import {
 
@@ -618,6 +619,8 @@ export default function VaultPage() {
         }
 
         await setupVaultPin(pinInput);
+
+        await initializeMasterVaultKeyForNewVault(pinInput);
 
         setPinConfigured(true);
 
