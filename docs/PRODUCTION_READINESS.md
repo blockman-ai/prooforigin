@@ -54,6 +54,7 @@ Allowed actions:
 |--------|-------------|
 | `audit_storage` | Bucket privacy + orphan/missing ciphertext report |
 | `cleanup_nonces` | Runs `vault_cleanup_expired_request_nonces()` RPC |
+| `sentinel_counters` | Read durable aggregate counters (optional `prefix` filter) |
 
 Schedule `cleanup_nonces` daily via Supabase cron, Vercel Cron, or external scheduler.
 
@@ -79,6 +80,13 @@ Run in Supabase SQL Editor **in order**:
 ### Voice Anchor
 
 1. `docs/sql/voice_anchor_enrollments.sql`
+
+### Sentinel
+
+1. `docs/sql/sentinel_s1.sql` — snapshot history
+2. `docs/sql/sentinel_counters.sql` — durable aggregate counters (required before counter writes)
+
+See `docs/SENTINEL.md` for counter privacy rules and ops usage.
 
 All vault and identity tables: **RLS enabled, service_role only**. Browser never queries these tables directly.
 
@@ -198,6 +206,7 @@ Review vault CSP when adding scripts or workers.
 - `docs/VAULT_RECOVERY.md` — MVK key ring, passkey, recovery kit roadmap
 - `docs/VAULT_STORAGE_SETUP.md` — bucket and schema setup
 - `docs/VAULT_LIFECYCLE.md` — Protected View audit events
+- `docs/SENTINEL.md` — durable counter privacy rules and ops API
 - `docs/sql/vault_encryption_v2.sql` — MVK upload constraint
 
 ---

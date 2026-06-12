@@ -5,6 +5,7 @@ import {
   persistSentinelSnapshot,
   pinSentinelBaseline,
 } from "../../../../lib/sentinelSnapshotHistory.js";
+import { getSentinelCounters } from "../../../../lib/sentinelCounters.js";
 import { buildSentinelTrend } from "../../../../lib/sentinelTrend.js";
 import {
   auditVaultCiphertextStorage,
@@ -21,6 +22,7 @@ export const SENTINEL_OPS_ACTIONS = [
   "sentinel_persist",
   "sentinel_trend",
   "sentinel_pin_baseline",
+  "sentinel_counters",
 ];
 
 export const dynamic = "force-dynamic";
@@ -177,6 +179,33 @@ export async function POST(req) {
           success: true,
           action,
           trend,
+        })
+      );
+    }
+
+    if (action === "sentinel_counters") {
+      const result = await getSentinelCounters(body.prefix ?? null);
+
+      if (!result.ok) {
+        return withSecurityHeaders(
+          NextResponse.json(
+            {
+              success: false,
+              action,
+              error: result.error,
+              counters: [],
+            },
+            { status: result.error === "supabase_not_configured" ? 503 : 500 }
+          )
+        );
+      }
+
+      return withSecurityHeaders(
+        NextResponse.json({
+          success: true,
+          action,
+          prefix: body.prefix ?? null,
+          counters: result.counters,
         })
       );
     }
