@@ -52,10 +52,11 @@ export function formatVaultDocumentSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export async function vaultSignedFetch({ method, path, body = "" }) {
+export async function vaultSignedFetch({ method, path, body = "", keepalive = false }) {
   const headers = await createSignedVaultAuthHeaders({ method, path, body });
   const init = {
     method,
+    keepalive,
     headers: {
       ...headers,
       ...(body && method !== "GET" ? { "Content-Type": "application/json" } : {}),
@@ -199,8 +200,8 @@ export async function fetchVaultDocumentCiphertextUrl() {
   });
 }
 
-export async function downloadVaultDocumentCiphertext(signedUrl) {
-  const response = await fetch(signedUrl);
+export async function downloadVaultDocumentCiphertext(signedUrl, { signal } = {}) {
+  const response = await fetch(signedUrl, { signal });
   if (!response.ok) {
     throw new Error("Unable to download encrypted vault document.");
   }
@@ -255,6 +256,93 @@ export async function recordVaultDocumentViewed({
       started_at: startedAt,
     }),
   });
+}
+
+export async function recordVaultDocumentViewStarted({
+  documentId,
+  viewSessionId,
+  startedAt,
+}) {
+  return vaultSignedFetch({
+    method: "POST",
+    path: "/api/vault/document/view-started",
+    body: JSON.stringify({
+      document_id: documentId,
+      view_session_id: viewSessionId,
+      started_at: startedAt,
+    }),
+  });
+}
+
+export async function recordVaultDocumentViewEnded({
+  documentId,
+  viewSessionId,
+  startedAt,
+  endedAt,
+  durationMs,
+}) {
+  return vaultSignedFetch({
+    method: "POST",
+    path: "/api/vault/document/view-ended",
+    body: JSON.stringify({
+      document_id: documentId,
+      view_session_id: viewSessionId,
+      started_at: startedAt,
+      ended_at: endedAt,
+      duration_ms: durationMs,
+    }),
+    keepalive: true,
+  });
+}
+
+export function sendVaultDocumentViewEndedBestEffort({
+  documentId,
+  viewSessionId,
+  startedAt,
+  endedAt,
+  durationMs,
+}) {
+  const path = "/api/vault/document/view-ended";
+  const body = JSON.stringify({
+    document_id: documentId,
+    view_session_id: viewSessionId,
+    started_at: startedAt,
+    ended_at: endedAt,
+    duration_ms: durationMs,
+  });
+
+  void (async () => {
+    try {
+      const headers = await createSignedVaultAuthHeaders({ method: "POST", path, body });
+      const requestInit = {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body,
+        keepalive: true,
+      };
+
+      void fetch(path, requestInit).catch(async () => {
+        try {
+          const retryHeaders = await createSignedVaultAuthHeaders({ method: "POST", path, body });
+          void fetch(path, {
+            method: "POST",
+            headers: {
+              ...retryHeaders,
+              "Content-Type": "application/json",
+            },
+            body,
+          }).catch(() => {});
+        } catch {
+          // HMAC auth requires custom headers; sendBeacon cannot carry them.
+        }
+      });
+    } catch {
+      // Best-effort only; never block Protected View teardown.
+    }
+  })();
 }
 
 export function isVaultImageContentType(contentType) {

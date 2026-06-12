@@ -159,11 +159,17 @@ export default function VaultPage() {
 
 
 
-  const teardownProtectedView = useCallback(() => {
+  const teardownProtectedView = useCallback(async () => {
 
-    protectedViewTeardownRef.current?.();
+    const handler = protectedViewTeardownRef.current;
 
     protectedViewTeardownRef.current = null;
+
+    if (handler) {
+
+      await handler();
+
+    }
 
     setShowProtectedView(false);
 
@@ -175,9 +181,11 @@ export default function VaultPage() {
 
     (reason = "manual") => {
 
-      teardownProtectedView();
+      void (async () => {
 
-      setVaultState(VAULT_STATES.VANISH);
+        await teardownProtectedView();
+
+        setVaultState(VAULT_STATES.VANISH);
 
       setShowUnlockPanel(false);
 
@@ -228,6 +236,8 @@ export default function VaultPage() {
         setVanishNotice("");
 
       }, reason === "manual" ? 900 : 1200);
+
+      })();
 
     },
 

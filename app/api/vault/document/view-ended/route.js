@@ -3,13 +3,13 @@ import {
   invalidRequestResponse,
   loadAuthorizedVaultDocument,
   parseViewSessionBody,
-  recordVaultViewSessionEvent,
+  recordVaultViewEndedSessionEvent,
   vaultNoStoreJson,
-  VAULT_DOCUMENT_EVENT_TYPES,
 } from "../../../../lib/vaultViewSessionApi";
+
 export const dynamic = "force-dynamic";
 
-const ROUTE_PATH = "/api/vault/document/viewed";
+const ROUTE_PATH = "/api/vault/document/view-ended";
 
 export async function POST(req) {
   try {
@@ -36,13 +36,14 @@ export async function POST(req) {
       return documentResult.response;
     }
 
-    const recorded = await recordVaultViewSessionEvent({
+    const recorded = await recordVaultViewEndedSessionEvent({
       document: documentResult.document,
       vaultDeviceId: authResult.auth.vault_device_id,
-      eventType: VAULT_DOCUMENT_EVENT_TYPES.VIEWED,
       viewSessionId: parsed.viewSessionId,
       startedAt: parsed.startedAt,
-      source: "protected-view-v0.2",
+      clientEndedAt: parsed.endedAt,
+      clientDurationMs: parsed.durationMs,
+      source: "protected-view-v0.2.6",
     });
 
     if (!recorded.ok) {
@@ -51,12 +52,17 @@ export async function POST(req) {
 
     return vaultNoStoreJson({
       success: true,
-      viewed: true,
+      view_ended: true,
       duplicate: recorded.duplicate,
       document_id: documentResult.document.id,
       view_session_id: parsed.viewSessionId,
+      ended_at: recorded.serverEndedAt,
+      server_duration_ms: recorded.serverDurationMs,
+      client_duration_ms: parsed.durationMs,
+      duration_mismatch: recorded.durationMismatch,
       event_id: recorded.event?.id || null,
-    });  } catch {
-    return invalidRequestResponse("Invalid vault viewed request.");
+    });
+  } catch {
+    return invalidRequestResponse("Invalid vault view-ended request.");
   }
 }

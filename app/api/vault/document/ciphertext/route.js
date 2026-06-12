@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import {
   authorizeVaultRequest,
   isVaultDocumentCompromised,
@@ -9,11 +8,12 @@ import {
   getVaultDocumentByDevice,
   isVaultAdminConfigured,
 } from "../../../../lib/vaultAdmin";
+import { vaultNoStoreJson } from "../../../../lib/vaultViewSessionApi";
 
 export const dynamic = "force-dynamic";
 
 function storageNotConfiguredResponse() {
-  return NextResponse.json(
+  return vaultNoStoreJson(
     {
       success: false,
       code: "STORAGE_NOT_CONFIGURED",
@@ -31,7 +31,7 @@ export async function GET(req) {
       bodyText: "",
     });
     if (!auth.ok) {
-      return NextResponse.json(vaultAuthFailureResponse(auth), { status: auth.status });
+      return vaultNoStoreJson(vaultAuthFailureResponse(auth), { status: auth.status });
     }
 
     if (!isVaultAdminConfigured()) {
@@ -41,7 +41,7 @@ export async function GET(req) {
     const { document, error: lookupError } = await getVaultDocumentByDevice(auth.vault_device_id);
 
     if (lookupError) {
-      return NextResponse.json(
+      return vaultNoStoreJson(
         {
           success: false,
           code: "DOCUMENT_LOOKUP_FAILED",
@@ -52,7 +52,7 @@ export async function GET(req) {
     }
 
     if (!document) {
-      return NextResponse.json(
+      return vaultNoStoreJson(
         {
           success: false,
           code: "DOCUMENT_NOT_FOUND",
@@ -63,7 +63,7 @@ export async function GET(req) {
     }
 
     if (isVaultDocumentCompromised(document)) {
-      return NextResponse.json(
+      return vaultNoStoreJson(
         {
           success: false,
           code: "VAULT_COMPROMISED",
@@ -76,7 +76,7 @@ export async function GET(req) {
     const download = await createVaultSignedDownloadUrl(document.storage_path);
 
     if (download.error || !download.signedUrl) {
-      return NextResponse.json(
+      return vaultNoStoreJson(
         {
           success: false,
           code: "DOWNLOAD_URL_FAILED",
@@ -86,14 +86,14 @@ export async function GET(req) {
       );
     }
 
-    return NextResponse.json({
+    return vaultNoStoreJson({
       success: true,
       id: document.id,
       signedUrl: download.signedUrl,
       expiresIn: download.expiresIn,
     });
   } catch {
-    return NextResponse.json(
+    return vaultNoStoreJson(
       { success: false, code: "INVALID_REQUEST", error: "Invalid vault ciphertext request." },
       { status: 400 }
     );

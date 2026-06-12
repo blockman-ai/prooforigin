@@ -7,10 +7,12 @@ import {
   fetchVaultDocumentCiphertextUrl,
   isVaultImageContentType,
   isVaultPdfContentType,
-  recordVaultDocumentViewed,
+  recordVaultDocumentViewStarted,
+  sendVaultDocumentViewEndedBestEffort,
 } from "../../app/lib/vaultDocumentClient";
 import { clearBytes } from "../../app/lib/vaultCrypto";
 import {
+  computeProtectedViewDurationMs,
   endProtectedViewSession,
   formatShortVaultId,
   startProtectedViewSession,
@@ -21,22 +23,58 @@ import {
 } from "../../app/lib/vaultSession";
 import VaultWatermark from "./VaultWatermark";
 
-async function configurePdfWorker(pdfjs) {
-  if (pdfjs.GlobalWorkerOptions?.workerSrc) return;
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+function configurePdfWorker(pdfjs) {
+  pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 }
 
-async function renderPdfPages(plaintext, container) {
+async function renderPdfPages(plaintext, container, { isStopped, onLoadingTask }) {
   const pdfjs = await import("pdfjs-dist");
-  await configurePdfWorker(pdfjs);
+  configurePdfWorker(pdfjs);
+
+  if (isStopped()) {
+    return;
+  }
 
   const loadingTask = pdfjs.getDocument({ data: plaintext.slice() });
-  const pdf = await loadingTask.promise;
+  onLoadingTask?.(loadingTask);
+
+  if (isStopped()) {
+    loadingTask.destroy();
+    return;
+  }
+
+  let pdf;
+  try {
+    pdf = await loadingTask.promise;
+  } catch (error) {
+    if (isStopped()) {
+      return;
+    }
+    throw error;
+  }
+
+  if (isStopped()) {
+    pdf.destroy?.();
+    return;
+  }
 
   container.replaceChildren();
 
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    if (isStopped()) {
+      pdf.destroy?.();
+      container.replaceChildren();
+      return;
+    }
+
     const page = await pdf.getPage(pageNumber);
+
+    if (isStopped()) {
+      pdf.destroy?.();
+      container.replaceChildren();
+      return;
+    }
+
     const viewport = page.getViewport({ scale: 1.1 });
     const canvas = document.createElement("canvas");
     canvas.className = "protected-view__pdf-page";
@@ -47,6 +85,13 @@ async function renderPdfPages(plaintext, container) {
 
     const context = canvas.getContext("2d");
     await page.render({ canvasContext: context, viewport }).promise;
+
+    if (isStopped()) {
+      pdf.destroy?.();
+      container.replaceChildren();
+      return;
+    }
+
     container.appendChild(canvas);
   }
 }
@@ -64,49 +109,85 @@ export default function ProtectedView({
   const [sessionStartedAt, setSessionStartedAt] = useState(null);
 
   const sessionRef = useRef(null);
-  const viewedRecordedRef = useRef(false);
   const plaintextRef = useRef(null);
   const pdfContainerRef = useRef(null);
   const imageUrlRef = useRef(null);
   const teardownDoneRef = useRef(false);
+  const abortControllerRef = useRef(null);
+  const pdfLoadingTaskRef = useRef(null);
+  const renderGenerationRef = useRef(0);
 
   const vaultIdShort = formatShortVaultId(vaultId);
   const isPdf = isVaultPdfContentType(document.content_type_hint);
   const isImage = isVaultImageContentType(document.content_type_hint);
+  const isClosed = status === "closed";
+
+  const isStopped = useCallback(() => teardownDoneRef.current, []);
+
+  const dispatchViewEndedBestEffort = useCallback(() => {
+    const session = sessionRef.current;
+    if (!session?.view_started_recorded || session.view_ended_recorded) {
+      endProtectedViewSession(session);
+      return;
+    }
+
+    endProtectedViewSession(session);
+    session.view_ended_recorded = true;
+
+    sendVaultDocumentViewEndedBestEffort({
+      documentId: document.id,
+      viewSessionId: session.view_session_id,
+      startedAt: session.started_at,
+      endedAt: session.ended_at,
+      durationMs: computeProtectedViewDurationMs(session),
+    });
+  }, [document.id]);
 
   const teardown = useCallback(() => {
-    if (teardownDoneRef.current) return;
-    teardownDoneRef.current = true;
-
-    if (imageUrlRef.current) {
-      URL.revokeObjectURL(imageUrlRef.current);
-      imageUrlRef.current = null;
+    if (teardownDoneRef.current) {
+      return;
     }
+
+    teardownDoneRef.current = true;
+    renderGenerationRef.current += 1;
+
+    abortControllerRef.current?.abort();
+    pdfLoadingTaskRef.current?.destroy();
+    pdfLoadingTaskRef.current = null;
+
+    setStatus("closed");
+    setImageUrl(null);
 
     if (plaintextRef.current) {
       clearBytes(plaintextRef.current);
       plaintextRef.current = null;
     }
 
+    clearVaultSessionDocumentKey();
+
     if (pdfContainerRef.current) {
       pdfContainerRef.current.replaceChildren();
     }
 
-    clearVaultSessionDocumentKey();
-    endProtectedViewSession(sessionRef.current);
-    setImageUrl(null);
-  }, []);
+    if (imageUrlRef.current) {
+      URL.revokeObjectURL(imageUrlRef.current);
+      imageUrlRef.current = null;
+    }
+
+    dispatchViewEndedBestEffort();
+  }, [dispatchViewEndedBestEffort]);
 
   useEffect(() => {
     onRegisterTeardown?.(teardown);
     return () => {
       onRegisterTeardown?.(null);
-      teardown();
+      void teardown();
     };
   }, [onRegisterTeardown, teardown]);
 
   useEffect(() => {
-    let cancelled = false;
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     async function loadProtectedView() {
       const session = startProtectedViewSession();
@@ -117,18 +198,29 @@ export default function ProtectedView({
 
       try {
         const urlResponse = await fetchVaultDocumentCiphertextUrl();
+        if (abortController.signal.aborted || isStopped()) {
+          return;
+        }
+
         if (!urlResponse.ok) {
           throw new Error(urlResponse.data?.error || "Unable to prepare protected view download.");
         }
 
-        const encryptedPayload = await downloadVaultDocumentCiphertext(urlResponse.data.signedUrl);
+        const encryptedPayload = await downloadVaultDocumentCiphertext(urlResponse.data.signedUrl, {
+          signal: abortController.signal,
+        });
+
+        if (abortController.signal.aborted || isStopped()) {
+          return;
+        }
+
         const decrypted = await decryptVaultDocumentPayload({
           masterKey,
           document,
           encryptedPayload,
         });
 
-        if (cancelled) {
+        if (abortController.signal.aborted || isStopped()) {
           clearBytes(decrypted.plaintext);
           return;
         }
@@ -141,49 +233,75 @@ export default function ProtectedView({
         if (isVaultImageContentType(contentType)) {
           const blob = new Blob([decrypted.plaintext], { type: contentType });
           const objectUrl = URL.createObjectURL(blob);
+
+          if (abortController.signal.aborted || isStopped()) {
+            URL.revokeObjectURL(objectUrl);
+            return;
+          }
+
           imageUrlRef.current = objectUrl;
           setImageUrl(objectUrl);
           setStatus("ready");
         } else if (isVaultPdfContentType(contentType)) {
           await new Promise((resolve) => requestAnimationFrame(resolve));
+
+          if (abortController.signal.aborted || isStopped()) {
+            return;
+          }
+
           const container = pdfContainerRef.current;
           if (!container) {
             throw new Error("Protected View container is not ready.");
           }
-          await renderPdfPages(decrypted.plaintext, container);
+
+          await renderPdfPages(decrypted.plaintext, container, {
+            isStopped,
+            onLoadingTask: (task) => {
+              pdfLoadingTaskRef.current = task;
+            },
+          });
+
+          if (abortController.signal.aborted || isStopped()) {
+            return;
+          }
+
           setStatus("ready");
         } else {
           throw new Error("This document type is not supported in Protected View yet.");
         }
 
-        if (!viewedRecordedRef.current && sessionRef.current) {
-          const viewedResponse = await recordVaultDocumentViewed({
+        const activeSession = sessionRef.current;
+        if (activeSession && !activeSession.view_started_recorded) {
+          const startedResponse = await recordVaultDocumentViewStarted({
             documentId: document.id,
-            viewSessionId: sessionRef.current.view_session_id,
-            startedAt: sessionRef.current.started_at,
+            viewSessionId: activeSession.view_session_id,
+            startedAt: activeSession.started_at,
           });
 
-          if (!viewedResponse.ok) {
-            throw new Error(viewedResponse.data?.error || "Unable to record protected view event.");
+          if (!startedResponse.ok) {
+            throw new Error(
+              startedResponse.data?.error || "Unable to record protected view session start."
+            );
           }
 
-          viewedRecordedRef.current = true;
-          sessionRef.current.viewed_event_recorded = true;
+          activeSession.view_started_recorded = true;
         }
       } catch (err) {
-        if (!cancelled) {
-          setError(err.message || "Unable to open Protected View.");
-          setStatus("error");
+        if (abortController.signal.aborted || isStopped()) {
+          return;
         }
+
+        setError(err.message || "Unable to open Protected View.");
+        setStatus("error");
       }
     }
 
-    loadProtectedView();
+    void loadProtectedView();
 
     return () => {
-      cancelled = true;
+      abortController.abort();
     };
-  }, [document, masterKey]);
+  }, [document, masterKey, isStopped]);
 
   function handleClose() {
     teardown();
@@ -224,7 +342,7 @@ export default function ProtectedView({
             </div>
           )}
 
-          {isImage && imageUrl && status === "ready" && (
+          {!isClosed && isImage && imageUrl && status === "ready" && (
             <div className="protected-view__image-wrap">
               <img
                 className="protected-view__image"
@@ -237,7 +355,7 @@ export default function ProtectedView({
             </div>
           )}
 
-          {isPdf && (
+          {!isClosed && isPdf && (
             <div
               ref={pdfContainerRef}
               className={`protected-view__pdf-wrap ${status !== "ready" ? "protected-view__pdf-wrap--pending" : ""}`.trim()}
@@ -245,7 +363,7 @@ export default function ProtectedView({
             />
           )}
 
-          {status === "ready" && sessionStartedAt && (
+          {!isClosed && status === "ready" && sessionStartedAt && (
             <VaultWatermark vaultIdShort={vaultIdShort} timestamp={sessionStartedAt} />
           )}
         </div>

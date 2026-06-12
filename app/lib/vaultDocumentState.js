@@ -7,6 +7,8 @@ export const VAULT_DOCUMENT_STATE_PREFIX = "prooforigin-vault-document-state-v1"
 export const VAULT_DOCUMENT_EVENT_TYPES = {
   CREATED: "created",
   VIEWED: "viewed",
+  VIEW_STARTED: "view_started",
+  VIEW_ENDED: "view_ended",
   COMPROMISED: "compromised",
   DELETED: "deleted",
 };
@@ -116,6 +118,75 @@ export async function appendVaultDocumentEvent({
   }
 
   return { event: data, error: null };
+}
+
+const VIEW_SESSION_DEDUP_EVENT_TYPES = new Set([
+  VAULT_DOCUMENT_EVENT_TYPES.VIEWED,
+  VAULT_DOCUMENT_EVENT_TYPES.VIEW_STARTED,
+  VAULT_DOCUMENT_EVENT_TYPES.VIEW_ENDED,
+]);
+
+export async function findDocumentEventByViewSession({ documentId, viewSessionId, eventType }) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_DOCUMENT_STATE_EVENTS_TABLE)
+    .select(
+      "id, document_id, event_type, previous_state_hash, state_hash, created_at, metadata"
+    )
+    .eq("document_id", documentId)
+    .eq("event_type", eventType)
+    .eq("metadata->>view_session_id", viewSessionId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data || null;
+}
+
+export async function appendVaultDocumentEventOnce({
+  documentId,
+  eventType,
+  document,
+  metadata = {},
+}) {
+  const viewSessionId = metadata?.view_session_id;
+
+  if (viewSessionId && VIEW_SESSION_DEDUP_EVENT_TYPES.has(eventType)) {
+    const existing = await findDocumentEventByViewSession({
+      documentId,
+      viewSessionId,
+      eventType,
+    });
+
+    if (existing) {
+      return { event: existing, error: null, duplicate: true };
+    }
+  }
+
+  const result = await appendVaultDocumentEvent({
+    documentId,
+    eventType,
+    document,
+    metadata,
+  });
+
+  if (result.error?.code === "23505") {
+    const existing = await findDocumentEventByViewSession({
+      documentId,
+      viewSessionId,
+      eventType,
+    });
+
+    if (existing) {
+      return { event: existing, error: null, duplicate: true };
+    }
+  }
+
+  return { ...result, duplicate: false };
 }
 
 export async function getVaultDocumentHistory(documentId, limit = 20) {

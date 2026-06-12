@@ -18,7 +18,14 @@ create table if not exists public.vault_document_state_events (
   metadata jsonb not null default '{}'::jsonb,
 
   constraint vault_document_state_events_type_allowed check (
-    event_type in ('created', 'viewed', 'compromised', 'deleted')
+    event_type in (
+      'created',
+      'viewed',
+      'view_started',
+      'view_ended',
+      'compromised',
+      'deleted'
+    )
   ),
   constraint vault_document_state_events_prev_hash_len check (
     char_length(previous_state_hash) = 64
