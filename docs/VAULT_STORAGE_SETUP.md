@@ -18,6 +18,31 @@ They are created independently in the browser:
 
 A future ProofOrigin account system may bind **multiple `vault_device_id` records** to one ProofOrigin identity or `vault_id`. V0.2 keeps them local and device-bound.
 
+## Access control (RLS)
+
+**Do not apply `owner_id`-based RLS policies yet.**
+
+The current vault is **device-bound**, not account-bound. `vault_documents` has **`vault_device_id`**, not `owner_id`.
+
+Keep vault tables **service_role only**:
+
+- `vault_documents`
+- `vault_document_state_events`
+- `vault_device_registrations`
+- `vault_request_nonces`
+
+No `anon` / `authenticated` table access. The browser never talks directly to Supabase vault tables; all vault reads and writes go through Next.js API routes with HMAC device auth.
+
+Future account-bound vaults may add `owner_id`-based RLS later.
+
+## Protected View lifecycle (audit)
+
+Canonical events: **`view_started`** and **`view_ended`**.
+
+Legacy: **`viewed`** (backward compatible only — new clients must not emit it).
+
+See `docs/VAULT_LIFECYCLE.md` for the full audit spec.
+
 ## What is stored
 
 - **Supabase Postgres:** metadata only — ciphertext SHA-256, byte size, storage path, encryption version, optional encrypted label fields, timestamps.
@@ -44,6 +69,22 @@ This creates `public.vault_documents` with:
 
 - One active row per `vault_device_id` (partial unique index where `deleted_at is null`)
 - RLS enabled; `service_role` only
+
+After `docs/sql/vault_document_state_events.sql`, run:
+
+```
+docs/sql/vault_document_state_events_view_lifecycle.sql
+```
+
+This adds Protected View lifecycle event types (`view_started`, `view_ended`) and dedup indexes for `view_session_id`.
+
+Then run:
+
+```
+docs/sql/vault_p1_integrity.sql
+```
+
+This adds DB-backed HMAC nonce replay protection and the atomic `vault_complete_document_atomic()` RPC (document row + `created` event in one transaction).
 
 ## 2. Create private storage bucket
 

@@ -52,11 +52,15 @@ async function setupRouteTest(store) {
   mock.module("../../app/lib/vaultAdmin.js", {
     exports: {
       isVaultAdminConfigured: () => true,
+      createVaultAdminClient: () => store.client,
       getVaultDocumentByDevice: async () => ({
         document: mockDocument,
         error: null,
       }),
-      createVaultAdminClient: () => store.client,
+      getVaultDocumentById: async () => ({
+        document: mockDocument,
+        error: null,
+      }),
     },
   });
 

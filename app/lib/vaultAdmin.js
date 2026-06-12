@@ -3,6 +3,7 @@ import crypto from "crypto";
 
 export const VAULT_DOCUMENTS_TABLE = "vault_documents";
 export const VAULT_DEVICE_REGISTRATIONS_TABLE = "vault_device_registrations";
+export const VAULT_REQUEST_NONCES_TABLE = "vault_request_nonces";
 export const VAULT_STORAGE_BUCKET = "vault-documents";
 export const VAULT_ENCRYPTION_VERSION = 1;
 export const VAULT_SIGNED_URL_TTL_SECONDS = 120;
@@ -204,6 +205,22 @@ export async function getVaultDocumentByDevice(vaultDeviceId) {
   };
 }
 
+export async function getVaultDocumentById(documentId) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_DOCUMENTS_TABLE)
+    .select(
+      "id, vault_device_id, storage_path, ciphertext_sha256, ciphertext_bytes, content_type_hint, label_ciphertext, encryption_version, compromised_at, created_at, updated_at, deleted_at"
+    )
+    .eq("id", documentId)
+    .maybeSingle();
+
+  return {
+    document: mapVaultDocumentRow(data),
+    error,
+  };
+}
+
 export async function createVaultSignedUploadUrl(vaultDeviceId, docId) {
   const storagePath = buildVaultDocumentStoragePath(vaultDeviceId, docId);
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -397,6 +414,62 @@ export async function completeVaultDocument({
     document: mapVaultDocumentRow(data),
     error,
   };
+}
+
+export async function completeVaultDocumentAtomic({
+  vaultDeviceId,
+  docId,
+  storagePath,
+  ciphertextSha256,
+  ciphertextBytes,
+  contentTypeHint,
+  labelCiphertext = null,
+  labelIv = null,
+  encryptionVersion = VAULT_ENCRYPTION_VERSION,
+  createdAt,
+  eventPreviousStateHash,
+  eventStateHash,
+  eventMetadata = {},
+}) {
+  const supabase = createVaultAdminClient();
+
+  const { data, error } = await supabase.rpc("vault_complete_document_atomic", {
+    p_doc_id: docId,
+    p_vault_device_id: vaultDeviceId,
+    p_storage_path: storagePath,
+    p_ciphertext_sha256: ciphertextSha256,
+    p_ciphertext_bytes: ciphertextBytes,
+    p_content_type_hint: contentTypeHint,
+    p_label_ciphertext: labelCiphertext,
+    p_label_iv: labelIv,
+    p_encryption_version: encryptionVersion,
+    p_created_at: createdAt,
+    p_event_previous_state_hash: eventPreviousStateHash,
+    p_event_state_hash: eventStateHash,
+    p_event_metadata: eventMetadata,
+  });
+
+  if (error) {
+    return { document: null, error, usedRpc: true };
+  }
+
+  return {
+    document: mapVaultDocumentRow(data),
+    error: null,
+    usedRpc: true,
+  };
+}
+
+export async function rollbackVaultDocumentInsert(documentId, vaultDeviceId) {
+  const supabase = createVaultAdminClient();
+  const { error } = await supabase
+    .from(VAULT_DOCUMENTS_TABLE)
+    .delete()
+    .eq("id", documentId)
+    .eq("vault_device_id", vaultDeviceId)
+    .is("deleted_at", null);
+
+  return { error };
 }
 
 export async function deleteVaultDocument(vaultDeviceId) {

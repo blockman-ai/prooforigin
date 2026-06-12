@@ -6,13 +6,17 @@ import {
 } from "../../../../lib/vaultAuth";
 import {
   appendVaultDocumentEvent,
+  computeVaultDocumentStateHash,
   VAULT_DOCUMENT_EVENT_TYPES,
+  VAULT_DOCUMENT_GENESIS_STATE_HASH,
 } from "../../../../lib/vaultDocumentState";
 import {
   buildVaultDocumentStoragePath,
   completeVaultDocument,
+  completeVaultDocumentAtomic,
   getVaultDocumentByDevice,
   isVaultAdminConfigured,
+  rollbackVaultDocumentInsert,
   verifyVaultCiphertextObject,
   VAULT_ENCRYPTION_VERSION,
 } from "../../../../lib/vaultAdmin";
@@ -166,52 +170,120 @@ export async function POST(req) {
       );
     }
 
-    const { document, error } = await completeVaultDocument({
+    const createdAt = new Date().toISOString();
+    const eventMetadata = {
+      source: "vault-document-complete-v0.2.5",
+      vault_device_id: auth.vault_device_id,
+    };
+    const documentSnapshot = {
+      vault_device_id: auth.vault_device_id,
+      ciphertext_sha256: ciphertextSha256.toLowerCase(),
+      ciphertext_bytes: ciphertextBytes,
+      content_type_hint: contentTypeHint,
+      encryption_version: encryptionVersion,
+      compromised_at: null,
+      deleted_at: null,
+    };
+    const eventPreviousStateHash = VAULT_DOCUMENT_GENESIS_STATE_HASH;
+    const eventStateHash = computeVaultDocumentStateHash({
+      documentId: docId,
+      eventType: VAULT_DOCUMENT_EVENT_TYPES.CREATED,
+      previousStateHash: eventPreviousStateHash,
+      document: documentSnapshot,
+      metadata: eventMetadata,
+      createdAt,
+    });
+
+    let document = null;
+    let completeError = null;
+
+    const atomicResult = await completeVaultDocumentAtomic({
       vaultDeviceId: auth.vault_device_id,
       docId,
       storagePath,
-      ciphertextSha256,
+      ciphertextSha256: ciphertextSha256.toLowerCase(),
       ciphertextBytes,
       contentTypeHint,
       labelCiphertext,
       labelIv,
       encryptionVersion,
+      createdAt,
+      eventPreviousStateHash,
+      eventStateHash,
+      eventMetadata,
     });
 
-    if (error) {
-      const isSlotConflict = error.code === "23505";
+    document = atomicResult.document;
+    completeError = atomicResult.error;
+
+    if (completeError?.code === "42883" || completeError?.code === "PGRST202") {
+      const legacyResult = await completeVaultDocument({
+        vaultDeviceId: auth.vault_device_id,
+        docId,
+        storagePath,
+        ciphertextSha256: ciphertextSha256.toLowerCase(),
+        ciphertextBytes,
+        contentTypeHint,
+        labelCiphertext,
+        labelIv,
+        encryptionVersion,
+      });
+
+      if (legacyResult.error) {
+        const isSlotConflict = legacyResult.error.code === "23505";
+        return NextResponse.json(
+          {
+            success: false,
+            code: isSlotConflict ? "SLOT_OCCUPIED" : "DOCUMENT_COMPLETE_FAILED",
+            error:
+              legacyResult.error.message ||
+              (isSlotConflict
+                ? "This vault device already has an active encrypted document."
+                : "Unable to finalize vault document metadata."),
+          },
+          { status: isSlotConflict ? 409 : 502 }
+        );
+      }
+
+      const { error: stateError } = await appendVaultDocumentEvent({
+        documentId: legacyResult.document.id,
+        eventType: VAULT_DOCUMENT_EVENT_TYPES.CREATED,
+        document: legacyResult.document,
+        metadata: eventMetadata,
+      });
+
+      if (stateError) {
+        await rollbackVaultDocumentInsert(legacyResult.document.id, auth.vault_device_id);
+
+        return NextResponse.json(
+          {
+            success: false,
+            code: "DOCUMENT_STATE_EVENT_FAILED",
+            error: stateError.message || "Unable to record vault document created event.",
+          },
+          { status: 502 }
+        );
+      }
+
+      document = legacyResult.document;
+      completeError = null;
+    }
+
+    if (completeError) {
+      const isSlotConflict =
+        completeError.code === "23505" || String(completeError.message || "").includes("SLOT_OCCUPIED");
+
       return NextResponse.json(
         {
           success: false,
           code: isSlotConflict ? "SLOT_OCCUPIED" : "DOCUMENT_COMPLETE_FAILED",
           error:
-            error.message ||
+            completeError.message ||
             (isSlotConflict
               ? "This vault device already has an active encrypted document."
               : "Unable to finalize vault document metadata."),
         },
         { status: isSlotConflict ? 409 : 502 }
-      );
-    }
-
-    const { error: stateError } = await appendVaultDocumentEvent({
-      documentId: document.id,
-      eventType: VAULT_DOCUMENT_EVENT_TYPES.CREATED,
-      document,
-      metadata: {
-        source: "vault-document-complete-v0.2.5",
-        vault_device_id: auth.vault_device_id,
-      },
-    });
-
-    if (stateError) {
-      return NextResponse.json(
-        {
-          success: false,
-          code: "DOCUMENT_STATE_EVENT_FAILED",
-          error: stateError.message || "Unable to record vault document created event.",
-        },
-        { status: 502 }
       );
     }
 

@@ -207,7 +207,7 @@ export async function authorizeVaultRequest(req, { method, path, bodyText = "" }
     };
   }
 
-  const replayCheck = reserveVaultRequestNonce({
+  const replayCheck = await reserveVaultRequestNonce({
     vaultDeviceId: headers.vault_device_id,
     nonce: headers.nonce,
   });
@@ -217,7 +217,9 @@ export async function authorizeVaultRequest(req, { method, path, bodyText = "" }
       ok: false,
       status: 401,
       code: "VAULT_AUTH_REPLAY",
-      message: "Vault request nonce was already used.",
+      message: replayCheck.expired
+        ? "Vault request nonce expired."
+        : "Vault request nonce was already used.",
     };
   }
 

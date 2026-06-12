@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { register } from "node:module";
 import { test } from "node:test";
-import { reserveVaultRequestNonce, resetVaultReplayGuardForTests } from "../../app/lib/vaultReplayGuard.js";
 import {
   checkRateLimit,
   resetVaultRateLimitsForTests,
@@ -12,6 +11,10 @@ register("../helpers/resolve-app-imports.mjs", import.meta.url);
 
 const { buildVaultSignaturePayload, verifyVaultSignature, VAULT_AUTH_HEADER_NONCE } = await import(
   "../../app/lib/vaultAuth.js"
+);
+
+const { reserveVaultRequestNonce, resetVaultReplayGuardForTests } = await import(
+  "../../app/lib/vaultReplayGuard.js"
 );
 
 const DEVICE_ID = "33333333-3333-4333-8333-333333333333";
@@ -30,14 +33,14 @@ test("buildVaultSignaturePayload includes request nonce", () => {
   assert.match(payload, /44444444-4444-4444-8444-444444444444$/);
 });
 
-test("reserveVaultRequestNonce rejects replayed nonce for same device", () => {
+test("reserveVaultRequestNonce rejects replayed nonce for same device", async () => {
   resetVaultReplayGuardForTests();
 
-  const first = reserveVaultRequestNonce({
+  const first = await reserveVaultRequestNonce({
     vaultDeviceId: DEVICE_ID,
     nonce: NONCE,
   });
-  const second = reserveVaultRequestNonce({
+  const second = await reserveVaultRequestNonce({
     vaultDeviceId: DEVICE_ID,
     nonce: NONCE,
   });
