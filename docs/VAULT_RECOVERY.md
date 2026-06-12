@@ -29,7 +29,7 @@ PIN (fallback)           ──wraps──► MVK
 - **MVK:** Random 256-bit secret generated at vault setup. Never sent to ProofOrigin servers.
 - **Document key:** Derived from MVK via HKDF (see `app/lib/vaultCrypto.js`). AAD still binds ciphertext to device scope until Phase 2 custody transfer.
 - **PIN wrap:** PBKDF2 + AES-256-GCM protects MVK locally (`app/lib/vaultKeyRing.js`).
-- **Passkey wrap:** Planned — WebAuthn PRF when available; gates local MVK wrap (Commit P1-C1 primitives shipped in `vaultPasskey.js`; enroll/unlock UI later).
+- **Passkey wrap:** WebAuthn PRF wraps MVK locally (`vaultPasskey.js`, `vaultPasskeyEnroll.js`); enroll orchestration shipped in P1-C2; UI/unlock later.
 - **Recovery kit:** Planned — user-held phrase encrypts MVK export; setup/export UI in a later commit.
 
 ## Unlock priority (target behavior)
@@ -69,8 +69,10 @@ User marks vault **compromised** (existing flow). Attacker needs PIN/passkey to 
 | **1 — Commit 3** | Unlock branching + MVK-mode crypto; `encryption_version` 2 for MVK uploads; legacy vaults unchanged |
 | **1 — Commit 4** | Recovery kit generate/export + acknowledgment gate (export only; no cross-device restore) |
 | **1 — Commit 5** | Legacy vault migration to MVK on unlock (optional future commit) |
-| **1 — Commit 6** | Passkey enroll/unlock (no recovery UI) |
 | **1 — P1-C1** | `vaultPasskey.js` PRF wrap/unwrap primitives + capability detection; tests only |
+| **1 — P1-C2** | `vaultPasskeyStorage.js` + `vaultPasskeyEnroll.js`; local passkey wrap persistence + enroll orchestration; no UI/unlock yet |
+| **1 — P1-C3** | Passkey unlock integration in `vaultUnlock.js` |
+| **1 — P1-C4** | Passkey enroll/unlock UI |
 | **2** | Cross-device recovery, `vault_id` device registry, ciphertext re-homing |
 
 ## Storage
@@ -100,12 +102,25 @@ Wrapped records must never contain plaintext MVK.
 - After the user confirms they saved phrase + kit, this device marks recovery as configured (`prooforigin_vault_recovery_kit_confirmed_v1`).
 - **No cross-device restore** and **no server-side recovery** in Commit 4.
 
+### P1-C2 — passkey storage + enrollment orchestration
+
+- Passkey wrap records persist in browser `localStorage` (`prooforigin_vault_wrapped_mvk_v1`).
+- `enrollVaultPasskey()` requires unlocked MVK + legacy PIN key, WebAuthn PRF support, and creates:
+  1. A resident platform passkey credential
+  2. A PRF evaluation using `vault_id + credential_id` salt
+  3. A local wrap record for MVK and legacy PIN key
+- Enrollment returns **safe metadata only** (`vault_id`, `credential_id`, `enrolled_at`, version).
+- **No UI**, **no unlock wiring**, and **no server passkey registration** in P1-C2.
+- PIN wrap and recovery kit flows remain unchanged.
+
 ## Related code
 
 - `app/lib/vaultRecovery.js` — recovery phrase, key derivation, kit export/import
 - `app/lib/vaultRecoveryStatus.js` — recovery configured flag + warnings
 - `components/vault/VaultRecoverySection.jsx` — generate/download/confirm UI
 - `app/lib/vaultPasskey.js` — passkey PRF wrap/unwrap foundation + capability detection (P1-C1)
+- `app/lib/vaultPasskeyStorage.js` — passkey wrap record persistence (P1-C2)
+- `app/lib/vaultPasskeyEnroll.js` — passkey enrollment orchestration (P1-C2)
 
 - `app/lib/vaultUnlock.js` — unlock branching (MVK vs legacy)
 - `app/lib/vaultKeyRing.js` — MVK wrap/unwrap foundation
