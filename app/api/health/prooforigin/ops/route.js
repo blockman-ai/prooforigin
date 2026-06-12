@@ -22,14 +22,17 @@ export async function POST(req) {
   const auth = authorizeProofOriginOpsRequest(req);
   if (!auth.authorized) {
     const status = auth.reason === "ops_secret_not_configured" ? 503 : 401;
+    const body = {
+      success: false,
+      error: auth.reason,
+    };
+
+    if (auth.diagnostics) {
+      body.auth_debug = auth.diagnostics;
+    }
+
     return withSecurityHeaders(
-      NextResponse.json(
-        {
-          success: false,
-          error: auth.reason,
-        },
-        { status }
-      )
+      NextResponse.json(body, { status })
     );
   }
 
