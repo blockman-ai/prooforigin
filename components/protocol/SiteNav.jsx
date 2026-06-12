@@ -5,6 +5,7 @@ const LINKS = [
   { href: "/detect", label: "Detect" },
   { href: "/voice-anchor", label: "Voice Anchor" },
   { href: "/identity-card", label: "Identity Card" },
+  { href: "/vault", label: "Vault" },
   { href: "/dashboard", label: "Records" },
 ];
 
