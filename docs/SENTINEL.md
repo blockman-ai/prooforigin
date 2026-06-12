@@ -31,13 +31,29 @@ Wired in `/api/guide` via `app/lib/guideSentinelCounters.js`. Best-effort only â
 
 Topic-level counters (for example `guide.topic.passkey`) are planned for a later commit.
 
+## Trust verify counters (S1-C4)
+
+Wired in `/api/identity-card/verify-code` via `app/lib/trustVerifySentinelCounters.js`. Best-effort only â€” counter write failures never break verification responses.
+
+| Counter key | When incremented |
+|-------------|------------------|
+| `trust.verify.success` | Rotating code matched |
+| `trust.verify.invalid_code` | Card active but code did not match |
+| `trust.verify.card_not_found` | No card row for submitted card ID |
+| `trust.verify.revoked` | Card revoked or suspicious |
+| `trust.verify.expired` | Card expired |
+| `trust.verify.rate_limited` | Verify rate limit exceeded |
+| `trust.verify.server_error` | Supabase/DTS misconfig, decrypt failure, or unexpected 500 |
+
+No card IDs, submitted codes, IPs, or user content are stored in counter keys or values.
+
 Allowed key prefixes (S1-C2+):
 
 | Prefix | Example keys |
 |--------|----------------|
 | `vault.auth.` | `vault.auth.nonce_replay`, `vault.auth.signature_invalid` |
 | `guide.` | `guide.request.total`, `guide.mode.openai`, `guide.refusal.prompt_injection` |
-| `trust.verify.` | `trust.verify.success`, `trust.verify.rate_limited` |
+| `trust.verify.` | `trust.verify.success`, `trust.verify.invalid_code`, `trust.verify.rate_limited` |
 
 Keys containing forbidden fragments (`pin`, `secret`, `ip`, `question`, `raw`, etc.) are rejected unless the key is in the operational allowlist (`SENTINEL_OPERATIONAL_COUNTER_KEYS`).
 
@@ -66,7 +82,7 @@ Security: RLS enabled; `anon`, `authenticated`, and `public` revoked; **service_
 | `getSentinelCounters(prefix?)` | Read counters, optionally filtered by prefix |
 | `validateSentinelCounterKey(key)` | Allowlist + forbidden-fragment validation |
 
-**S1-C3** wires guide counters in `/api/guide`. Vault and trust verify counters remain foundation-only until later commits.
+**S1-C4** wires trust verify counters in `/api/identity-card/verify-code`. Vault auth counters remain foundation-only until later commits.
 
 ## Ops read API
 

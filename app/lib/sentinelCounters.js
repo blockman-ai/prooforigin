@@ -17,6 +17,13 @@ export const SENTINEL_OPERATIONAL_COUNTER_KEYS = new Set([
   "guide.refusal.empty_question",
   "guide.rate_limited",
   "guide.output_filter.rejected",
+  "trust.verify.success",
+  "trust.verify.invalid_code",
+  "trust.verify.card_not_found",
+  "trust.verify.revoked",
+  "trust.verify.expired",
+  "trust.verify.rate_limited",
+  "trust.verify.server_error",
 ]);
 
 const COUNTER_KEY_PATTERN = /^[a-z0-9]+(?:[._][a-z0-9]+)*$/;

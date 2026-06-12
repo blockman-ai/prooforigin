@@ -17,6 +17,10 @@ import {
   ensureExpiredStateEvent,
 } from "../../../lib/identityCardState";
 import {
+  TRUST_VERIFY_SENTINEL_COUNTERS,
+  recordTrustVerifySentinelCounter,
+} from "../../../lib/trustVerifySentinelCounters.js";
+import {
   getSupabaseAdmin,
   isSupabaseAdminConfigured,
 } from "../../../lib/supabaseAdmin";
@@ -48,6 +52,7 @@ export async function POST(req) {
     const rateKey = getClientRateLimitKey(req, `verify-code:${cardId}`);
     const rate = checkRateLimit(rateKey, 12, 60_000);
     if (!rate.allowed) {
+      recordTrustVerifySentinelCounter(TRUST_VERIFY_SENTINEL_COUNTERS.RATE_LIMITED);
       return NextResponse.json(
         {
           success: false,
@@ -59,6 +64,7 @@ export async function POST(req) {
     }
 
     if (!isSupabaseAdminConfigured()) {
+      recordTrustVerifySentinelCounter(TRUST_VERIFY_SENTINEL_COUNTERS.SERVER_ERROR);
       return NextResponse.json(
         {
           success: false,
@@ -72,6 +78,7 @@ export async function POST(req) {
 
     const dtsConfigError = getDtsConfigurationError();
     if (dtsConfigError) {
+      recordTrustVerifySentinelCounter(TRUST_VERIFY_SENTINEL_COUNTERS.SERVER_ERROR);
       return NextResponse.json(
         {
           success: false,
@@ -92,6 +99,7 @@ export async function POST(req) {
 
     if (error) throw error;
     if (!card) {
+      recordTrustVerifySentinelCounter(TRUST_VERIFY_SENTINEL_COUNTERS.CARD_NOT_FOUND);
       return NextResponse.json({
         success: true,
         valid: false,
@@ -114,6 +122,7 @@ export async function POST(req) {
     const verifiedAt = new Date().toISOString();
 
     if (trustState === "revoked" || trustState === "suspicious") {
+      recordTrustVerifySentinelCounter(TRUST_VERIFY_SENTINEL_COUNTERS.REVOKED);
       return NextResponse.json({
         success: true,
         valid: false,
@@ -124,6 +133,7 @@ export async function POST(req) {
     }
 
     if (isCardExpired(activeCard.expires_at) || trustState === "expired") {
+      recordTrustVerifySentinelCounter(TRUST_VERIFY_SENTINEL_COUNTERS.EXPIRED);
       return NextResponse.json({
         success: true,
         valid: false,
@@ -134,6 +144,7 @@ export async function POST(req) {
     }
 
     if (!activeCard.secret_ciphertext || !activeCard.secret_nonce) {
+      recordTrustVerifySentinelCounter(TRUST_VERIFY_SENTINEL_COUNTERS.SERVER_ERROR);
       return NextResponse.json({
         success: true,
         valid: false,
@@ -152,6 +163,7 @@ export async function POST(req) {
         activeCard.secret_nonce
       );
     } catch {
+      recordTrustVerifySentinelCounter(TRUST_VERIFY_SENTINEL_COUNTERS.SERVER_ERROR);
       return NextResponse.json(
         { success: false, error: "Unable to verify trust code." },
         { status: 500 }
@@ -168,6 +180,7 @@ export async function POST(req) {
     );
 
     if (valid) {
+      recordTrustVerifySentinelCounter(TRUST_VERIFY_SENTINEL_COUNTERS.SUCCESS);
       await appendStateEvent(supabase, {
         cardId,
         eventType: "verified",
@@ -184,6 +197,8 @@ export async function POST(req) {
           trust_state: "active",
         })
         .eq("id", cardId);
+    } else {
+      recordTrustVerifySentinelCounter(TRUST_VERIFY_SENTINEL_COUNTERS.INVALID_CODE);
     }
 
     return NextResponse.json({
@@ -196,6 +211,7 @@ export async function POST(req) {
       rotation_seconds: rotationSeconds,
     });
   } catch (error) {
+    recordTrustVerifySentinelCounter(TRUST_VERIFY_SENTINEL_COUNTERS.SERVER_ERROR);
     return NextResponse.json(
       {
         success: false,

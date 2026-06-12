@@ -204,6 +204,9 @@ test("secret-looking counter keys are rejected", () => {
     "guide.refusal.secret_request",
     "guide.refusal.empty_question",
     "guide.output_filter.rejected",
+    "trust.verify.success",
+    "trust.verify.invalid_code",
+    "trust.verify.card_not_found",
   ]) {
     assert.equal(validateSentinelCounterKey(counterKey).valid, true, counterKey);
   }

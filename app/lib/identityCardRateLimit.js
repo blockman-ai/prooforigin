@@ -23,3 +23,7 @@ export function getClientRateLimitKey(req, suffix = "") {
   const ip = forwarded?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
   return `${ip}:${suffix}`;
 }
+
+export function resetIdentityCardRateLimitsForTests() {
+  buckets.clear();
+}
