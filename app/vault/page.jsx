@@ -101,6 +101,12 @@ import VaultPasskeySection from "../../components/vault/VaultPasskeySection";
 
 import VaultPasskeyUnsupportedNotice from "../../components/vault/VaultPasskeyUnsupportedNotice";
 
+import ProofOriginGuideWidget from "../../components/guide/ProofOriginGuideWidget";
+
+import { buildVaultGuideSafeContext } from "../lib/guideSafeContext";
+import { isVaultUsingMasterVaultKey } from "../lib/vaultKeyRingStorage";
+import { isVaultRecoveryKitConfigured } from "../lib/vaultRecoveryStatus";
+
 import { shouldSuspendVaultFocusVanish } from "../lib/vaultVanishPolicy";
 
 
@@ -945,6 +951,16 @@ export default function VaultPage() {
     passkeySupported: passkeyUnlockSupported,
   });
 
+  const guideContext = buildVaultGuideSafeContext({
+    vaultLocked: isLocked || isVanish,
+    mvkMode: isVaultUsingMasterVaultKey(),
+    pinConfigured: hasVaultPinConfigured(),
+    passkeyEnrolled: isVaultPasskeyEnrolled(),
+    passkeySupported: passkeyUnlockSupported,
+    recoveryConfigured: isVaultRecoveryKitConfigured(),
+    protectedViewActive: showProtectedView,
+  });
+
 
 
   return (
@@ -1607,6 +1623,8 @@ export default function VaultPage() {
         />
 
       )}
+
+      <ProofOriginGuideWidget context={guideContext} />
 
     </PageShell>
 

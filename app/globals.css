@@ -4292,6 +4292,177 @@ p {
   font-size: 0.92rem;
 }
 
+.prooforigin-guide {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1200;
+  display: grid;
+  justify-items: end;
+  gap: 12px;
+  max-width: min(420px, calc(100vw - 24px));
+}
+
+.prooforigin-guide__fab {
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  background: linear-gradient(135deg, rgba(8, 18, 32, 0.96), rgba(12, 28, 48, 0.98));
+  color: #f4f7ff;
+  border-radius: 999px;
+  padding: 12px 18px;
+  font-weight: 600;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.prooforigin-guide__panel {
+  width: min(420px, calc(100vw - 24px));
+  max-height: min(78vh, 720px);
+  overflow: auto;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  background: rgba(8, 12, 24, 0.94);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+}
+
+.prooforigin-guide__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.prooforigin-guide__eyebrow {
+  margin: 0 0 4px;
+  color: rgba(0, 229, 255, 0.82);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.prooforigin-guide__title {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #f4f7ff;
+}
+
+.prooforigin-guide__close {
+  border: 0;
+  background: transparent;
+  color: var(--po-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.prooforigin-guide__disclaimer {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--po-muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.prooforigin-guide__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.prooforigin-guide__chip {
+  border: 1px solid rgba(0, 229, 255, 0.24);
+  background: rgba(0, 229, 255, 0.06);
+  color: #f4f7ff;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.prooforigin-guide__chip:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.prooforigin-guide__form {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.prooforigin-guide__label {
+  color: var(--po-muted);
+  font-size: 0.92rem;
+}
+
+.prooforigin-guide__input {
+  width: 100%;
+  resize: vertical;
+  min-height: 88px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.28);
+  color: #f4f7ff;
+}
+
+.prooforigin-guide__submit {
+  width: 100%;
+}
+
+.prooforigin-guide__message {
+  margin-bottom: 12px;
+}
+
+.prooforigin-guide__answer {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.prooforigin-guide__topic {
+  margin: 0 0 8px;
+  color: rgba(0, 229, 255, 0.78);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.prooforigin-guide__answer-body {
+  color: #f4f7ff;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.prooforigin-guide__answer-disclaimer {
+  margin: 12px 0 0;
+  color: var(--po-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .prooforigin-guide {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    max-width: none;
+    justify-items: stretch;
+  }
+
+  .prooforigin-guide__fab {
+    width: 100%;
+  }
+
+  .prooforigin-guide__panel {
+    width: 100%;
+  }
+}
+
 .vault-secure-documents {
   padding: 22px;
   border-radius: 22px;
