@@ -5,7 +5,11 @@ export const VAULT_DOCUMENTS_TABLE = "vault_documents";
 export const VAULT_DEVICE_REGISTRATIONS_TABLE = "vault_device_registrations";
 export const VAULT_REQUEST_NONCES_TABLE = "vault_request_nonces";
 export const VAULT_STORAGE_BUCKET = "vault-documents";
-export const VAULT_ENCRYPTION_VERSION = 1;
+export const VAULT_ENCRYPTION_VERSION_LEGACY = 1;
+export const VAULT_ENCRYPTION_VERSION_MVK = 2;
+export const VAULT_ALLOWED_ENCRYPTION_VERSIONS = [1, 2];
+/** @deprecated Use VAULT_ENCRYPTION_VERSION_LEGACY */
+export const VAULT_ENCRYPTION_VERSION = VAULT_ENCRYPTION_VERSION_LEGACY;
 export const VAULT_SIGNED_URL_TTL_SECONDS = 120;
 export const VAULT_MAX_CIPHERTEXT_BYTES = 10 * 1024 * 1024;
 

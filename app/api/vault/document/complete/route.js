@@ -18,7 +18,8 @@ import {
   isVaultAdminConfigured,
   rollbackVaultDocumentInsert,
   verifyVaultCiphertextObject,
-  VAULT_ENCRYPTION_VERSION,
+  VAULT_ALLOWED_ENCRYPTION_VERSIONS,
+  VAULT_ENCRYPTION_VERSION_LEGACY,
 } from "../../../../lib/vaultAdmin";
 
 export const dynamic = "force-dynamic";
@@ -62,7 +63,7 @@ export async function POST(req) {
     const contentTypeHint = String(body?.content_type_hint || "application/octet-stream").trim();
     const labelCiphertext = body?.label_ciphertext ? String(body.label_ciphertext) : null;
     const labelIv = body?.label_iv ? String(body.label_iv) : null;
-    const encryptionVersion = Number(body?.encryption_version || VAULT_ENCRYPTION_VERSION);
+    const encryptionVersion = Number(body?.encryption_version || VAULT_ENCRYPTION_VERSION_LEGACY);
 
     if (!UUID_PATTERN.test(docId)) {
       return NextResponse.json(
@@ -105,12 +106,12 @@ export async function POST(req) {
       );
     }
 
-    if (encryptionVersion !== VAULT_ENCRYPTION_VERSION) {
+    if (!VAULT_ALLOWED_ENCRYPTION_VERSIONS.includes(encryptionVersion)) {
       return NextResponse.json(
         {
           success: false,
           code: "INVALID_REQUEST",
-          error: `encryption_version must be ${VAULT_ENCRYPTION_VERSION}.`,
+          error: `encryption_version must be one of: ${VAULT_ALLOWED_ENCRYPTION_VERSIONS.join(", ")}.`,
         },
         { status: 400 }
       );

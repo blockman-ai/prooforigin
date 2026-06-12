@@ -1,4 +1,4 @@
-import { sha256Hex } from "./vaultCrypto";
+import { sha256Hex } from "./vaultCrypto.js";
 
 export const VAULT_DEVICE_STORAGE_KEY = "prooforigin_vault_device_v1";
 export const VAULT_DEVICE_REGISTERED_KEY = "prooforigin_vault_device_registered_v1";

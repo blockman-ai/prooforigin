@@ -11,16 +11,52 @@ export const VAULT_STATES = {
 
 export const VAULT_VANISH_MESSAGE = "Vault protected. Re-authentication required.";
 
-let sessionMasterKey = null;
+let sessionMasterVaultKey = null;
+let sessionLegacyPinKey = null;
+let sessionUnlockMode = null;
 let sessionDocumentKey = null;
 
-export function setVaultSessionMasterKey(masterKey) {
-  clearVaultSessionSecrets();
-  sessionMasterKey = masterKey || null;
+function wipeSessionKeyBytes(key) {
+  if (key instanceof Uint8Array) {
+    clearBytes(key);
+  }
 }
 
+export function setVaultSessionUnlockKeys({ mode, masterVaultKey, legacyPinKey }) {
+  clearVaultSessionSecrets();
+  sessionUnlockMode = mode || null;
+  sessionMasterVaultKey = masterVaultKey || null;
+  sessionLegacyPinKey = legacyPinKey || null;
+}
+
+export function getVaultSessionUnlockKeys() {
+  return {
+    mode: sessionUnlockMode,
+    masterVaultKey: sessionMasterVaultKey,
+    legacyPinKey: sessionLegacyPinKey,
+  };
+}
+
+export function hasVaultSessionUnlockKeys() {
+  return sessionLegacyPinKey instanceof Uint8Array;
+}
+
+/** @deprecated Use getVaultSessionUnlockKeys(). Legacy callers receive the active session root. */
+export function setVaultSessionMasterKey(masterKey) {
+  setVaultSessionUnlockKeys({
+    mode: "legacy",
+    masterVaultKey: null,
+    legacyPinKey: masterKey,
+  });
+}
+
+/** @deprecated Use getVaultSessionUnlockKeys(). Returns MVK in MVK mode, else legacy PIN key. */
 export function getVaultSessionMasterKey() {
-  return sessionMasterKey;
+  if (sessionUnlockMode === "mvk" && sessionMasterVaultKey instanceof Uint8Array) {
+    return sessionMasterVaultKey;
+  }
+
+  return sessionLegacyPinKey;
 }
 
 export function setVaultSessionDocumentKey(documentKey) {
@@ -32,17 +68,16 @@ export function getVaultSessionDocumentKey() {
 }
 
 export function clearVaultSessionDocumentKey() {
-  if (sessionDocumentKey instanceof Uint8Array) {
-    clearBytes(sessionDocumentKey);
-  }
+  wipeSessionKeyBytes(sessionDocumentKey);
   sessionDocumentKey = null;
 }
 
 export function clearVaultSessionSecrets() {
-  if (sessionMasterKey instanceof Uint8Array) {
-    clearBytes(sessionMasterKey);
-  }
-  sessionMasterKey = null;
+  wipeSessionKeyBytes(sessionMasterVaultKey);
+  wipeSessionKeyBytes(sessionLegacyPinKey);
+  sessionMasterVaultKey = null;
+  sessionLegacyPinKey = null;
+  sessionUnlockMode = null;
   clearVaultSessionDocumentKey();
 }
 

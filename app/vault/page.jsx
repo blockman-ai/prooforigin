@@ -33,16 +33,12 @@ import {
   VAULT_IDENTITY_STATES,
 
 } from "../lib/vaultGenesis";
-import { deriveVaultMasterKey } from "../lib/vaultCrypto";
 import {
-  getVaultPinSalt,
   hasVaultPinConfigured,
   isValidPinFormat,
-  setupVaultPin,
-  verifyVaultPinAndDeriveMasterKey,
   VAULT_PIN_MIN_LENGTH,
 } from "../lib/vaultPin";
-import { initializeMasterVaultKeyForNewVault } from "../lib/vaultKeyRingStorage";
+import { resolveVaultUnlockKeys } from "../lib/vaultUnlock";
 
 import {
 
@@ -74,9 +70,11 @@ import {
 
   formatLastUnlockTime,
 
-  getVaultSessionMasterKey,
+  getVaultSessionUnlockKeys,
 
-  setVaultSessionMasterKey,
+  hasVaultSessionUnlockKeys,
+
+  setVaultSessionUnlockKeys,
 
   VAULT_INACTIVITY_MS,
 
@@ -600,10 +598,6 @@ export default function VaultPage() {
 
     try {
 
-      let masterKey = null;
-
-
-
       if (isSetupMode) {
 
         if (!isValidPinFormat(pinInput)) {
@@ -618,31 +612,17 @@ export default function VaultPage() {
 
         }
 
-        await setupVaultPin(pinInput);
+      }
 
-        await initializeMasterVaultKeyForNewVault(pinInput);
+      const unlockKeys = await resolveVaultUnlockKeys(pinInput, { isSetup: isSetupMode });
+
+      if (isSetupMode) {
 
         setPinConfigured(true);
 
-        const salt = getVaultPinSalt();
-
-        masterKey = await deriveVaultMasterKey(pinInput, salt);
-
-      } else {
-
-        masterKey = await verifyVaultPinAndDeriveMasterKey(pinInput);
-
-        if (!masterKey) {
-
-          throw new Error("Incorrect PIN. Try again.");
-
-        }
-
       }
 
-
-
-      setVaultSessionMasterKey(masterKey);
+      setVaultSessionUnlockKeys(unlockKeys);
 
 
 
@@ -694,9 +674,9 @@ export default function VaultPage() {
 
     try {
 
-      const masterKey = getVaultSessionMasterKey();
+      const unlockKeys = getVaultSessionUnlockKeys();
 
-      if (!masterKey) {
+      if (!unlockKeys.legacyPinKey) {
 
         throw new Error("Vault session expired. Unlock again to upload.");
 
@@ -710,7 +690,7 @@ export default function VaultPage() {
 
         label,
 
-        masterKey,
+        unlockKeys,
 
       });
 
@@ -1436,13 +1416,11 @@ export default function VaultPage() {
         isUnlocked &&
         vaultDocument &&
         !vaultDocument.compromised_at &&
-        getVaultSessionMasterKey() && (
+        hasVaultSessionUnlockKeys() && (
 
         <ProtectedView
 
           document={vaultDocument}
-
-          masterKey={getVaultSessionMasterKey()}
 
           vaultId={genesis?.vault_id}
 

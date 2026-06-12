@@ -1,4 +1,4 @@
-import { createSignedVaultAuthHeaders, getVaultDevice } from "./vaultDevice";
+import { createSignedVaultAuthHeaders, getVaultDevice } from "./vaultDevice.js";
 import {
   clearBytes,
   decryptVaultBytes,
@@ -6,9 +6,16 @@ import {
   encryptVaultBytes,
   sha256Hex,
   VAULT_AES_GCM_IV_BYTES,
-} from "./vaultCrypto";
+} from "./vaultCrypto.js";
 
-export const VAULT_ENCRYPTION_VERSION = 1;
+export const VAULT_ENCRYPTION_VERSION_LEGACY = 1;
+export const VAULT_ENCRYPTION_VERSION_MVK = 2;
+export const VAULT_ALLOWED_ENCRYPTION_VERSIONS = [
+  VAULT_ENCRYPTION_VERSION_LEGACY,
+  VAULT_ENCRYPTION_VERSION_MVK,
+];
+/** @deprecated Use VAULT_ENCRYPTION_VERSION_LEGACY */
+export const VAULT_ENCRYPTION_VERSION = VAULT_ENCRYPTION_VERSION_LEGACY;
 
 export const VAULT_MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 export const VAULT_ALLOWED_MIME_TYPES = [
@@ -50,6 +57,51 @@ export function formatVaultDocumentSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function resolveDocumentEncryptionVersion(document) {
+  const version = Number(document?.encryption_version);
+  if (version === VAULT_ENCRYPTION_VERSION_MVK) {
+    return VAULT_ENCRYPTION_VERSION_MVK;
+  }
+  return VAULT_ENCRYPTION_VERSION_LEGACY;
+}
+
+export function resolveDocumentRootKey(document, unlockKeys) {
+  if (!(unlockKeys?.legacyPinKey instanceof Uint8Array)) {
+    throw new Error("Vault session keys are not available.");
+  }
+
+  if (resolveDocumentEncryptionVersion(document) === VAULT_ENCRYPTION_VERSION_MVK) {
+    if (!(unlockKeys.masterVaultKey instanceof Uint8Array)) {
+      throw new Error("Master vault key is required to decrypt this document.");
+    }
+    return unlockKeys.masterVaultKey;
+  }
+
+  return unlockKeys.legacyPinKey;
+}
+
+export function resolveUploadEncryptionParams(unlockKeys) {
+  if (!(unlockKeys?.legacyPinKey instanceof Uint8Array)) {
+    throw new Error("Vault session keys are not available.");
+  }
+
+  if (unlockKeys.mode === "mvk") {
+    if (!(unlockKeys.masterVaultKey instanceof Uint8Array)) {
+      throw new Error("Master vault key is required to upload in MVK mode.");
+    }
+
+    return {
+      rootKey: unlockKeys.masterVaultKey,
+      encryptionVersion: VAULT_ENCRYPTION_VERSION_MVK,
+    };
+  }
+
+  return {
+    rootKey: unlockKeys.legacyPinKey,
+    encryptionVersion: VAULT_ENCRYPTION_VERSION_LEGACY,
+  };
 }
 
 export async function vaultSignedFetch({ method, path, body = "", keepalive = false }) {
@@ -123,10 +175,12 @@ export async function completeVaultDocumentUpload(payload) {
   });
 }
 
-export async function uploadEncryptedVaultDocument({ file, label, masterKey }) {
+export async function uploadEncryptedVaultDocument({ file, label, unlockKeys }) {
   if (!isAllowedVaultDocumentFile(file)) {
     throw new Error("Choose a PDF, JPG, PNG, or WebP file up to 10 MB.");
   }
+
+  const { rootKey, encryptionVersion } = resolveUploadEncryptionParams(unlockKeys);
 
   const device = getVaultDevice();
   if (!device?.vault_device_id) {
@@ -147,7 +201,7 @@ export async function uploadEncryptedVaultDocument({ file, label, masterKey }) {
   }
 
   const fileBytes = new Uint8Array(await file.arrayBuffer());
-  const documentKey = await deriveVaultDocumentKey(masterKey);
+  const documentKey = await deriveVaultDocumentKey(rootKey);
   const documentAad = buildDocumentAad(device.vault_device_id, docId, file.type);
 
   const encrypted = await encryptVaultBytes(fileBytes, documentKey, documentAad);
@@ -200,7 +254,7 @@ export async function uploadEncryptedVaultDocument({ file, label, masterKey }) {
     content_type_hint: file.type,
     label_ciphertext: labelCiphertext,
     label_iv: labelIv,
-    encryption_version: VAULT_ENCRYPTION_VERSION,
+    encryption_version: encryptionVersion,
   });
 
   if (!completeResponse.ok) {
@@ -242,14 +296,15 @@ export function splitVaultDocumentCiphertext(payload) {
   };
 }
 
-export async function decryptVaultDocumentPayload({ masterKey, document, encryptedPayload }) {
+export async function decryptVaultDocumentPayload({ unlockKeys, document, encryptedPayload }) {
   const device = getVaultDevice();
   if (!device?.vault_device_id) {
     throw new Error("Vault device is not initialized.");
   }
 
+  const rootKey = resolveDocumentRootKey(document, unlockKeys);
   const { iv, ciphertext } = splitVaultDocumentCiphertext(encryptedPayload);
-  const documentKey = await deriveVaultDocumentKey(masterKey);
+  const documentKey = await deriveVaultDocumentKey(rootKey);
   const aad = buildDocumentAad(
     device.vault_device_id,
     document.id,

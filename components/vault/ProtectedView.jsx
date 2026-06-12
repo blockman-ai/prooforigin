@@ -19,6 +19,7 @@ import {
 } from "../../app/lib/vaultProtectedView";
 import {
   clearVaultSessionDocumentKey,
+  getVaultSessionUnlockKeys,
   setVaultSessionDocumentKey,
 } from "../../app/lib/vaultSession";
 import VaultWatermark from "./VaultWatermark";
@@ -98,7 +99,6 @@ async function renderPdfPages(plaintext, container, { isStopped, onLoadingTask }
 
 export default function ProtectedView({
   document,
-  masterKey,
   vaultId,
   onClose,
   onRegisterTeardown,
@@ -215,7 +215,7 @@ export default function ProtectedView({
         }
 
         const decrypted = await decryptVaultDocumentPayload({
-          masterKey,
+          unlockKeys: getVaultSessionUnlockKeys(),
           document,
           encryptedPayload,
         });
@@ -301,7 +301,7 @@ export default function ProtectedView({
     return () => {
       abortController.abort();
     };
-  }, [document, masterKey, isStopped]);
+  }, [document, isStopped]);
 
   function handleClose() {
     teardown();

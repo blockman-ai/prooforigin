@@ -1,4 +1,4 @@
-import { deriveVaultPinMasterKeyBytes } from "./vaultPin";
+import { deriveVaultPinMasterKeyBytes } from "./vaultPin.js";
 
 export const VAULT_DOC_KEY_INFO = "prooforigin-vault-doc-v1";
 export const VAULT_AES_GCM_IV_BYTES = 12;

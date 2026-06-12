@@ -66,21 +66,36 @@ User marks vault **compromised** (existing flow). Attacker needs PIN/passkey to 
 |-------|--------|
 | **1 — Commit 1** | `vaultKeyRing.js` + spec; tests only; no production change |
 | **1 — Commit 2** | MVK storage on **new** vault setup; `isVaultUsingMasterVaultKey()`; legacy unlock/crypto unchanged |
-| **1 — Commit 3** | Migrate unlock/upload to MVK root; legacy PIN-only migration on next unlock |
-| **1 — Commit 4** | Passkey enroll/unlock (no recovery UI) |
-| **1 — Commit 5** | Recovery kit generate/export + acknowledgment gate |
+| **1 — Commit 3** | Unlock branching + MVK-mode crypto; `encryption_version` 2 for MVK uploads; legacy vaults unchanged |
+| **1 — Commit 4** | Legacy vault migration to MVK on unlock (optional future commit) |
+| **1 — Commit 5** | Passkey enroll/unlock (no recovery UI) |
+| **1 — Commit 6** | Recovery kit generate/export + acknowledgment gate |
 | **2** | Cross-device recovery, `vault_id` device registry, ciphertext re-homing |
 
 ## Storage
 
-Wrapped MVK records live in browser `localStorage` (`prooforigin_vault_wrapped_mvk_v1`) after **brand-new vault setup** only. Existing vaults without this key remain on the legacy PIN-derived path until Commit 3 migration.
+Wrapped MVK records live in browser `localStorage` (`prooforigin_vault_wrapped_mvk_v1`) after **brand-new vault setup** only. Existing vaults without this key remain on the legacy PIN-derived path.
+
+### Commit 3 — encryption versions
+
+| `encryption_version` | Vault mode | Document root key |
+|---------------------|------------|-------------------|
+| `1` | Legacy or MVK (v1 docs) | PIN-derived bytes (`legacyPinKey`) |
+| `2` | MVK-mode uploads | Unwrapped MVK (`masterVaultKey`) |
+
+- **Legacy vault** (no wrapped MVK): unlock, upload, and decrypt unchanged — all use PIN-derived root, version `1`.
+- **MVK vault** (wrapped MVK present): unlock stores both MVK and legacy PIN key; new uploads use MVK + version `2`; v1 documents (e.g. Commit 2 gap) decrypt with legacy PIN key.
+- **No migration** and **no re-encryption** in Commit 3.
+
+Run `docs/sql/vault_encryption_v2.sql` on Supabase before MVK-mode uploads (`encryption_version = 2`).
 
 Wrapped records must never contain plaintext MVK.
 
 ## Related code
 
+- `app/lib/vaultUnlock.js` — unlock branching (MVK vs legacy)
 - `app/lib/vaultKeyRing.js` — MVK wrap/unwrap foundation
 - `app/lib/vaultKeyRingStorage.js` — wrapped MVK persistence and MVK mode detection
 - `app/lib/vaultPin.js` — PIN normalization and PBKDF2
-- `app/lib/vaultCrypto.js` — document encrypt/decrypt (MVK root in Commit 3)
+- `app/lib/vaultCrypto.js` — document encrypt/decrypt (HKDF root from session keys)
 - `app/lib/vaultDevice.js` — device-bound API auth (unchanged in Phase 1)
