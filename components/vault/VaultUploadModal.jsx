@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   isAllowedVaultDocumentFile,
   VAULT_ALLOWED_EXTENSIONS,
@@ -8,13 +8,57 @@ import {
   formatVaultDocumentSize,
 } from "../../app/lib/vaultDocumentClient";
 
-export default function VaultUploadModal({ open, busy, error, onClose, onSubmit }) {
+const FILE_PICKER_RELEASE_MS = 400;
+
+export default function VaultUploadModal({
+  open,
+  busy,
+  error,
+  onClose,
+  onSubmit,
+  onFilePickerOpenChange,
+}) {
   const [file, setFile] = useState(null);
   const [label, setLabel] = useState("");
   const [consent, setConsent] = useState(false);
   const [localError, setLocalError] = useState("");
+  const releasePickerTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) {
+      onFilePickerOpenChange?.(false);
+    }
+  }, [open, onFilePickerOpenChange]);
+
+  useEffect(() => {
+    return () => {
+      if (releasePickerTimerRef.current) {
+        window.clearTimeout(releasePickerTimerRef.current);
+      }
+    };
+  }, []);
 
   if (!open) return null;
+
+  function markFilePickerOpen() {
+    if (releasePickerTimerRef.current) {
+      window.clearTimeout(releasePickerTimerRef.current);
+      releasePickerTimerRef.current = null;
+    }
+
+    onFilePickerOpenChange?.(true);
+  }
+
+  function markFilePickerClosed() {
+    if (releasePickerTimerRef.current) {
+      window.clearTimeout(releasePickerTimerRef.current);
+    }
+
+    releasePickerTimerRef.current = window.setTimeout(() => {
+      onFilePickerOpenChange?.(false);
+      releasePickerTimerRef.current = null;
+    }, FILE_PICKER_RELEASE_MS);
+  }
 
   function handleFileChange(event) {
     const nextFile = event.target.files?.[0] || null;
@@ -22,16 +66,19 @@ export default function VaultUploadModal({ open, busy, error, onClose, onSubmit 
 
     if (!nextFile) {
       setFile(null);
+      markFilePickerClosed();
       return;
     }
 
     if (!isAllowedVaultDocumentFile(nextFile)) {
       setFile(null);
       setLocalError("Choose a PDF, JPG, PNG, or WebP file up to 10 MB.");
+      markFilePickerClosed();
       return;
     }
 
     setFile(nextFile);
+    markFilePickerClosed();
   }
 
   async function handleSubmit(event) {
@@ -86,7 +133,12 @@ export default function VaultUploadModal({ open, busy, error, onClose, onSubmit 
               className="dataset-field__input"
               type="file"
               accept={VAULT_ALLOWED_EXTENSIONS}
+              disabled={busy}
+              onFocus={markFilePickerOpen}
+              onClick={markFilePickerOpen}
               onChange={handleFileChange}
+              onBlur={markFilePickerClosed}
+              onCancel={markFilePickerClosed}
             />
             {file && (
               <span className="vault-upload-file-meta">
@@ -102,6 +154,7 @@ export default function VaultUploadModal({ open, busy, error, onClose, onSubmit 
               type="text"
               maxLength={80}
               value={label}
+              disabled={busy}
               onChange={(event) => setLabel(event.target.value)}
               placeholder="e.g. Personal record"
             />
@@ -111,6 +164,7 @@ export default function VaultUploadModal({ open, busy, error, onClose, onSubmit 
             <input
               type="checkbox"
               checked={consent}
+              disabled={busy}
               onChange={(event) => setConsent(event.target.checked)}
             />
             <span>

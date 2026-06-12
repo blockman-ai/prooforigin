@@ -85,6 +85,8 @@ import {
 
 } from "../lib/vaultSession";
 
+import { shouldSuspendVaultFocusVanish } from "../lib/vaultVanishPolicy";
+
 
 
 const VAULT_SECTIONS = [
@@ -139,6 +141,8 @@ export default function VaultPage() {
 
   const [uploadError, setUploadError] = useState("");
 
+  const [filePickerOpen, setFilePickerOpen] = useState(false);
+
   const [showProtectedView, setShowProtectedView] = useState(false);
 
   const [timelineEvents, setTimelineEvents] = useState([]);
@@ -163,6 +167,8 @@ export default function VaultPage() {
 
   const protectedViewTeardownRef = useRef(null);
 
+  const suspendFocusVanishRef = useRef(false);
+
 
 
   const clearUploadState = useCallback(() => {
@@ -172,6 +178,8 @@ export default function VaultPage() {
     setUploadBusy(false);
 
     setUploadError("");
+
+    setFilePickerOpen(false);
 
     setVaultDocument(null);
 
@@ -453,6 +461,18 @@ export default function VaultPage() {
 
   useEffect(() => {
 
+    suspendFocusVanishRef.current = shouldSuspendVaultFocusVanish({
+      showUploadModal,
+      uploadBusy,
+      filePickerOpen,
+    });
+
+  }, [showUploadModal, uploadBusy, filePickerOpen]);
+
+
+
+  useEffect(() => {
+
     if (vaultState !== VAULT_STATES.UNLOCKED) return undefined;
 
 
@@ -475,6 +495,12 @@ export default function VaultPage() {
 
     const onVisibilityChange = () => {
 
+      if (suspendFocusVanishRef.current) {
+
+        return;
+
+      }
+
       if (document.visibilityState === "hidden") {
 
         triggerVanish("hidden");
@@ -486,6 +512,12 @@ export default function VaultPage() {
 
 
     const onWindowBlur = () => {
+
+      if (suspendFocusVanishRef.current) {
+
+        return;
+
+      }
 
       triggerVanish("blur");
 
@@ -686,6 +718,8 @@ export default function VaultPage() {
       setDisplayLabel(result.displayLabel);
 
       setShowUploadModal(false);
+
+      setFilePickerOpen(false);
 
       await refreshVaultTimeline();
 
@@ -1329,9 +1363,13 @@ export default function VaultPage() {
 
             setUploadError("");
 
+            setFilePickerOpen(false);
+
           }
 
         }}
+
+        onFilePickerOpenChange={setFilePickerOpen}
 
         onSubmit={handleUploadSubmit}
 
