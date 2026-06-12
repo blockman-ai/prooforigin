@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node --experimental-test-module-mocks --test tests/**/*.test.mjs",
+    "test:vault": "node --experimental-test-module-mocks --test tests/vault/**/*.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
