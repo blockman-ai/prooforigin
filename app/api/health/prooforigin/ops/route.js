@@ -2,12 +2,26 @@ import { NextResponse } from "next/server";
 import { authorizeProofOriginOpsRequest } from "../../../../lib/proofOriginOpsAuth.js";
 import { buildSentinelSnapshot } from "../../../../lib/sentinelSnapshot.js";
 import {
+  persistSentinelSnapshot,
+  pinSentinelBaseline,
+} from "../../../../lib/sentinelSnapshotHistory.js";
+import { buildSentinelTrend } from "../../../../lib/sentinelTrend.js";
+import {
   auditVaultCiphertextStorage,
   cleanupExpiredVaultNonces,
   verifyVaultBucketPrivacy,
 } from "../../../../lib/vaultOps.js";
 import { isVaultAdminConfigured } from "../../../../lib/vaultAdmin.js";
 import { buildGlobalApiSecurityHeaders } from "../../../../lib/vaultSecurityHeaders.js";
+
+export const SENTINEL_OPS_ACTIONS = [
+  "audit_storage",
+  "cleanup_nonces",
+  "sentinel_snapshot",
+  "sentinel_persist",
+  "sentinel_trend",
+  "sentinel_pin_baseline",
+];
 
 export const dynamic = "force-dynamic";
 
@@ -90,12 +104,89 @@ export async function POST(req) {
       );
     }
 
+    if (action === "sentinel_persist") {
+      const snapshot = await buildSentinelSnapshot();
+      const persisted = await persistSentinelSnapshot({
+        snapshot,
+        label: body.label,
+        source: body.source || "ops",
+      });
+
+      if (!persisted.ok) {
+        return withSecurityHeaders(
+          NextResponse.json(
+            {
+              success: false,
+              action,
+              error: persisted.error,
+              message: persisted.message || null,
+            },
+            { status: persisted.error === "supabase_not_configured" ? 503 : 500 }
+          )
+        );
+      }
+
+      return withSecurityHeaders(
+        NextResponse.json({
+          success: true,
+          action,
+          record: persisted.record,
+        })
+      );
+    }
+
+    if (action === "sentinel_pin_baseline") {
+      const snapshot = await buildSentinelSnapshot();
+      const pinned = await pinSentinelBaseline({
+        snapshot,
+        label: body.label || body.baseline_label || "baseline_v1",
+        source: body.source || "ops",
+      });
+
+      if (!pinned.ok) {
+        return withSecurityHeaders(
+          NextResponse.json(
+            {
+              success: false,
+              action,
+              error: pinned.error,
+              message: pinned.message || null,
+            },
+            { status: pinned.error === "supabase_not_configured" ? 503 : 500 }
+          )
+        );
+      }
+
+      return withSecurityHeaders(
+        NextResponse.json({
+          success: true,
+          action,
+          already_pinned: pinned.already_pinned,
+          record: pinned.record,
+        })
+      );
+    }
+
+    if (action === "sentinel_trend") {
+      const trend = await buildSentinelTrend({
+        baselineLabel: body.baseline_label || body.label || "baseline_v1",
+      });
+
+      return withSecurityHeaders(
+        NextResponse.json({
+          success: true,
+          action,
+          trend,
+        })
+      );
+    }
+
     return withSecurityHeaders(
       NextResponse.json(
         {
           success: false,
           error: "unsupported_action",
-          allowed_actions: ["audit_storage", "cleanup_nonces", "sentinel_snapshot"],
+          allowed_actions: SENTINEL_OPS_ACTIONS,
         },
         { status: 400 }
       )

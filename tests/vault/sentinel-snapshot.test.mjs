@@ -229,5 +229,8 @@ test("ops route exposes read-only sentinel_snapshot action", () => {
   );
 
   assert.match(source, /sentinel_snapshot/);
+  assert.match(source, /sentinel_persist/);
+  assert.match(source, /sentinel_trend/);
+  assert.match(source, /sentinel_pin_baseline/);
   assert.match(source, /buildSentinelSnapshot/);
 });
