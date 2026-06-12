@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authorizeProofOriginOpsRequest } from "../../../../lib/proofOriginOpsAuth.js";
+import { buildSentinelSnapshot } from "../../../../lib/sentinelSnapshot.js";
 import {
   auditVaultCiphertextStorage,
   cleanupExpiredVaultNonces,
@@ -75,12 +76,23 @@ export async function POST(req) {
       );
     }
 
+    if (action === "sentinel_snapshot") {
+      const snapshot = await buildSentinelSnapshot();
+      return withSecurityHeaders(
+        NextResponse.json({
+          success: true,
+          action,
+          snapshot,
+        })
+      );
+    }
+
     return withSecurityHeaders(
       NextResponse.json(
         {
           success: false,
           error: "unsupported_action",
-          allowed_actions: ["audit_storage", "cleanup_nonces"],
+          allowed_actions: ["audit_storage", "cleanup_nonces", "sentinel_snapshot"],
         },
         { status: 400 }
       )
