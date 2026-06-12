@@ -91,6 +91,22 @@ export async function fetchVaultDocumentHistory() {
   });
 }
 
+export async function deleteVaultDocumentRemote() {
+  return vaultSignedFetch({
+    method: "DELETE",
+    path: "/api/vault/document",
+    body: "{}",
+  });
+}
+
+export async function markVaultDocumentCompromisedRemote() {
+  return vaultSignedFetch({
+    method: "POST",
+    path: "/api/vault/compromised",
+    body: "{}",
+  });
+}
+
 export async function requestVaultUploadUrl() {
   return vaultSignedFetch({
     method: "POST",

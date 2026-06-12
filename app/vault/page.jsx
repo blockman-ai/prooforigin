@@ -14,6 +14,10 @@ import VaultTimeline from "../../components/vault/VaultTimeline";
 
 import VaultUploadModal from "../../components/vault/VaultUploadModal";
 
+import VaultDeleteDocumentModal from "../../components/vault/VaultDeleteDocumentModal";
+
+import VaultCompromisedModal from "../../components/vault/VaultCompromisedModal";
+
 import ProtectedView from "../../components/vault/ProtectedView";
 
 import {
@@ -44,6 +48,10 @@ import {
   fetchVaultDocumentMetadata,
 
   fetchVaultDocumentHistory,
+
+  deleteVaultDocumentRemote,
+
+  markVaultDocumentCompromisedRemote,
 
   uploadEncryptedVaultDocument,
 
@@ -138,6 +146,14 @@ export default function VaultPage() {
   const [timelineLoading, setTimelineLoading] = useState(false);
 
   const [timelineError, setTimelineError] = useState("");
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const [showCompromisedModal, setShowCompromisedModal] = useState(false);
+
+  const [lifecycleBusy, setLifecycleBusy] = useState(false);
+
+  const [lifecycleError, setLifecycleError] = useState("");
 
 
 
@@ -339,15 +355,33 @@ export default function VaultPage() {
 
       if (!metadataResult.ok) {
 
-        throw new Error(metadataResult.data?.error || "Unable to load vault document metadata.");
+        if (
+
+          metadataResult.status === 423 &&
+
+          metadataResult.data?.code === "VAULT_COMPROMISED"
+
+        ) {
+
+          setVaultDocument(metadataResult.data.document || null);
+
+          setDisplayLabel(null);
+
+          setDocumentError("");
+
+        } else {
+
+          throw new Error(metadataResult.data?.error || "Unable to load vault document metadata.");
+
+        }
+
+      } else {
+
+        setVaultDocument(metadataResult.data.document || null);
+
+        setDisplayLabel(null);
 
       }
-
-
-
-      setVaultDocument(metadataResult.data.document || null);
-
-      setDisplayLabel(null);
 
 
 
@@ -671,6 +705,106 @@ export default function VaultPage() {
 
 
 
+  async function handleDeleteDocumentConfirm() {
+
+    setLifecycleBusy(true);
+
+    setLifecycleError("");
+
+
+
+    try {
+
+      if (showProtectedView) {
+
+        await teardownProtectedView();
+
+      }
+
+
+
+      const result = await deleteVaultDocumentRemote();
+
+      if (!result.ok) {
+
+        throw new Error(result.data?.error || "Unable to delete vault document.");
+
+      }
+
+
+
+      setVaultDocument(null);
+
+      setDisplayLabel(null);
+
+      setShowDeleteModal(false);
+
+      await bootstrapUnlockedSession();
+
+    } catch (err) {
+
+      setLifecycleError(err.message || "Unable to delete vault document.");
+
+      throw err;
+
+    } finally {
+
+      setLifecycleBusy(false);
+
+    }
+
+  }
+
+
+
+  async function handleMarkCompromisedConfirm() {
+
+    setLifecycleBusy(true);
+
+    setLifecycleError("");
+
+
+
+    try {
+
+      if (showProtectedView) {
+
+        await teardownProtectedView();
+
+      }
+
+
+
+      const result = await markVaultDocumentCompromisedRemote();
+
+      if (!result.ok) {
+
+        throw new Error(result.data?.error || "Unable to mark vault document compromised.");
+
+      }
+
+
+
+      setShowCompromisedModal(false);
+
+      await bootstrapUnlockedSession();
+
+    } catch (err) {
+
+      setLifecycleError(err.message || "Unable to mark vault document compromised.");
+
+      throw err;
+
+    } finally {
+
+      setLifecycleBusy(false);
+
+    }
+
+  }
+
+
+
   const isLocked = vaultState === VAULT_STATES.LOCKED;
 
   const isVanish = vaultState === VAULT_STATES.VANISH;
@@ -875,11 +1009,29 @@ export default function VaultPage() {
 
                 error={documentError}
 
-                protectedViewAvailable={isUnlocked && !showProtectedView}
+                lifecycleBusy={lifecycleBusy}
+
+                protectedViewAvailable={isUnlocked && !showProtectedView && !vaultDocument?.compromised_at}
 
                 onEnterProtectedView={() => {
 
                   setShowProtectedView(true);
+
+                }}
+
+                onMarkCompromised={() => {
+
+                  setLifecycleError("");
+
+                  setShowCompromisedModal(true);
+
+                }}
+
+                onDeleteDocument={() => {
+
+                  setLifecycleError("");
+
+                  setShowDeleteModal(true);
 
                 }}
 
@@ -1187,7 +1339,63 @@ export default function VaultPage() {
 
 
 
-      {showProtectedView && isUnlocked && vaultDocument && getVaultSessionMasterKey() && (
+      <VaultDeleteDocumentModal
+
+        open={showDeleteModal && isUnlocked}
+
+        busy={lifecycleBusy}
+
+        error={lifecycleError}
+
+        onClose={() => {
+
+          if (!lifecycleBusy) {
+
+            setShowDeleteModal(false);
+
+            setLifecycleError("");
+
+          }
+
+        }}
+
+        onConfirm={handleDeleteDocumentConfirm}
+
+      />
+
+
+
+      <VaultCompromisedModal
+
+        open={showCompromisedModal && isUnlocked}
+
+        busy={lifecycleBusy}
+
+        error={lifecycleError}
+
+        onClose={() => {
+
+          if (!lifecycleBusy) {
+
+            setShowCompromisedModal(false);
+
+            setLifecycleError("");
+
+          }
+
+        }}
+
+        onConfirm={handleMarkCompromisedConfirm}
+
+      />
+
+
+
+      {showProtectedView &&
+        isUnlocked &&
+        vaultDocument &&
+        !vaultDocument.compromised_at &&
+        getVaultSessionMasterKey() && (
 
         <ProtectedView
 

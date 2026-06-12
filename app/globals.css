@@ -3872,6 +3872,52 @@ p {
   gap: 14px;
 }
 
+.vault-modal--danger {
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+.danger {
+  display: inline-block;
+  border: none;
+  text-decoration: none;
+  border-radius: 18px;
+  padding: 18px 28px;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  background: linear-gradient(135deg, #f87171, #ef4444);
+  color: #1a0508;
+}
+
+.danger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 22px rgba(239, 68, 68, 0.35);
+}
+
+.danger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.protocol-actions .danger {
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vault-action--warning {
+  border-color: rgba(255, 180, 0, 0.35);
+  color: #ffe6a8;
+}
+
+.vault-action--warning:hover {
+  background: rgba(255, 180, 0, 0.12);
+}
+
 .vault-pin-input {
   font-family: var(--po-font-mono);
   letter-spacing: 0.18em;
@@ -3929,6 +3975,13 @@ p {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.vault-secure-documents__badge--compromised,
+.vault-document-card__badge--compromised {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
 }
 
 .vault-secure-documents__lead,
@@ -4143,6 +4196,19 @@ p {
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
+}
+
+.vault-document-card--compromised {
+  border-color: rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.vault-document-card__notice {
+  margin: 0 0 14px;
+}
+
+.vault-document-card__actions {
+  margin-top: 16px;
 }
 
 .vault-document-card__header {
