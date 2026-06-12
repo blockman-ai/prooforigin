@@ -12,6 +12,8 @@ import VaultSecureDocuments from "../../components/vault/VaultSecureDocuments";
 
 import VaultUploadModal from "../../components/vault/VaultUploadModal";
 
+import ProtectedView from "../../components/vault/ProtectedView";
+
 import {
 
   ensureVaultGenesis,
@@ -125,11 +127,15 @@ export default function VaultPage() {
 
   const [uploadError, setUploadError] = useState("");
 
+  const [showProtectedView, setShowProtectedView] = useState(false);
+
 
 
   const inactivityTimerRef = useRef(null);
 
   const vanishNoticeTimerRef = useRef(null);
+
+  const protectedViewTeardownRef = useRef(null);
 
 
 
@@ -153,9 +159,23 @@ export default function VaultPage() {
 
 
 
+  const teardownProtectedView = useCallback(() => {
+
+    protectedViewTeardownRef.current?.();
+
+    protectedViewTeardownRef.current = null;
+
+    setShowProtectedView(false);
+
+  }, []);
+
+
+
   const triggerVanish = useCallback(
 
     (reason = "manual") => {
+
+      teardownProtectedView();
 
       setVaultState(VAULT_STATES.VANISH);
 
@@ -211,7 +231,7 @@ export default function VaultPage() {
 
     },
 
-    [clearUploadState]
+    [clearUploadState, teardownProtectedView]
 
   );
 
@@ -757,6 +777,14 @@ export default function VaultPage() {
 
                 error={documentError}
 
+                protectedViewAvailable={isUnlocked && !showProtectedView}
+
+                onEnterProtectedView={() => {
+
+                  setShowProtectedView(true);
+
+                }}
+
                 onAddDocument={() => {
 
                   setUploadError("");
@@ -1044,6 +1072,30 @@ export default function VaultPage() {
         onSubmit={handleUploadSubmit}
 
       />
+
+
+
+      {showProtectedView && isUnlocked && vaultDocument && getVaultSessionMasterKey() && (
+
+        <ProtectedView
+
+          document={vaultDocument}
+
+          masterKey={getVaultSessionMasterKey()}
+
+          vaultId={genesis?.vault_id}
+
+          onClose={() => setShowProtectedView(false)}
+
+          onRegisterTeardown={(handler) => {
+
+            protectedViewTeardownRef.current = handler;
+
+          }}
+
+        />
+
+      )}
 
     </PageShell>
 

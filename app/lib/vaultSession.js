@@ -31,12 +31,19 @@ export function getVaultSessionDocumentKey() {
   return sessionDocumentKey;
 }
 
+export function clearVaultSessionDocumentKey() {
+  if (sessionDocumentKey instanceof Uint8Array) {
+    clearBytes(sessionDocumentKey);
+  }
+  sessionDocumentKey = null;
+}
+
 export function clearVaultSessionSecrets() {
   if (sessionMasterKey instanceof Uint8Array) {
     clearBytes(sessionMasterKey);
   }
   sessionMasterKey = null;
-  sessionDocumentKey = null;
+  clearVaultSessionDocumentKey();
 }
 
 export function formatLastUnlockTime(value) {

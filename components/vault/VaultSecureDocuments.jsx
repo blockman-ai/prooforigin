@@ -1,6 +1,10 @@
 "use client";
 
 import { formatVaultCreatedAt } from "../../app/lib/vaultGenesis";
+import {
+  isVaultImageContentType,
+  isVaultPdfContentType,
+} from "../../app/lib/vaultDocumentClient";
 
 export default function VaultSecureDocuments({
   document,
@@ -8,8 +12,15 @@ export default function VaultSecureDocuments({
   loading,
   error,
   onAddDocument,
+  onEnterProtectedView,
+  protectedViewAvailable,
 }) {
   const hasDocument = Boolean(document);
+  const canProtectedView =
+    protectedViewAvailable &&
+    hasDocument &&
+    (isVaultPdfContentType(document.content_type_hint) ||
+      isVaultImageContentType(document.content_type_hint));
 
   return (
     <section className="vault-secure-documents" aria-label="Secure Documents">
@@ -19,7 +30,8 @@ export default function VaultSecureDocuments({
       </div>
 
       <p className="vault-secure-documents__lead">
-        One encrypted document slot. View-only access arrives in a later phase.
+        One encrypted document slot. Open Protected View for view-only access — no download, no
+        print.
       </p>
 
       {loading && <p className="vault-secure-documents__status">Loading document status…</p>}
@@ -62,6 +74,17 @@ export default function VaultSecureDocuments({
               <dd>{document.content_type_hint || "application/octet-stream"}</dd>
             </div>
           </dl>
+          <div className="protocol-actions vault-secure-documents__actions">
+            {canProtectedView ? (
+              <button type="button" className="primary" onClick={onEnterProtectedView}>
+                Enter Protected View
+              </button>
+            ) : (
+              <p className="vault-secure-documents__status">
+                Protected View supports PDF and image documents only.
+              </p>
+            )}
+          </div>
         </article>
       )}
     </section>

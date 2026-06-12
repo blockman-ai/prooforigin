@@ -1,9 +1,11 @@
 import { createSignedVaultAuthHeaders, getVaultDevice } from "./vaultDevice";
 import {
   clearBytes,
+  decryptVaultBytes,
   deriveVaultDocumentKey,
   encryptVaultBytes,
   sha256Hex,
+  VAULT_AES_GCM_IV_BYTES,
 } from "./vaultCrypto";
 
 export const VAULT_ENCRYPTION_VERSION = 1;
@@ -27,6 +29,10 @@ function bytesToBase64(bytes) {
 
 function buildDocumentAad(vaultDeviceId, docId, contentType) {
   return `${vaultDeviceId}|${docId}|${contentType}`;
+}
+
+export function buildVaultDocumentAad(vaultDeviceId, docId, contentType) {
+  return buildDocumentAad(vaultDeviceId, docId, contentType);
 }
 
 function buildLabelAad(vaultDeviceId, docId) {
@@ -184,4 +190,77 @@ export async function uploadEncryptedVaultDocument({ file, label, masterKey }) {
     document: completeResponse.data.document,
     displayLabel: label?.trim() || null,
   };
+}
+
+export async function fetchVaultDocumentCiphertextUrl() {
+  return vaultSignedFetch({
+    method: "GET",
+    path: "/api/vault/document/ciphertext",
+  });
+}
+
+export async function downloadVaultDocumentCiphertext(signedUrl) {
+  const response = await fetch(signedUrl);
+  if (!response.ok) {
+    throw new Error("Unable to download encrypted vault document.");
+  }
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+export function splitVaultDocumentCiphertext(payload) {
+  if (!(payload instanceof Uint8Array) || payload.length <= VAULT_AES_GCM_IV_BYTES) {
+    throw new Error("Encrypted vault document payload is invalid.");
+  }
+
+  return {
+    iv: payload.slice(0, VAULT_AES_GCM_IV_BYTES),
+    ciphertext: payload.slice(VAULT_AES_GCM_IV_BYTES),
+  };
+}
+
+export async function decryptVaultDocumentPayload({ masterKey, document, encryptedPayload }) {
+  const device = getVaultDevice();
+  if (!device?.vault_device_id) {
+    throw new Error("Vault device is not initialized.");
+  }
+
+  const { iv, ciphertext } = splitVaultDocumentCiphertext(encryptedPayload);
+  const documentKey = await deriveVaultDocumentKey(masterKey);
+  const aad = buildDocumentAad(
+    device.vault_device_id,
+    document.id,
+    document.content_type_hint || "application/octet-stream"
+  );
+
+  const plaintext = await decryptVaultBytes(ciphertext, documentKey, iv, aad);
+
+  return {
+    plaintext,
+    documentKey,
+    contentType: document.content_type_hint || "application/octet-stream",
+  };
+}
+
+export async function recordVaultDocumentViewed({
+  documentId,
+  viewSessionId,
+  startedAt,
+}) {
+  return vaultSignedFetch({
+    method: "POST",
+    path: "/api/vault/document/viewed",
+    body: JSON.stringify({
+      document_id: documentId,
+      view_session_id: viewSessionId,
+      started_at: startedAt,
+    }),
+  });
+}
+
+export function isVaultImageContentType(contentType) {
+  return ["image/jpeg", "image/png", "image/webp"].includes(contentType);
+}
+
+export function isVaultPdfContentType(contentType) {
+  return contentType === "application/pdf";
 }
