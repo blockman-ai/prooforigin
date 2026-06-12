@@ -4,6 +4,14 @@ import {
   registerVaultDevice,
   vaultDeviceRegistered,
 } from "../../../lib/vaultAdmin";
+import {
+  checkRateLimit,
+  getVaultRequestClientIp,
+  VAULT_REGISTRATION_DEVICE_LIMIT,
+  VAULT_REGISTRATION_DEVICE_WINDOW_MS,
+  VAULT_REGISTRATION_IP_LIMIT,
+  VAULT_REGISTRATION_IP_WINDOW_MS,
+} from "../../../lib/vaultRateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -22,10 +30,39 @@ function storageNotConfiguredResponse() {
   );
 }
 
+function rateLimitResponse(retryAfterMs) {
+  const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+  return NextResponse.json(
+    {
+      success: false,
+      code: "RATE_LIMITED",
+      error: "Too many vault device registration attempts. Try again later.",
+      retry_after_seconds: retryAfterSeconds,
+    },
+    {
+      status: 429,
+      headers: {
+        "Retry-After": String(retryAfterSeconds),
+      },
+    }
+  );
+}
+
 export async function POST(req) {
   try {
     if (!isVaultAdminConfigured()) {
       return storageNotConfiguredResponse();
+    }
+
+    const clientIp = getVaultRequestClientIp(req);
+    const ipLimit = checkRateLimit({
+      key: `vault-register:ip:${clientIp}`,
+      limit: VAULT_REGISTRATION_IP_LIMIT,
+      windowMs: VAULT_REGISTRATION_IP_WINDOW_MS,
+    });
+
+    if (!ipLimit.allowed) {
+      return rateLimitResponse(ipLimit.retryAfterMs);
     }
 
     const bodyText = await req.text();
@@ -42,6 +79,16 @@ export async function POST(req) {
         },
         { status: 400 }
       );
+    }
+
+    const deviceLimit = checkRateLimit({
+      key: `vault-register:device:${vaultDeviceId}`,
+      limit: VAULT_REGISTRATION_DEVICE_LIMIT,
+      windowMs: VAULT_REGISTRATION_DEVICE_WINDOW_MS,
+    });
+
+    if (!deviceLimit.allowed) {
+      return rateLimitResponse(deviceLimit.retryAfterMs);
     }
 
     if (!SHA256_HEX_PATTERN.test(authSecretHash)) {

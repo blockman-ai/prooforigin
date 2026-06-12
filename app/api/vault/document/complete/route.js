@@ -13,6 +13,7 @@ import {
   completeVaultDocument,
   getVaultDocumentByDevice,
   isVaultAdminConfigured,
+  verifyVaultCiphertextObject,
   VAULT_ENCRYPTION_VERSION,
 } from "../../../../lib/vaultAdmin";
 
@@ -145,6 +146,23 @@ export async function POST(req) {
           error: "This vault device already has an active encrypted document.",
         },
         { status: 409 }
+      );
+    }
+
+    const storageVerification = await verifyVaultCiphertextObject({
+      storagePath,
+      expectedSha256: ciphertextSha256.toLowerCase(),
+      expectedBytes: ciphertextBytes,
+    });
+
+    if (!storageVerification.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: storageVerification.code || "STORAGE_VERIFICATION_FAILED",
+          error: storageVerification.error || "Unable to verify encrypted vault object in storage.",
+        },
+        { status: 400 }
       );
     }
 

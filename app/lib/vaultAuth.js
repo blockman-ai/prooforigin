@@ -4,12 +4,14 @@ import {
   isVaultAdminConfigured,
   touchVaultDeviceLastSeen,
 } from "./vaultAdmin";
+import { reserveVaultRequestNonce } from "./vaultReplayGuard";
 
 export const VAULT_AUTH_SKEW_MS = 5 * 60 * 1000;
 export const VAULT_AUTH_HEADER_DEVICE_ID = "x-prooforigin-vault-device-id";
 export const VAULT_AUTH_HEADER_TIMESTAMP = "x-prooforigin-vault-timestamp";
 export const VAULT_AUTH_HEADER_BODY_HASH = "x-prooforigin-vault-body-hash";
 export const VAULT_AUTH_HEADER_SIGNATURE = "x-prooforigin-vault-signature";
+export const VAULT_AUTH_HEADER_NONCE = "x-prooforigin-vault-nonce";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -19,8 +21,8 @@ export function hashVaultRequestBody(bodyText = "") {
   return crypto.createHash("sha256").update(bodyText).digest("hex");
 }
 
-export function buildVaultSignaturePayload({ method, path, bodyHash, timestamp }) {
-  return `${String(method).toUpperCase()}|${path}|${String(timestamp)}|${bodyHash}`;
+export function buildVaultSignaturePayload({ method, path, bodyHash, timestamp, nonce }) {
+  return `${String(method).toUpperCase()}|${path}|${String(timestamp)}|${bodyHash}|${String(nonce)}`;
 }
 
 function hexToBuffer(hex) {
@@ -46,9 +48,10 @@ export function verifyVaultSignature({
   path,
   bodyHash,
   timestamp,
+  nonce,
   signature,
 }) {
-  const payload = buildVaultSignaturePayload({ method, path, bodyHash, timestamp });
+  const payload = buildVaultSignaturePayload({ method, path, bodyHash, timestamp, nonce });
   const signingKey = hexToBuffer(String(authSecretHash).toLowerCase());
   const expected = crypto.createHmac("sha256", signingKey).update(payload).digest("hex");
   return safeEqualHex(expected, signature);
@@ -60,6 +63,7 @@ function readVaultAuthHeaders(req) {
     timestamp: req.headers.get(VAULT_AUTH_HEADER_TIMESTAMP)?.trim() || "",
     body_hash: req.headers.get(VAULT_AUTH_HEADER_BODY_HASH)?.trim() || "",
     signature: req.headers.get(VAULT_AUTH_HEADER_SIGNATURE)?.trim() || "",
+    nonce: req.headers.get(VAULT_AUTH_HEADER_NONCE)?.trim() || "",
   };
 }
 
@@ -70,7 +74,8 @@ export async function authorizeVaultRequest(req, { method, path, bodyText = "" }
     !headers.vault_device_id ||
     !headers.timestamp ||
     !headers.body_hash ||
-    !headers.signature
+    !headers.signature ||
+    !headers.nonce
   ) {
     return {
       ok: false,
@@ -95,6 +100,15 @@ export async function authorizeVaultRequest(req, { method, path, bodyText = "" }
       status: 401,
       code: "VAULT_AUTH_REQUIRED",
       message: "Vault device id must be a valid UUID.",
+    };
+  }
+
+  if (!UUID_PATTERN.test(headers.nonce)) {
+    return {
+      ok: false,
+      status: 401,
+      code: "VAULT_AUTH_REQUIRED",
+      message: "Vault nonce must be a valid UUID.",
     };
   }
 
@@ -180,6 +194,7 @@ export async function authorizeVaultRequest(req, { method, path, bodyText = "" }
     path,
     bodyHash: headers.body_hash,
     timestamp: headers.timestamp,
+    nonce: headers.nonce,
     signature: headers.signature,
   });
 
@@ -189,6 +204,20 @@ export async function authorizeVaultRequest(req, { method, path, bodyText = "" }
       status: 401,
       code: "VAULT_AUTH_REQUIRED",
       message: "Vault signature verification failed.",
+    };
+  }
+
+  const replayCheck = reserveVaultRequestNonce({
+    vaultDeviceId: headers.vault_device_id,
+    nonce: headers.nonce,
+  });
+
+  if (!replayCheck.ok) {
+    return {
+      ok: false,
+      status: 401,
+      code: "VAULT_AUTH_REPLAY",
+      message: "Vault request nonce was already used.",
     };
   }
 

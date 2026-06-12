@@ -169,8 +169,8 @@ export async function hashVaultBody(input) {
   return sha256Hex(JSON.stringify(input));
 }
 
-export function buildVaultSignaturePayload({ method, path, bodyHash, timestamp }) {
-  return `${String(method).toUpperCase()}|${path}|${String(timestamp)}|${bodyHash}`;
+export function buildVaultSignaturePayload({ method, path, bodyHash, timestamp, nonce }) {
+  return `${String(method).toUpperCase()}|${path}|${String(timestamp)}|${bodyHash}|${String(nonce)}`;
 }
 
 async function deriveVaultSigningKey(secretBase64) {
@@ -180,10 +180,10 @@ async function deriveVaultSigningKey(secretBase64) {
   return hexToBuffer(authSecretHash);
 }
 
-export async function signVaultRequest({ method, path, bodyHash, timestamp }) {
+export async function signVaultRequest({ method, path, bodyHash, timestamp, nonce }) {
   const device = ensureVaultDevice();
   const signingKeyBytes = await deriveVaultSigningKey(device.vault_auth_secret);
-  const payload = buildVaultSignaturePayload({ method, path, bodyHash, timestamp });
+  const payload = buildVaultSignaturePayload({ method, path, bodyHash, timestamp, nonce });
 
   const hmacKey = await crypto.subtle.importKey(
     "raw",
@@ -212,25 +212,28 @@ export async function signVaultRequest({ method, path, bodyHash, timestamp }) {
   };
 }
 
-export function buildVaultAuthHeaders({ bodyHash, timestamp, signature, vaultDeviceId }) {
+export function buildVaultAuthHeaders({ bodyHash, timestamp, signature, vaultDeviceId, nonce }) {
   return {
     "x-prooforigin-vault-device-id": vaultDeviceId,
     "x-prooforigin-vault-timestamp": String(timestamp),
     "x-prooforigin-vault-body-hash": bodyHash,
     "x-prooforigin-vault-signature": signature,
+    "x-prooforigin-vault-nonce": nonce,
   };
 }
 
 export async function createSignedVaultAuthHeaders({ method, path, body = "" }) {
   const bodyHash = await hashVaultBody(body);
   const timestamp = Date.now();
-  const signed = await signVaultRequest({ method, path, bodyHash, timestamp });
+  const nonce = crypto.randomUUID();
+  const signed = await signVaultRequest({ method, path, bodyHash, timestamp, nonce });
 
   return buildVaultAuthHeaders({
     bodyHash,
     timestamp,
     signature: signed.signature,
     vaultDeviceId: signed.vault_device_id,
+    nonce,
   });
 }
 

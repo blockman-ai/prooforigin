@@ -1,10 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
 export const VAULT_DOCUMENTS_TABLE = "vault_documents";
 export const VAULT_DEVICE_REGISTRATIONS_TABLE = "vault_device_registrations";
 export const VAULT_STORAGE_BUCKET = "vault-documents";
 export const VAULT_ENCRYPTION_VERSION = 1;
 export const VAULT_SIGNED_URL_TTL_SECONDS = 120;
+export const VAULT_MAX_CIPHERTEXT_BYTES = 10 * 1024 * 1024;
 
 let vaultAdminClient = null;
 
@@ -203,19 +205,92 @@ export async function getVaultDocumentByDevice(vaultDeviceId) {
 }
 
 export async function createVaultSignedUploadUrl(vaultDeviceId, docId) {
-  const supabase = createVaultAdminClient();
   const storagePath = buildVaultDocumentStoragePath(vaultDeviceId, docId);
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+  if (!supabaseUrl || !serviceRoleKey) {
+    return {
+      doc_id: docId,
+      storage_path: storagePath,
+      signedUrl: null,
+      token: null,
+      error: new Error("Vault storage credentials are not configured."),
+    };
+  }
+
+  const encodedPath = storagePath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  const signPath = `${supabaseUrl.replace(/\/$/, "")}/storage/v1/object/upload/sign/${encodedPath}`;
+
+  try {
+    const response = await fetch(signPath, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        expiresIn: VAULT_SIGNED_URL_TTL_SECONDS,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      return createVaultSignedUploadUrlFallback(vaultDeviceId, docId, storagePath, payload);
+    }
+
+    const signedPath = payload?.url || payload?.signedURL || payload?.signedUrl;
+    if (!signedPath) {
+      return createVaultSignedUploadUrlFallback(vaultDeviceId, docId, storagePath, payload);
+    }
+
+    const signedUrl = signedPath.startsWith("http")
+      ? signedPath
+      : `${supabaseUrl.replace(/\/$/, "")}/storage/v1${signedPath.startsWith("/") ? signedPath : `/${signedPath}`}`;
+
+    const token = new URL(signedUrl).searchParams.get("token");
+
+    return {
+      doc_id: docId,
+      storage_path: storagePath,
+      signedUrl,
+      token,
+      expiresIn: VAULT_SIGNED_URL_TTL_SECONDS,
+      error: null,
+    };
+  } catch (error) {
+    return createVaultSignedUploadUrlFallback(vaultDeviceId, docId, storagePath, error);
+  }
+}
+
+async function createVaultSignedUploadUrlFallback(vaultDeviceId, docId, storagePath, cause) {
+  const supabase = createVaultAdminClient();
   const { data, error } = await supabase.storage
     .from(VAULT_STORAGE_BUCKET)
     .createSignedUploadUrl(storagePath);
 
+  if (error || !data?.signedUrl) {
+    return {
+      doc_id: docId,
+      storage_path: storagePath,
+      signedUrl: null,
+      token: null,
+      error: error || cause || new Error("Unable to create vault upload URL."),
+    };
+  }
+
   return {
     doc_id: docId,
     storage_path: storagePath,
-    signedUrl: data?.signedUrl || null,
-    token: data?.token || null,
-    error,
+    signedUrl: data.signedUrl,
+    token: data.token || null,
+    expiresIn: VAULT_SIGNED_URL_TTL_SECONDS,
+    error: null,
   };
 }
 
@@ -229,6 +304,58 @@ export async function createVaultSignedDownloadUrl(storagePath) {
     signedUrl: data?.signedUrl || null,
     expiresIn: VAULT_SIGNED_URL_TTL_SECONDS,
     error,
+  };
+}
+
+export async function verifyVaultCiphertextObject({
+  storagePath,
+  expectedSha256,
+  expectedBytes,
+}) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase.storage.from(VAULT_STORAGE_BUCKET).download(storagePath);
+
+  if (error || !data) {
+    return {
+      ok: false,
+      code: "STORAGE_OBJECT_NOT_FOUND",
+      error: error?.message || "Encrypted vault object was not found in storage.",
+    };
+  }
+
+  const buffer = Buffer.from(await data.arrayBuffer());
+
+  if (buffer.length !== expectedBytes) {
+    return {
+      ok: false,
+      code: "STORAGE_SIZE_MISMATCH",
+      error: "Encrypted vault object size does not match the declared ciphertext_bytes value.",
+      actualBytes: buffer.length,
+    };
+  }
+
+  if (buffer.length <= 0 || buffer.length > VAULT_MAX_CIPHERTEXT_BYTES) {
+    return {
+      ok: false,
+      code: "STORAGE_SIZE_INVALID",
+      error: "Encrypted vault object size is outside the allowed vault limits.",
+      actualBytes: buffer.length,
+    };
+  }
+
+  const actualSha256 = crypto.createHash("sha256").update(buffer).digest("hex");
+  if (actualSha256 !== String(expectedSha256).toLowerCase()) {
+    return {
+      ok: false,
+      code: "STORAGE_HASH_MISMATCH",
+      error: "Encrypted vault object hash does not match the declared ciphertext_sha256 value.",
+    };
+  }
+
+  return {
+    ok: true,
+    actualBytes: buffer.length,
+    actualSha256,
   };
 }
 
