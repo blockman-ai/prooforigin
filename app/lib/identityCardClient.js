@@ -74,7 +74,23 @@ export function readStoredIdentityCard() {
 
 export function writeStoredIdentityCard(card) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(IDENTITY_CARD_STORAGE_KEY, JSON.stringify(card));
+
+  try {
+    window.localStorage.setItem(IDENTITY_CARD_STORAGE_KEY, JSON.stringify(card));
+  } catch (err) {
+    if (err?.name === "QuotaExceededError" && card?.photo_preview) {
+      const { photo_preview: _photo, ...cardWithoutPhoto } = card;
+      window.localStorage.setItem(
+        IDENTITY_CARD_STORAGE_KEY,
+        JSON.stringify(cardWithoutPhoto)
+      );
+      throw new Error(
+        "Photo could not be saved — browser storage is full. Card saved without photo."
+      );
+    }
+
+    throw new Error("Could not save card in this browser. Clear site data and try again.");
+  }
 }
 
 export function clearStoredIdentityCard() {

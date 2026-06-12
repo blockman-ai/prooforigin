@@ -18,6 +18,7 @@ import {
   secondsUntilNextCode,
   writeStoredIdentityCard,
 } from "../lib/identityCardClient";
+import { preparePhotoForLocalStorage } from "../lib/identityCardPhoto";
 
 function QrPlaceholder() {
   const cells = Array.from({ length: 64 }, (_, index) => {
@@ -49,6 +50,7 @@ export default function IdentityCardPage() {
   const [purpose, setPurpose] = useState("");
   const [expirationKey, setExpirationKey] = useState("2w");
   const [photoPreview, setPhotoPreview] = useState("");
+  const [photoProcessing, setPhotoProcessing] = useState(false);
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -86,28 +88,27 @@ export default function IdentityCardPage() {
     return () => window.clearInterval(interval);
   }, [card, refreshRotatingCode]);
 
-  useEffect(() => {
-    return () => {
-      if (photoPreview) URL.revokeObjectURL(photoPreview);
-    };
-  }, [photoPreview]);
-
-  function handlePhotoChange(event) {
+  async function handlePhotoChange(event) {
     const file = event.target.files?.[0];
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
 
     if (!file) {
       setPhotoPreview("");
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
-      setError("Photo must be an image file.");
-      return;
-    }
-
-    setPhotoPreview(URL.createObjectURL(file));
+    setPhotoProcessing(true);
     setError("");
+
+    try {
+      const dataUrl = await preparePhotoForLocalStorage(file);
+      setPhotoPreview(dataUrl);
+    } catch (err) {
+      setPhotoPreview("");
+      setError(err.message || "Could not use that photo.");
+      event.target.value = "";
+    } finally {
+      setPhotoProcessing(false);
+    }
   }
 
   async function handleCreateCard() {
@@ -146,9 +147,14 @@ export default function IdentityCardPage() {
 
       if (data.warning) setWarning(data.warning);
 
-      const storedCard = { ...data.card, stored: Boolean(data.stored) };
+      const storedCard = {
+        ...data.card,
+        stored: Boolean(data.stored),
+        ...(photoPreview ? { photo_preview: photoPreview } : {}),
+      };
       writeStoredIdentityCard(storedCard);
-      setCard({ ...storedCard, photo_preview: photoPreview || null });
+      setCard(storedCard);
+      setPhotoPreview("");
     } catch (err) {
       setError(err.message || "Could not create identity card.");
     } finally {
@@ -179,7 +185,6 @@ export default function IdentityCardPage() {
     setUsername("");
     setPurpose("");
     setConsent(false);
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
     setPhotoPreview("");
   }
 
@@ -196,7 +201,7 @@ export default function IdentityCardPage() {
         <ul className="identity-card-notices">
           <li>Optional temporary pass you generate for online interactions.</li>
           <li>Includes a rotating verification code similar to authenticator apps.</li>
-          <li>Photos stay in your browser for V1 and are not uploaded by default.</li>
+          <li>Optional photo stays in this browser only and is never uploaded.</li>
           <li>No SSN, driver license, date of birth, or legal ID verification.</li>
           <li>{IDENTITY_DISCLAIMER}</li>
         </ul>
@@ -290,8 +295,13 @@ export default function IdentityCardPage() {
             <p>{IDENTITY_DISCLAIMER}</p>
             {!card.stored && (
               <p className="identity-card-preview__hint">
-                Stored in this browser only. Clearing site data removes the card and rotating
-                code secret.
+                Stored in this browser only. Clearing site data removes the card, rotating code
+                secret{card.photo_preview ? ", and photo" : ""}.
+              </p>
+            )}
+            {card.photo_preview && (
+              <p className="identity-card-preview__hint">
+                Photo is saved only in this browser and is not uploaded.
               </p>
             )}
             <div className="protocol-actions">
@@ -353,18 +363,22 @@ export default function IdentityCardPage() {
           </label>
 
           <label className="dataset-field">
-            <span className="dataset-field__label">Photo (optional, browser preview only)</span>
+            <span className="dataset-field__label">Photo (optional)</span>
             <input
               className="dataset-field__file"
               type="file"
               accept="image/*"
               onChange={handlePhotoChange}
+              disabled={photoProcessing}
             />
             <span className="dataset-field__hint">
-              V1 keeps your photo in this browser session only. It is not uploaded or stored on
-              ProofOrigin servers.
+              Photo is saved only in this browser and is not uploaded.
             </span>
           </label>
+
+          {photoProcessing && (
+            <p className="dataset-field__hint">Compressing photo…</p>
+          )}
 
           {photoPreview && (
             <div className="identity-card-photo-preview">
@@ -386,7 +400,7 @@ export default function IdentityCardPage() {
               type="button"
               className="primary"
               onClick={handleCreateCard}
-              disabled={submitting}
+              disabled={submitting || photoProcessing}
             >
               {submitting ? "Generating card…" : "Generate identity card"}
             </button>
