@@ -84,6 +84,13 @@ export async function fetchVaultDocumentMetadata() {
   });
 }
 
+export async function fetchVaultDocumentHistory() {
+  return vaultSignedFetch({
+    method: "GET",
+    path: "/api/vault/document/history",
+  });
+}
+
 export async function requestVaultUploadUrl() {
   return vaultSignedFetch({
     method: "POST",

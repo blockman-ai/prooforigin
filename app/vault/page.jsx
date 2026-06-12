@@ -10,6 +10,8 @@ import ProofOriginSeal from "../../components/trust/ProofOriginSeal";
 
 import VaultSecureDocuments from "../../components/vault/VaultSecureDocuments";
 
+import VaultTimeline from "../../components/vault/VaultTimeline";
+
 import VaultUploadModal from "../../components/vault/VaultUploadModal";
 
 import ProtectedView from "../../components/vault/ProtectedView";
@@ -40,6 +42,8 @@ import {
 import {
 
   fetchVaultDocumentMetadata,
+
+  fetchVaultDocumentHistory,
 
   uploadEncryptedVaultDocument,
 
@@ -129,6 +133,12 @@ export default function VaultPage() {
 
   const [showProtectedView, setShowProtectedView] = useState(false);
 
+  const [timelineEvents, setTimelineEvents] = useState([]);
+
+  const [timelineLoading, setTimelineLoading] = useState(false);
+
+  const [timelineError, setTimelineError] = useState("");
+
 
 
   const inactivityTimerRef = useRef(null);
@@ -154,6 +164,12 @@ export default function VaultPage() {
     setDocumentError("");
 
     setDisplayLabel(null);
+
+    setTimelineEvents([]);
+
+    setTimelineLoading(false);
+
+    setTimelineError("");
 
   }, []);
 
@@ -247,11 +263,53 @@ export default function VaultPage() {
 
 
 
+  const refreshVaultTimeline = useCallback(async () => {
+
+    setTimelineLoading(true);
+
+    setTimelineError("");
+
+
+
+    try {
+
+      const result = await fetchVaultDocumentHistory();
+
+      if (!result.ok) {
+
+        throw new Error(result.data?.error || "Unable to load vault history.");
+
+      }
+
+
+
+      setTimelineEvents(result.data.events || []);
+
+    } catch (err) {
+
+      setTimelineEvents([]);
+
+      setTimelineError(err.message || "Unable to load vault history.");
+
+    } finally {
+
+      setTimelineLoading(false);
+
+    }
+
+  }, []);
+
+
+
   const bootstrapUnlockedSession = useCallback(async () => {
 
     setDocumentLoading(true);
 
     setDocumentError("");
+
+    setTimelineLoading(true);
+
+    setTimelineError("");
 
 
 
@@ -269,19 +327,41 @@ export default function VaultPage() {
 
 
 
-      const result = await fetchVaultDocumentMetadata();
+      const [metadataResult, historyResult] = await Promise.all([
 
-      if (!result.ok) {
+        fetchVaultDocumentMetadata(),
 
-        throw new Error(result.data?.error || "Unable to load vault document metadata.");
+        fetchVaultDocumentHistory(),
+
+      ]);
+
+
+
+      if (!metadataResult.ok) {
+
+        throw new Error(metadataResult.data?.error || "Unable to load vault document metadata.");
 
       }
 
 
 
-      setVaultDocument(result.data.document || null);
+      setVaultDocument(metadataResult.data.document || null);
 
       setDisplayLabel(null);
+
+
+
+      if (!historyResult.ok) {
+
+        setTimelineEvents([]);
+
+        setTimelineError(historyResult.data?.error || "Unable to load vault history.");
+
+      } else {
+
+        setTimelineEvents(historyResult.data.events || []);
+
+      }
 
     } catch (err) {
 
@@ -289,9 +369,15 @@ export default function VaultPage() {
 
       setDocumentError(err.message || "Unable to load vault document metadata.");
 
+      setTimelineEvents([]);
+
+      setTimelineError("");
+
     } finally {
 
       setDocumentLoading(false);
+
+      setTimelineLoading(false);
 
     }
 
@@ -567,6 +653,8 @@ export default function VaultPage() {
 
       setShowUploadModal(false);
 
+      await refreshVaultTimeline();
+
     } catch (err) {
 
       setUploadError(err.message || "Unable to upload encrypted document.");
@@ -802,6 +890,20 @@ export default function VaultPage() {
                   setShowUploadModal(true);
 
                 }}
+
+              />
+
+
+
+              <VaultTimeline
+
+                genesis={genesis}
+
+                events={timelineEvents}
+
+                loading={timelineLoading}
+
+                error={timelineError}
 
               />
 
@@ -1095,7 +1197,13 @@ export default function VaultPage() {
 
           vaultId={genesis?.vault_id}
 
-          onClose={() => setShowProtectedView(false)}
+          onClose={() => {
+
+            setShowProtectedView(false);
+
+            void refreshVaultTimeline();
+
+          }}
 
           onRegisterTeardown={(handler) => {
 

@@ -3947,6 +3947,197 @@ p {
   justify-content: flex-start;
 }
 
+/* Vault timeline */
+.vault-timeline-card {
+  padding: 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(200, 212, 224, 0.14);
+  background:
+    linear-gradient(
+      160deg,
+      rgba(28, 32, 40, 0.72) 0%,
+      rgba(10, 14, 20, 0.88) 100%
+    );
+  margin-bottom: 20px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.vault-timeline-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.vault-timeline-card__title {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  color: #e8edf2;
+}
+
+.vault-timeline-card__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(200, 212, 224, 0.28);
+  background: rgba(200, 212, 224, 0.08);
+  color: #c8d4e0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vault-timeline-card__lead,
+.vault-timeline-card__status {
+  margin: 0 0 16px;
+  color: var(--po-muted);
+  line-height: 1.6;
+}
+
+.vault-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 8px;
+  display: grid;
+  gap: 0;
+}
+
+.vault-timeline__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  padding: 0 0 22px 0;
+}
+
+.vault-timeline__item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 14px;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(200, 212, 224, 0.35), rgba(255, 255, 255, 0.05));
+}
+
+.vault-timeline__node {
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #c8d4e0, #8b9aab);
+  box-shadow: 0 0 10px rgba(200, 212, 224, 0.25);
+  flex-shrink: 0;
+}
+
+.vault-timeline__item--genesis .vault-timeline__node {
+  background: linear-gradient(135deg, #ddd6fe, #a78bfa);
+  box-shadow: 0 0 12px rgba(167, 139, 250, 0.35);
+}
+
+.vault-timeline__item--created .vault-timeline__node {
+  background: linear-gradient(135deg, #c8d4e0, #00e5ff);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
+}
+
+.vault-timeline__item--view .vault-timeline__node {
+  background: linear-gradient(135deg, #b8c5d4, #64748b);
+}
+
+.vault-timeline__item--compromised .vault-timeline__node {
+  background: linear-gradient(135deg, #fca5a5, #ef4444);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.35);
+}
+
+.vault-timeline__item--deleted .vault-timeline__node {
+  background: linear-gradient(135deg, #94a3b8, #475569);
+  box-shadow: none;
+}
+
+.vault-timeline__content {
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.vault-timeline__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vault-timeline__pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid rgba(200, 212, 224, 0.2);
+  background: rgba(200, 212, 224, 0.06);
+  color: #b8c5d4;
+}
+
+.vault-timeline__pill--genesis {
+  border-color: rgba(167, 139, 250, 0.35);
+  background: rgba(167, 139, 250, 0.1);
+  color: #ddd6fe;
+}
+
+.vault-timeline__pill--created {
+  border-color: rgba(0, 229, 255, 0.3);
+  background: rgba(0, 229, 255, 0.08);
+  color: var(--po-cyan);
+}
+
+.vault-timeline__pill--compromised {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+}
+
+.vault-timeline__pill--deleted {
+  border-color: rgba(100, 116, 139, 0.35);
+  background: rgba(100, 116, 139, 0.12);
+  color: #94a3b8;
+}
+
+.vault-timeline__time {
+  display: block;
+  margin: 8px 0 4px;
+  color: var(--po-muted);
+  font-size: 13px;
+}
+
+.vault-timeline__detail {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--po-muted);
+  line-height: 1.5;
+}
+
+.vault-timeline__hash {
+  margin: 0;
+  font-size: 12px;
+  font-family: var(--po-font-mono);
+  color: var(--po-muted);
+}
+
+.vault-timeline__empty {
+  margin: 0;
+  color: var(--po-muted);
+}
+
 .vault-document-card {
   padding: 18px;
   border-radius: 18px;
