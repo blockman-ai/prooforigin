@@ -14,12 +14,13 @@ export const TRUST_TIER_IDS = [
 export const TIER_ROTATION_SECONDS = {
   free: 60,
   plus: 30,
-  professional: 15,
-  business: 3,
-  enterprise: 3,
+  professional: 20,
+  business: 10,
+  enterprise: 10,
 };
 
-export const FAST_TIER_MAX_SECONDS = 3;
+/** Business and Enterprise: server accepts current + previous window only (no future drift). */
+export const STRICT_VERIFY_TIERS = new Set(["business", "enterprise"]);
 
 export const TRUST_STATES = [
   "active",
@@ -83,9 +84,13 @@ export function formatTrustTierLabel(tier) {
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
-/** Drift windows for server verify: ±1 for standard tiers; current + previous only for 3s tiers. */
-export function getVerifyWindowOffsets(windowSeconds) {
-  if (windowSeconds <= FAST_TIER_MAX_SECONDS) return [-1, 0];
+/** Drift windows for server verify: current + previous + next for standard tiers; current + previous only for Business/Enterprise. */
+export function usesStrictVerifyWindow(trustTier) {
+  return STRICT_VERIFY_TIERS.has(normalizeTrustTier(trustTier));
+}
+
+export function getVerifyWindowOffsets(_windowSeconds, trustTier) {
+  if (usesStrictVerifyWindow(trustTier)) return [-1, 0];
   return [-1, 0, 1];
 }
 

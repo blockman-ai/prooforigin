@@ -420,7 +420,10 @@ export default function IdentityCardPage() {
 
           <GlassPanel title="How trust works">
             <ul className="identity-card-notices trust-manifesto">
-              <li>Live Trust Code rotates on your plan&apos;s refresh window — Free tier uses 60 seconds.</li>
+              <li>
+                Live Trust Code rotates on your plan&apos;s refresh window — Free 60s, Plus 30s,
+                Professional 20s, Business &amp; Enterprise 10s.
+              </li>
               <li>Trust History records created and verified events on ProofOrigin servers.</li>
               <li>Optional photo stays in this browser only and is never uploaded.</li>
               <li>No SSN, driver license, date of birth, or legal ID verification.</li>

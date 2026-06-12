@@ -18,7 +18,9 @@ import {
   formatTrustTierLabel,
   trustStateBadgeVariant,
   resolveCardRotationSeconds,
+  resolveCardTrustTier,
   ROTATING_CODE_WINDOW_SECONDS,
+  usesStrictVerifyWindow,
 } from "../../lib/identityCardShared";
 
 const TRUST_PASS_DISCLAIMER =
@@ -138,6 +140,7 @@ export default function PublicTrustPassPage() {
     ? resolveCardRotationSeconds(card)
     : ROTATING_CODE_WINDOW_SECONDS;
   const trustTierLabel = card ? formatTrustTierLabel(card.trust_tier || "free") : "Free";
+  const strictVerifyWindow = card ? usesStrictVerifyWindow(resolveCardTrustTier(card)) : false;
 
   return (
     <PageShell
@@ -258,7 +261,10 @@ export default function PublicTrustPassPage() {
                 />
                 <span id="trust-code-hint" className="dataset-field__hint">
                   {trustTierLabel} tier — code refreshes every {rotationWindow}s on the holder&apos;s
-                  device. Enter the live code shown right now.
+                  device. Enter the live code shown right now
+                  {strictVerifyWindow
+                    ? " (current or immediately previous window only)."
+                    : " (current or adjacent window accepted)."}
                 </span>
               </label>
               <div className="protocol-actions">

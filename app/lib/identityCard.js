@@ -24,7 +24,8 @@ export {
   IDENTITY_DISCLAIMER,
   TRUST_TIER_IDS,
   TIER_ROTATION_SECONDS,
-  FAST_TIER_MAX_SECONDS,
+  STRICT_VERIFY_TIERS,
+  usesStrictVerifyWindow,
   isCardExpired,
   secondsUntilNextCode,
   formatCardDate,
@@ -169,14 +170,15 @@ export function verifyRotatingCode(
   cardId,
   secretSeed,
   submittedCode,
-  windowSeconds = ROTATING_CODE_WINDOW_SECONDS
+  windowSeconds = ROTATING_CODE_WINDOW_SECONDS,
+  trustTier = null
 ) {
   const normalized = String(submittedCode || "")
     .replace(/\D/g, "")
     .padStart(6, "0")
     .slice(-6);
   const tw = Math.floor(Date.now() / 1000 / windowSeconds);
-  for (const offset of getVerifyWindowOffsets(windowSeconds)) {
+  for (const offset of getVerifyWindowOffsets(windowSeconds, trustTier)) {
     const expected = computeRotatingCode(
       cardId,
       secretSeed,

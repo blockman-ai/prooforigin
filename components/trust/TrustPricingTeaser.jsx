@@ -27,7 +27,7 @@ const PLANS = [
       "Unlimited Trust Passes",
       "Wallet Anchor Ready",
       "Advanced Verification History",
-      "15s Live Trust Code refresh",
+      "20s Live Trust Code refresh",
     ],
   },
   {
@@ -37,7 +37,7 @@ const PLANS = [
       "Team Trust Passes",
       "Organization Verification",
       "Audit Trail",
-      "3s Live Trust Code refresh",
+      "10s Live Trust Code refresh",
     ],
   },
   {
@@ -47,7 +47,7 @@ const PLANS = [
       "API Access",
       "Private Trust Infrastructure",
       "Bitcoin Anchor Scheduling",
-      "3s Live Trust Code refresh",
+      "10s Live Trust Code refresh (custom available)",
     ],
   },
 ];

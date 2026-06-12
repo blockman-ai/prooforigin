@@ -163,7 +163,8 @@ export async function POST(req) {
       cardId,
       secretSeed,
       currentCode,
-      rotationSeconds
+      rotationSeconds,
+      resolveCardTrustTier(activeCard)
     );
 
     if (valid) {
