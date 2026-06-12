@@ -5,6 +5,10 @@ import {
   vaultAuthFailureResponse,
 } from "../../../lib/vaultAuth";
 import {
+  appendVaultDocumentEvent,
+  VAULT_DOCUMENT_EVENT_TYPES,
+} from "../../../lib/vaultDocumentState";
+import {
   deleteVaultDocument,
   getVaultDocumentByDevice,
   isVaultAdminConfigured,
@@ -116,6 +120,31 @@ export async function DELETE(req) {
           error: "No active vault document exists for this device.",
         },
         { status: 404 }
+      );
+    }
+
+    const deletedAt = new Date().toISOString();
+    const { error: stateError } = await appendVaultDocumentEvent({
+      documentId: result.document.id,
+      eventType: VAULT_DOCUMENT_EVENT_TYPES.DELETED,
+      document: {
+        ...result.document,
+        deleted_at: deletedAt,
+      },
+      metadata: {
+        source: "vault-document-delete-v0.2.5",
+        vault_device_id: auth.vault_device_id,
+      },
+    });
+
+    if (stateError) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "DOCUMENT_STATE_EVENT_FAILED",
+          error: stateError.message || "Unable to record vault document deleted event.",
+        },
+        { status: 502 }
       );
     }
 

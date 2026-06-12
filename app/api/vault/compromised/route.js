@@ -4,6 +4,10 @@ import {
   vaultAuthFailureResponse,
 } from "../../../lib/vaultAuth";
 import {
+  appendVaultDocumentEvent,
+  VAULT_DOCUMENT_EVENT_TYPES,
+} from "../../../lib/vaultDocumentState";
+import {
   isVaultAdminConfigured,
   markVaultDocumentCompromised,
 } from "../../../lib/vaultAdmin";
@@ -58,6 +62,27 @@ export async function POST(req) {
           error: "No active vault document exists for this device.",
         },
         { status: 404 }
+      );
+    }
+
+    const { error: stateError } = await appendVaultDocumentEvent({
+      documentId: result.document.id,
+      eventType: VAULT_DOCUMENT_EVENT_TYPES.COMPROMISED,
+      document: result.document,
+      metadata: {
+        source: "vault-compromised-v0.2.5",
+        vault_device_id: auth.vault_device_id,
+      },
+    });
+
+    if (stateError) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "DOCUMENT_STATE_EVENT_FAILED",
+          error: stateError.message || "Unable to record vault document compromised event.",
+        },
+        { status: 502 }
       );
     }
 

@@ -5,6 +5,10 @@ import {
   vaultAuthFailureResponse,
 } from "../../../../lib/vaultAuth";
 import {
+  appendVaultDocumentEvent,
+  VAULT_DOCUMENT_EVENT_TYPES,
+} from "../../../../lib/vaultDocumentState";
+import {
   buildVaultDocumentStoragePath,
   completeVaultDocument,
   getVaultDocumentByDevice,
@@ -169,6 +173,27 @@ export async function POST(req) {
               : "Unable to finalize vault document metadata."),
         },
         { status: isSlotConflict ? 409 : 502 }
+      );
+    }
+
+    const { error: stateError } = await appendVaultDocumentEvent({
+      documentId: document.id,
+      eventType: VAULT_DOCUMENT_EVENT_TYPES.CREATED,
+      document,
+      metadata: {
+        source: "vault-document-complete-v0.2.5",
+        vault_device_id: auth.vault_device_id,
+      },
+    });
+
+    if (stateError) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "DOCUMENT_STATE_EVENT_FAILED",
+          error: stateError.message || "Unable to record vault document created event.",
+        },
+        { status: 502 }
       );
     }
 
