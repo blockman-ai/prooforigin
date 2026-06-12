@@ -72,7 +72,7 @@ User marks vault **compromised** (existing flow). Attacker needs PIN/passkey to 
 | **1 — P1-C1** | `vaultPasskey.js` PRF wrap/unwrap primitives + capability detection; tests only |
 | **1 — P1-C2** | `vaultPasskeyStorage.js` + `vaultPasskeyEnroll.js`; local passkey wrap persistence + enroll orchestration; no UI/unlock yet |
 | **1 — P1-C3** | Passkey unlock in `vaultUnlock.js` + minimal vault page unlock button; PIN fallback unchanged |
-| **1 — P1-C4** | Passkey enrollment UI |
+| **1 — P1-C4** | Passkey enrollment UI (`VaultPasskeySection.jsx`) |
 | **2** | Cross-device recovery, `vault_id` device registry, ciphertext re-homing |
 
 ## Storage
@@ -121,6 +121,13 @@ Wrapped records must never contain plaintext MVK.
 - **Vault page:** when a passkey wrap record exists and the vault is not in first-time PIN setup, **Unlock with Passkey** is shown alongside PIN unlock. Successful passkey unlock calls `setVaultSessionUnlockKeys()` and continues the normal unlock bootstrap.
 - **Not in P1-C3:** passkey enrollment UI (P1-C4), cross-device restore, server routes.
 
+### P1-C4 — passkey enrollment UI
+
+- `VaultPasskeySection` shows passkey status (not enrolled / enrolled + timestamp) for MVK vaults while unlocked.
+- **Enroll Passkey** calls `enrollVaultPasskey()`; **Replace Passkey** re-wraps with `replace: true`.
+- Unlock modal shows **Unlock with Passkey** above the PIN form when a wrap record exists; PIN remains fallback.
+- Requires WebAuthn PRF on the device; unsupported browsers see a clear status message and keep PIN unlock.
+
 ## Related code
 
 - `app/lib/vaultRecovery.js` — recovery phrase, key derivation, kit export/import
@@ -128,7 +135,8 @@ Wrapped records must never contain plaintext MVK.
 - `components/vault/VaultRecoverySection.jsx` — generate/download/confirm UI
 - `app/lib/vaultPasskey.js` — passkey PRF wrap/unwrap foundation + capability detection (P1-C1)
 - `app/lib/vaultPasskeyStorage.js` — passkey wrap record persistence (P1-C2)
-- `app/lib/vaultPasskeyEnroll.js` — passkey enrollment orchestration (P1-C2)
+- `components/vault/VaultPasskeySection.jsx` — passkey enroll/replace UI (P1-C4)
+- `app/lib/vaultPasskeyStatus.js` — passkey status helpers for UI
 - `app/lib/vaultUnlock.js` — unlock branching (MVK vs legacy) + passkey unlock (P1-C3)
 - `app/lib/vaultKeyRing.js` — MVK wrap/unwrap foundation
 - `app/lib/vaultKeyRingStorage.js` — wrapped MVK persistence and MVK mode detection

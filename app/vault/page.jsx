@@ -44,6 +44,7 @@ import {
   VaultPasskeyUnlockCancelledError,
 } from "../lib/vaultUnlock";
 import { isVaultPasskeyEnrolled } from "../lib/vaultPasskeyStorage";
+import { isPasskeyUnlockButtonVisible } from "../lib/vaultPasskeyStatus";
 
 import {
 
@@ -93,6 +94,8 @@ import VaultRecoveryWarning from "../../components/vault/VaultRecoveryWarning";
 
 import VaultRecoverySection from "../../components/vault/VaultRecoverySection";
 
+import VaultPasskeySection from "../../components/vault/VaultPasskeySection";
+
 import { shouldSuspendVaultFocusVanish } from "../lib/vaultVanishPolicy";
 
 
@@ -134,6 +137,8 @@ export default function VaultPage() {
   const [vanishNotice, setVanishNotice] = useState("");
 
   const [recoveryStatusTick, setRecoveryStatusTick] = useState(0);
+
+  const [passkeyStatusTick, setPasskeyStatusTick] = useState(0);
 
   const [genesis, setGenesis] = useState(null);
 
@@ -889,7 +894,10 @@ export default function VaultPage() {
 
   const hasDocument = Boolean(vaultDocument);
 
-  const passkeyUnlockAvailable = !isSetupMode && isVaultPasskeyEnrolled();
+  const passkeyUnlockAvailable = isPasskeyUnlockButtonVisible({
+    isSetupMode,
+    enrolled: isVaultPasskeyEnrolled(),
+  });
 
 
 
@@ -1082,6 +1090,12 @@ export default function VaultPage() {
 
               <VaultRecoverySection
                 onRecoveryConfirmed={() => setRecoveryStatusTick((value) => value + 1)}
+              />
+
+
+
+              <VaultPasskeySection
+                onPasskeyChanged={() => setPasskeyStatusTick((value) => value + 1)}
               />
 
 
@@ -1284,6 +1298,38 @@ export default function VaultPage() {
 
             <form className="vault-modal__form" onSubmit={handlePinSubmit}>
 
+              {passkeyUnlockAvailable && (
+
+                <div className="vault-unlock-passkey">
+
+                  <button
+
+                    type="button"
+
+                    className="primary vault-unlock-passkey__button"
+
+                    disabled={busy}
+
+                    onClick={handlePasskeyUnlock}
+
+                  >
+
+                    {busy ? "Working…" : "Unlock with Passkey"}
+
+                  </button>
+
+                  <p className="vault-unlock-passkey__divider" aria-hidden="true">
+
+                    or use PIN
+
+                  </p>
+
+                </div>
+
+              )}
+
+
+
               <label className="dataset-field">
 
                 <span className="dataset-field__label">Vault PIN</span>
@@ -1343,28 +1389,6 @@ export default function VaultPage() {
                   />
 
                 </label>
-
-              )}
-
-
-
-              {passkeyUnlockAvailable && (
-
-                <button
-
-                  type="button"
-
-                  className="secondary"
-
-                  disabled={busy}
-
-                  onClick={handlePasskeyUnlock}
-
-                >
-
-                  {busy ? "Working…" : "Unlock with Passkey"}
-
-                </button>
 
               )}
 

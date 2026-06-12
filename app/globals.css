@@ -4202,6 +4202,30 @@ p {
   color: var(--po-muted);
 }
 
+.vault-passkey-card__meta {
+  margin: 0 0 16px;
+  color: var(--po-muted);
+  font-size: 0.92rem;
+}
+
+.vault-unlock-passkey {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.vault-unlock-passkey__button {
+  width: 100%;
+}
+
+.vault-unlock-passkey__divider {
+  margin: 0;
+  text-align: center;
+  color: var(--po-muted);
+  font-size: 0.92rem;
+  text-transform: lowercase;
+}
+
 .vault-secure-documents {
   padding: 22px;
   border-radius: 22px;

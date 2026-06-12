@@ -7,6 +7,7 @@ import {
 import {
   isVaultPasskeyEnrolled,
   storePasskeyWrapRecord,
+  clearPasskeyWrapRecord,
 } from "./vaultPasskeyStorage.js";
 import { VAULT_MVK_BYTES, wipeSensitiveBytes } from "./vaultKeyRing.js";
 
@@ -201,6 +202,7 @@ export async function enrollVaultPasskey({
   masterVaultKey,
   legacyPinKey,
   rpId,
+  replace = false,
   detectCapabilities = detectPasskeyCapabilities,
   createCredential = createVaultPasskeyCredential,
   evaluatePrf = evaluateVaultPasskeyPrf,
@@ -212,7 +214,10 @@ export async function enrollVaultPasskey({
   assertEnrollmentKeys(masterVaultKey, legacyPinKey);
 
   if (isVaultPasskeyEnrolled()) {
-    throw new Error("Passkey is already enrolled for this vault.");
+    if (!replace) {
+      throw new Error("Passkey is already enrolled for this vault.");
+    }
+    clearPasskeyWrapRecord();
   }
 
   const capabilities = await detectCapabilities();
