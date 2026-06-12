@@ -4,6 +4,7 @@ export const VAULT_STATES = {
   LOCKED: "locked",
   UNLOCKED: "unlocked",
   VANISH: "vanish",
+  SEALED: "sealed",
 };
 
 export const VAULT_VANISH_MESSAGE = "Vault protected. Re-authentication required.";

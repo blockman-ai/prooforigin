@@ -3597,6 +3597,101 @@ p {
   color: var(--po-cyan);
 }
 
+.vault-status-pill--sealed {
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  background: rgba(167, 139, 250, 0.1);
+  color: #c4b5fd;
+}
+
+.vault-genesis-card {
+  padding: 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(167, 139, 250, 0.22);
+  background:
+    linear-gradient(
+      160deg,
+      rgba(36, 32, 52, 0.55) 0%,
+      rgba(14, 18, 26, 0.82) 100%
+    );
+  margin-bottom: 20px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.vault-genesis-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.vault-genesis-card__title {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.vault-genesis-card__status {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  background: rgba(167, 139, 250, 0.12);
+  color: #ddd6fe;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.vault-genesis-card__lead {
+  margin: 0 0 18px;
+  color: var(--po-muted);
+  line-height: 1.65;
+  max-width: 52ch;
+}
+
+.vault-genesis-card__grid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px 18px;
+}
+
+.vault-genesis-card__grid dt {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--po-muted);
+  font-weight: 700;
+}
+
+.vault-genesis-card__grid dd {
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.vault-genesis-card__mono {
+  font-family: var(--po-font-mono);
+  font-size: 12px;
+}
+
+.vault-genesis-card__value--emphasis {
+  font-weight: 700;
+  color: #ddd6fe;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.vault-genesis-card__actions {
+  margin-top: 18px;
+  justify-content: flex-start;
+}
+
 .vault-shell__body {
   position: relative;
   z-index: 1;
@@ -3810,6 +3905,7 @@ p {
 
   .vault-locked-panel__actions,
   .vault-status-card__actions,
+  .vault-genesis-card__actions,
   .protocol-actions {
     flex-direction: column;
     align-items: stretch;
@@ -3817,7 +3913,8 @@ p {
 
   .vault-locked-panel__actions .primary,
   .vault-locked-panel__actions .secondary,
-  .vault-status-card__actions .secondary {
+  .vault-status-card__actions .secondary,
+  .vault-genesis-card__actions .secondary {
     width: 100%;
     text-align: center;
   }

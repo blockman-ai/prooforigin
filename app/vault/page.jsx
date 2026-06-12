@@ -11,6 +11,13 @@ import {
   VAULT_PIN_MIN_LENGTH,
 } from "../lib/vaultPin";
 import {
+  ensureVaultGenesis,
+  formatGenesisHashPreview,
+  formatVaultCreatedAt,
+  formatVaultIdDisplay,
+  VAULT_IDENTITY_STATES,
+} from "../lib/vaultGenesis";
+import {
   formatLastUnlockTime,
   VAULT_INACTIVITY_MS,
   VAULT_STATES,
@@ -36,6 +43,7 @@ export default function VaultPage() {
   const [busy, setBusy] = useState(false);
   const [lastUnlockTime, setLastUnlockTime] = useState(null);
   const [vanishNotice, setVanishNotice] = useState("");
+  const [genesis, setGenesis] = useState(null);
 
   const inactivityTimerRef = useRef(null);
   const vanishNoticeTimerRef = useRef(null);
@@ -48,6 +56,7 @@ export default function VaultPage() {
     setIsSetupMode(false);
     setError("");
     setLastUnlockTime(null);
+    setGenesis(null);
 
     if (inactivityTimerRef.current) {
       window.clearTimeout(inactivityTimerRef.current);
@@ -156,6 +165,9 @@ export default function VaultPage() {
         }
       }
 
+      const genesisRecord = await ensureVaultGenesis();
+      setGenesis(genesisRecord);
+
       setShowUnlockPanel(false);
       setPinInput("");
       setConfirmPinInput("");
@@ -173,11 +185,12 @@ export default function VaultPage() {
   const isVanish = vaultState === VAULT_STATES.VANISH;
   const isUnlocked = vaultState === VAULT_STATES.UNLOCKED;
   const showProtectedOverlay = isVanish || (isLocked && Boolean(vanishNotice));
+  const isSealed = genesis?.vault_state === VAULT_IDENTITY_STATES.SEALED;
 
   return (
     <PageShell
       narrow
-      badge="Private Vault • V0.1"
+      badge="Private Vault • V0.1B"
       title="ProofOrigin Private Vault"
       subtitle="Your encrypted trust assets."
       className="vault-page trust-cred-page"
@@ -197,9 +210,17 @@ export default function VaultPage() {
             </div>
           </div>
           <span
-            className={`vault-status-pill vault-status-pill--${isUnlocked ? "unlocked" : "locked"}`.trim()}
+            className={`vault-status-pill vault-status-pill--${
+              isUnlocked && isSealed ? "sealed" : isUnlocked ? "unlocked" : "locked"
+            }`.trim()}
           >
-            {isUnlocked ? "Unlocked" : isVanish ? "Vanish" : "Locked"}
+            {isUnlocked && isSealed
+              ? "Sealed"
+              : isUnlocked
+                ? "Unlocked"
+                : isVanish
+                  ? "Vanish"
+                  : "Locked"}
           </span>
         </header>
 
@@ -212,27 +233,44 @@ export default function VaultPage() {
         <div className={`vault-shell__body ${showProtectedOverlay ? "vault-shell__body--blurred" : ""}`.trim()}>
           {isUnlocked ? (
             <>
-              <section className="vault-status-card" aria-label="Vault status">
-                <h3 className="vault-status-card__title">Vault Status</h3>
-                <dl className="vault-status-card__grid">
+              <section className="vault-genesis-card" aria-label="Vault Genesis">
+                <div className="vault-genesis-card__header">
+                  <h3 className="vault-genesis-card__title">Vault Genesis</h3>
+                  <span className="vault-genesis-card__status">Sealed</span>
+                </div>
+                <p className="vault-genesis-card__lead">
+                  Your vault has been sealed. Future encrypted documents will build from this
+                  genesis proof.
+                </p>
+                <dl className="vault-genesis-card__grid">
                   <div>
-                    <dt>Protection</dt>
-                    <dd>Protected</dd>
+                    <dt>Vault status</dt>
+                    <dd className="vault-genesis-card__value--emphasis">Sealed</dd>
                   </div>
                   <div>
-                    <dt>State</dt>
-                    <dd>Unlocked</dd>
+                    <dt>Vault ID</dt>
+                    <dd className="vault-genesis-card__mono">{formatVaultIdDisplay(genesis?.vault_id)}</dd>
+                  </div>
+                  <div>
+                    <dt>Created</dt>
+                    <dd>{formatVaultCreatedAt(genesis?.vault_created_at)}</dd>
+                  </div>
+                  <div>
+                    <dt>Genesis hash</dt>
+                    <dd className="vault-genesis-card__mono" title={genesis?.vault_genesis_hash || undefined}>
+                      {formatGenesisHashPreview(genesis?.vault_genesis_hash)}
+                    </dd>
                   </div>
                   <div>
                     <dt>Last unlock</dt>
                     <dd>{formatLastUnlockTime(lastUnlockTime)}</dd>
                   </div>
                   <div>
-                    <dt>Auto-lock</dt>
-                    <dd>30s inactivity · blur on focus loss</dd>
+                    <dt>Documents</dt>
+                    <dd>None yet</dd>
                   </div>
                 </dl>
-                <div className="protocol-actions vault-status-card__actions">
+                <div className="protocol-actions vault-genesis-card__actions">
                   <button type="button" className="secondary" onClick={() => triggerVanish("manual")}>
                     Lock Now
                   </button>
