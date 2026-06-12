@@ -1,4 +1,9 @@
 import crypto from "crypto";
+import {
+  getVaultDeviceRegistration,
+  isVaultAdminConfigured,
+  touchVaultDeviceLastSeen,
+} from "./vaultAdmin";
 
 export const VAULT_AUTH_SKEW_MS = 5 * 60 * 1000;
 export const VAULT_AUTH_HEADER_DEVICE_ID = "x-prooforigin-vault-device-id";
@@ -14,6 +19,41 @@ export function hashVaultRequestBody(bodyText = "") {
   return crypto.createHash("sha256").update(bodyText).digest("hex");
 }
 
+export function buildVaultSignaturePayload({ method, path, bodyHash, timestamp }) {
+  return `${String(method).toUpperCase()}|${path}|${String(timestamp)}|${bodyHash}`;
+}
+
+function hexToBuffer(hex) {
+  return Buffer.from(hex, "hex");
+}
+
+function safeEqualHex(left, right) {
+  try {
+    const leftBuffer = hexToBuffer(String(left).toLowerCase());
+    const rightBuffer = hexToBuffer(String(right).toLowerCase());
+    if (leftBuffer.length !== rightBuffer.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+  } catch {
+    return false;
+  }
+}
+
+export function verifyVaultSignature({
+  authSecretHash,
+  method,
+  path,
+  bodyHash,
+  timestamp,
+  signature,
+}) {
+  const payload = buildVaultSignaturePayload({ method, path, bodyHash, timestamp });
+  const signingKey = hexToBuffer(String(authSecretHash).toLowerCase());
+  const expected = crypto.createHmac("sha256", signingKey).update(payload).digest("hex");
+  return safeEqualHex(expected, signature);
+}
+
 function readVaultAuthHeaders(req) {
   return {
     vault_device_id: req.headers.get(VAULT_AUTH_HEADER_DEVICE_ID)?.trim() || "",
@@ -23,7 +63,7 @@ function readVaultAuthHeaders(req) {
   };
 }
 
-export function authorizeVaultRequest(req, { bodyText = "" } = {}) {
+export async function authorizeVaultRequest(req, { method, path, bodyText = "" } = {}) {
   const headers = readVaultAuthHeaders(req);
 
   if (
@@ -37,6 +77,15 @@ export function authorizeVaultRequest(req, { bodyText = "" } = {}) {
       status: 401,
       code: "VAULT_AUTH_REQUIRED",
       message: "Vault authentication headers are required.",
+    };
+  }
+
+  if (!method || !path) {
+    return {
+      ok: false,
+      status: 401,
+      code: "VAULT_AUTH_REQUIRED",
+      message: "Vault request method and path are required for authentication.",
     };
   }
 
@@ -96,14 +145,60 @@ export function authorizeVaultRequest(req, { bodyText = "" } = {}) {
     };
   }
 
-  // TODO(V0.2+): Verify HMAC-SHA256 signature against vault_auth_secret stored
-  // in a server-side vault_device_registrations table. The secret currently lives
-  // only in browser localStorage, so this commit performs header presence and
-  // format checks only — NOT production-secure authentication.
+  if (!isVaultAdminConfigured()) {
+    return {
+      ok: false,
+      status: 503,
+      code: "STORAGE_NOT_CONFIGURED",
+      message: "Vault storage is not configured. Set Supabase service role credentials.",
+    };
+  }
+
+  const { registration, error } = await getVaultDeviceRegistration(headers.vault_device_id);
+
+  if (error) {
+    return {
+      ok: false,
+      status: 502,
+      code: "VAULT_DEVICE_LOOKUP_FAILED",
+      message: error.message || "Unable to verify vault device registration.",
+    };
+  }
+
+  if (!registration) {
+    return {
+      ok: false,
+      status: 401,
+      code: "VAULT_DEVICE_NOT_REGISTERED",
+      message: "Vault device is not registered.",
+    };
+  }
+
+  const signatureValid = verifyVaultSignature({
+    authSecretHash: registration.auth_secret_hash,
+    method,
+    path,
+    bodyHash: headers.body_hash,
+    timestamp: headers.timestamp,
+    signature: headers.signature,
+  });
+
+  if (!signatureValid) {
+    return {
+      ok: false,
+      status: 401,
+      code: "VAULT_AUTH_REQUIRED",
+      message: "Vault signature verification failed.",
+    };
+  }
+
+  await touchVaultDeviceLastSeen(headers.vault_device_id);
 
   return {
     ok: true,
     vault_device_id: headers.vault_device_id,
+    device_public_id: registration.device_public_id,
+    registration,
   };
 }
 

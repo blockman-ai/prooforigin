@@ -25,9 +25,14 @@ function storageNotConfiguredResponse() {
 
 export async function GET(req) {
   try {
-    const auth = authorizeVaultRequest(req, { bodyText: "" });
+    const auth = await authorizeVaultRequest(req, {
+      method: "GET",
+      path: "/api/vault/document",
+      bodyText: "",
+    });
     if (!auth.ok) {
-      return NextResponse.json(vaultAuthFailureResponse(auth), { status: auth.status });
+      const status = auth.code === "STORAGE_NOT_CONFIGURED" ? 503 : auth.status;
+      return NextResponse.json(vaultAuthFailureResponse(auth), { status });
     }
 
     if (!isVaultAdminConfigured()) {
@@ -77,7 +82,11 @@ export async function GET(req) {
 export async function DELETE(req) {
   try {
     const bodyText = await req.text();
-    const auth = authorizeVaultRequest(req, { bodyText });
+    const auth = await authorizeVaultRequest(req, {
+      method: "DELETE",
+      path: "/api/vault/document",
+      bodyText,
+    });
     if (!auth.ok) {
       return NextResponse.json(vaultAuthFailureResponse(auth), { status: auth.status });
     }

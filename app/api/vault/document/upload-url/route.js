@@ -28,7 +28,11 @@ function storageNotConfiguredResponse() {
 export async function POST(req) {
   try {
     const bodyText = await req.text();
-    const auth = authorizeVaultRequest(req, { bodyText });
+    const auth = await authorizeVaultRequest(req, {
+      method: "POST",
+      path: "/api/vault/document/upload-url",
+      bodyText,
+    });
     if (!auth.ok) {
       return NextResponse.json(vaultAuthFailureResponse(auth), { status: auth.status });
     }

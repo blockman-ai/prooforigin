@@ -1,6 +1,7 @@
 import { sha256Hex } from "./vaultCrypto";
 
 export const VAULT_DEVICE_STORAGE_KEY = "prooforigin_vault_device_v1";
+export const VAULT_DEVICE_REGISTERED_KEY = "prooforigin_vault_device_registered_v1";
 export const VAULT_AUTH_SECRET_BYTES = 32;
 export const VAULT_SIGNATURE_SKEW_MS = 5 * 60 * 1000;
 
@@ -18,6 +19,14 @@ function base64ToBuffer(base64) {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) {
     bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function hexToBuffer(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = Number.parseInt(hex.slice(i, i + 2), 16);
   }
   return bytes;
 }
@@ -78,6 +87,58 @@ export function ensureVaultDevice() {
   };
 }
 
+export async function computeVaultAuthSecretHash(vaultAuthSecretBase64) {
+  const secretBytes = base64ToBuffer(vaultAuthSecretBase64);
+  const hash = await sha256Hex(secretBytes);
+  secretBytes.fill(0);
+  return hash;
+}
+
+export function isVaultDeviceRegisteredLocally() {
+  const device = getVaultDevice();
+  if (!device) return false;
+
+  try {
+    return window.localStorage.getItem(VAULT_DEVICE_REGISTERED_KEY) === device.vault_device_id;
+  } catch {
+    return false;
+  }
+}
+
+export function markVaultDeviceRegisteredLocally(vaultDeviceId) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(VAULT_DEVICE_REGISTERED_KEY, vaultDeviceId);
+}
+
+export function clearVaultDeviceRegisteredLocally() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(VAULT_DEVICE_REGISTERED_KEY);
+}
+
+export async function registerVaultDeviceWithServer() {
+  const device = ensureVaultDevice();
+  const authSecretHash = await computeVaultAuthSecretHash(device.vault_auth_secret);
+
+  const response = await fetch("/api/vault/register-device", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      vault_device_id: device.vault_device_id,
+      auth_secret_hash: authSecretHash,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || "Unable to register vault device.");
+  }
+
+  markVaultDeviceRegisteredLocally(device.vault_device_id);
+  return data.registration;
+}
+
 export async function hashVaultBody(input) {
   if (input == null || input === "") {
     return sha256Hex("");
@@ -100,18 +161,25 @@ export async function hashVaultBody(input) {
   return sha256Hex(JSON.stringify(input));
 }
 
-function buildSignaturePayload({ method, path, bodyHash, timestamp }) {
+export function buildVaultSignaturePayload({ method, path, bodyHash, timestamp }) {
   return `${String(method).toUpperCase()}|${path}|${String(timestamp)}|${bodyHash}`;
+}
+
+async function deriveVaultSigningKey(secretBase64) {
+  const secretBytes = base64ToBuffer(secretBase64);
+  const authSecretHash = await sha256Hex(secretBytes);
+  secretBytes.fill(0);
+  return hexToBuffer(authSecretHash);
 }
 
 export async function signVaultRequest({ method, path, bodyHash, timestamp }) {
   const device = ensureVaultDevice();
-  const secretBytes = base64ToBuffer(device.vault_auth_secret);
-  const payload = buildSignaturePayload({ method, path, bodyHash, timestamp });
+  const signingKeyBytes = await deriveVaultSigningKey(device.vault_auth_secret);
+  const payload = buildVaultSignaturePayload({ method, path, bodyHash, timestamp });
 
   const hmacKey = await crypto.subtle.importKey(
     "raw",
-    secretBytes,
+    signingKeyBytes,
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
@@ -123,7 +191,7 @@ export async function signVaultRequest({ method, path, bodyHash, timestamp }) {
     new TextEncoder().encode(payload)
   );
 
-  secretBytes.fill(0);
+  signingKeyBytes.fill(0);
 
   const signature = Array.from(new Uint8Array(signatureBuffer))
     .map((byte) => byte.toString(16).padStart(2, "0"))
@@ -136,7 +204,7 @@ export async function signVaultRequest({ method, path, bodyHash, timestamp }) {
   };
 }
 
-export function buildVaultAuthHeaders({ method, path, bodyHash, timestamp, signature, vaultDeviceId }) {
+export function buildVaultAuthHeaders({ bodyHash, timestamp, signature, vaultDeviceId }) {
   return {
     "x-prooforigin-vault-device-id": vaultDeviceId,
     "x-prooforigin-vault-timestamp": String(timestamp),
@@ -151,8 +219,6 @@ export async function createSignedVaultAuthHeaders({ method, path, body = "" }) 
   const signed = await signVaultRequest({ method, path, bodyHash, timestamp });
 
   return buildVaultAuthHeaders({
-    method,
-    path,
     bodyHash,
     timestamp,
     signature: signed.signature,

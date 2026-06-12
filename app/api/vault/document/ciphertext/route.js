@@ -25,7 +25,11 @@ function storageNotConfiguredResponse() {
 
 export async function GET(req) {
   try {
-    const auth = authorizeVaultRequest(req, { bodyText: "" });
+    const auth = await authorizeVaultRequest(req, {
+      method: "GET",
+      path: "/api/vault/document/ciphertext",
+      bodyText: "",
+    });
     if (!auth.ok) {
       return NextResponse.json(vaultAuthFailureResponse(auth), { status: auth.status });
     }

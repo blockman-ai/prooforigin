@@ -3,10 +3,7 @@ import {
   authorizeVaultRequest,
   vaultAuthFailureResponse,
 } from "../../../lib/vaultAuth";
-import {
-  isVaultAdminConfigured,
-  markVaultDocumentCompromised,
-} from "../../../lib/vaultAdmin";
+import { isVaultAdminConfigured, revokeVaultDevice } from "../../../lib/vaultAdmin";
 
 export const dynamic = "force-dynamic";
 
@@ -26,25 +23,27 @@ export async function POST(req) {
     const bodyText = await req.text();
     const auth = await authorizeVaultRequest(req, {
       method: "POST",
-      path: "/api/vault/compromised",
+      path: "/api/vault/revoke-device",
       bodyText,
     });
+
     if (!auth.ok) {
-      return NextResponse.json(vaultAuthFailureResponse(auth), { status: auth.status });
+      const status = auth.code === "STORAGE_NOT_CONFIGURED" ? 503 : auth.status;
+      return NextResponse.json(vaultAuthFailureResponse(auth), { status });
     }
 
     if (!isVaultAdminConfigured()) {
       return storageNotConfiguredResponse();
     }
 
-    const result = await markVaultDocumentCompromised(auth.vault_device_id);
+    const result = await revokeVaultDevice(auth.vault_device_id);
 
     if (result.error) {
       return NextResponse.json(
         {
           success: false,
-          code: "VAULT_COMPROMISE_FAILED",
-          error: result.error.message || "Unable to mark vault document compromised.",
+          code: "DEVICE_REVOKE_FAILED",
+          error: result.error.message || "Unable to revoke vault device.",
         },
         { status: 502 }
       );
@@ -54,8 +53,8 @@ export async function POST(req) {
       return NextResponse.json(
         {
           success: false,
-          code: "DOCUMENT_NOT_FOUND",
-          error: "No active vault document exists for this device.",
+          code: "VAULT_DEVICE_NOT_REGISTERED",
+          error: "Vault device is not registered.",
         },
         { status: 404 }
       );
@@ -63,13 +62,13 @@ export async function POST(req) {
 
     return NextResponse.json({
       success: true,
-      compromised: true,
-      id: result.document?.id || null,
-      compromised_at: result.document?.compromised_at || null,
+      revoked: true,
+      vault_device_id: result.registration?.vault_device_id || auth.vault_device_id,
+      revoked_at: result.registration?.revoked_at || null,
     });
   } catch {
     return NextResponse.json(
-      { success: false, code: "INVALID_REQUEST", error: "Invalid vault compromised request." },
+      { success: false, code: "INVALID_REQUEST", error: "Invalid vault device revoke request." },
       { status: 400 }
     );
   }
