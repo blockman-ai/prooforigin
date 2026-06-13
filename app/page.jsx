@@ -2,98 +2,155 @@ import FeatureCard from "../components/protocol/FeatureCard";
 import GlassPanel from "../components/protocol/GlassPanel";
 import PageShell from "../components/protocol/PageShell";
 
+const TRUST_STACK = [
+  {
+    name: "Trust Pass",
+    role: "Identity",
+    description: "Rotating verification codes and public trust history — not a government ID.",
+    accent: "cyan",
+  },
+  {
+    name: "Voice Anchor",
+    role: "Authenticity",
+    description: "Optional private voice fingerprint hash to document your real voice.",
+    accent: "violet",
+  },
+  {
+    name: "Vault",
+    role: "Custody",
+    description: "Zero-knowledge encrypted documents — keys stay on your device.",
+    accent: "mint",
+  },
+  {
+    name: "Guide",
+    role: "Understanding",
+    description: "Safe answers about vault unlock, passkeys, and recovery.",
+    accent: "cyan",
+  },
+  {
+    name: "Sentinel",
+    role: "Protection",
+    description: "Platform integrity monitoring for ops — never accesses your secrets.",
+    accent: "violet",
+  },
+];
+
+const START_HERE = [
+  {
+    step: "01",
+    title: "Create Trust Pass",
+    description: "Generate a live verification pass for chats, communities, and online trust.",
+    href: "/identity-card",
+    accent: "cyan",
+  },
+  {
+    step: "02",
+    title: "Open Private Vault",
+    description: "Set up your encrypted vault for documents and trust assets.",
+    href: "/vault",
+    accent: "violet",
+  },
+  {
+    step: "03",
+    title: "Save Recovery Kit",
+    description: "Export your recovery kit inside the vault — required for device loss.",
+    href: "/vault",
+    accent: "mint",
+  },
+];
+
 export default function Home() {
   return (
     <PageShell
-      badge="Protocol Evaluation • Evidence Records"
-      title="ProofOrigin"
-      subtitle="Create verifiable evaluation records for digital media. Structural evidence and protocol context—not absolute truth."
+      badge="Personal Trust Infrastructure • Beta"
+      title="Verify identity. Protect documents. Stay in control."
+      subtitle="Trust Pass, Private Vault, Recovery Kit, Guide, and Sentinel — built around zero-knowledge principles."
     >
       <div className="hero-cta-row">
-        <a href="/upload" className="primary hero-cta-row__primary">
-          Create Proof Record
+        <a href="/identity-card" className="primary hero-cta-row__primary">
+          Create Trust Pass
         </a>
-        <a href="/detect" className="secondary">
-          Run Live Detector
-        </a>
-        <a
-          href="https://tally.so/r/vGJQYX"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="secondary"
-        >
-          Join Waitlist
+        <a href="/vault" className="secondary">
+          Open Private Vault
         </a>
       </div>
 
-      <section className="bento-grid" aria-label="How ProofOrigin works">
-        <FeatureCard
-          step="01"
-          title="Upload Content"
-          description="Submit media for protocol-scoped evaluation and durable record creation."
-        />
-        <FeatureCard
-          step="02"
-          title="Run Evaluation"
-          description="Engine signals, metadata clues, and protocol context collected within defined claim boundaries."
-          accent="violet"
-        />
-        <FeatureCard
-          step="03"
-          title="Get a Record"
-          description="Receive a public evaluation record with notices—not a definitive truth verdict."
-          accent="mint"
-        />
-        <GlassPanel className="bento-grid__mission" title="Built for synthetic media">
-          <p className="bento-grid__mission-copy">
-            As AI content becomes harder to recognize, ProofOrigin helps creators,
-            businesses, and everyday users document what evaluation evidence
-            exists—without overclaiming certainty.
+      <section className="trust-stack" aria-label="The ProofOrigin trust stack">
+        <header className="home-section__header">
+          <h2 className="home-section__title">The trust stack</h2>
+          <p className="home-section__lead">
+            Five layers that work together — identity, authenticity, custody, understanding,
+            and protection.
           </p>
-        </GlassPanel>
+        </header>
+        <div className="trust-stack__grid">
+          {TRUST_STACK.map((item) => (
+            <article
+              key={item.name}
+              className={`feature-card feature-card--${item.accent} trust-stack__card`}
+            >
+              <p className="trust-stack__role">{item.role}</p>
+              <h3 className="feature-card__title">{item.name}</h3>
+              <p className="feature-card__body">{item.description}</p>
+            </article>
+          ))}
+        </div>
       </section>
 
-      <section className="voice-promo" aria-label="Voice identity protection">
-        <GlassPanel className="voice-promo__panel" title="Protect your voice identity">
-          <p className="voice-promo__copy">
-            AI voice clones are already used in phone scams and impersonation fraud.
-            Voice Identity Anchor is ProofOrigin&apos;s first step toward helping people
-            document and protect their real voice — starting with a private fingerprint
-            hash, not a public recording.
-          </p>
-          <div className="protocol-actions voice-promo__actions">
-            <a href="/voice-anchor" className="primary">
-              Explore Voice Anchor V1
-            </a>
-          </div>
-        </GlassPanel>
-      </section>
-
-      <section className="identity-promo" aria-label="Online identity card">
-        <GlassPanel className="identity-promo__panel" title="Create an Online Identity Card">
-          <p className="identity-promo__copy">
-            Need a temporary online identity pass for chats, communities, or digital
-            trust? Generate a ProofOrigin card with a rotating verification code — a
-            practical step for online safety, not a government ID.
-          </p>
-          <div className="protocol-actions identity-promo__actions">
-            <a href="/identity-card" className="primary">
-              Create Identity Card
-            </a>
-          </div>
-        </GlassPanel>
-      </section>
-
-      <section className="arcade-strip">
-        <p className="arcade-strip__label">Protocol Arcade</p>
-        <div className="protocol-actions arcade-strip__actions">
-          <a href="/dog-game" className="game-button">
-            DOG BOOST Flight
+      <section className="home-start-here" aria-label="Start here">
+        <header className="home-section__header">
+          <h2 className="home-section__title">Start here</h2>
+          <p className="home-section__lead">Three steps to get value in minutes.</p>
+        </header>
+        <div className="home-start-here__grid">
+          {START_HERE.map((item) => (
+            <FeatureCard
+              key={item.step}
+              step={item.step}
+              title={item.title}
+              description={item.description}
+              accent={item.accent}
+            />
+          ))}
+        </div>
+        <div className="protocol-actions home-start-here__actions">
+          <a href="/identity-card" className="primary">
+            Create Trust Pass
           </a>
-          <a href="/snake-boost" className="game-button">
-            Snake BOOST
+          <a href="/vault" className="secondary">
+            Open Private Vault
           </a>
         </div>
+      </section>
+
+      <section className="home-guide-promo" aria-label="ProofOrigin Guide">
+        <GlassPanel className="home-guide-promo__panel" title="Questions about passkeys, recovery, or vaults?">
+          <p className="home-guide-promo__copy">
+            Ask Guide from any page — safe, in-app help about unlock, Recovery Kit, and Trust
+            Pass. Guide never asks for your PIN, recovery phrase, or vault keys.
+          </p>
+          <p className="home-guide-promo__hint">
+            Use the <strong>Need help?</strong> button in the corner of this page.
+          </p>
+        </GlassPanel>
+      </section>
+
+      <section className="home-beta-notice" aria-label="Beta notice">
+        <GlassPanel title="Honest beta boundaries">
+          <p className="home-beta-notice__copy">
+            ProofOrigin is personal trust infrastructure in cautious beta — not a government ID,
+            not absolute truth verification, and not account recovery if you lose your device
+            and recovery kit. Losing all three — device, PIN or passkey, and recovery kit — means
+            permanent vault lockout by design.
+          </p>
+        </GlassPanel>
+      </section>
+
+      <section className="home-labs-link" aria-label="Labs">
+        <p className="home-labs-link__copy">
+          Researchers and experimenters: media provenance tools and protocol arcade live in{" "}
+          <a href="/labs">Labs</a>.
+        </p>
       </section>
     </PageShell>
   );

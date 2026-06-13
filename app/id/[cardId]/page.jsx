@@ -323,7 +323,7 @@ export default function PublicTrustPassPage() {
 
       <div className="protocol-actions">
         <Link href="/identity-card" className="secondary">
-          Forge your own trust pass
+          Create your Trust Pass
         </Link>
       </div>
 

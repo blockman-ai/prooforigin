@@ -185,9 +185,9 @@ export default function IdentityCardPage() {
   return (
     <PageShell
       narrow
-      badge="Premium Trust Credential • Holder"
-      title="Forge your digital reputation."
-      subtitle={`Trust is built through history, verification, and proof. ${TRUST_PASS_DISCLAIMER}`}
+      badge="Trust Pass • Beta"
+      title="Create your Trust Pass"
+      subtitle={`Live verification codes and trust history — built through proof, not passwords. ${TRUST_PASS_DISCLAIMER}`}
       className="trust-cred-page"
     >
       <p className="trust-cred-lead">
@@ -331,7 +331,7 @@ export default function IdentityCardPage() {
         </>
       ) : (
         <>
-          <GlassPanel title="Forge your pass" className="trust-forge-panel">
+          <GlassPanel title="Create your Trust Pass" className="trust-forge-panel">
             <p className="trust-forge-panel__intro">
               Generate a rotating Live Trust Code and share a verification link. Optional photo
               stays in this browser only.

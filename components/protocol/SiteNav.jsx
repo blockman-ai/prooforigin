@@ -4,18 +4,17 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useState } from "react";
 
 const LINKS = [
-  { href: "/upload", label: "Upload" },
-  { href: "/detect", label: "Detect" },
-  { href: "/voice-anchor", label: "Voice Anchor" },
-  { href: "/identity-card", label: "Identity Card" },
+  { href: "/identity-card", label: "Trust Pass" },
   { href: "/vault", label: "Vault" },
+  { href: "/voice-anchor", label: "Voice Anchor" },
+  { href: "/labs", label: "Labs" },
   { href: "/dashboard", label: "Records" },
 ];
 
 const MOBILE_LINKS = [
   { href: "/", label: "Home" },
   ...LINKS,
-  { href: "/upload", label: "New Record", cta: true },
+  { href: "/identity-card", label: "Create Trust Pass", cta: true },
 ];
 
 export default function SiteNav() {
@@ -68,8 +67,8 @@ export default function SiteNav() {
           ))}
         </div>
 
-        <Link href="/upload" className="site-nav__cta">
-          New Record
+        <Link href="/identity-card" className="site-nav__cta">
+          Create Trust Pass
         </Link>
 
         <button
