@@ -187,11 +187,11 @@ export default function IdentityCardPage() {
       narrow
       badge="Trust Pass • Beta"
       title="Create your Trust Pass"
-      subtitle={`Live verification codes and trust history — built through proof, not passwords. ${TRUST_PASS_DISCLAIMER}`}
+      subtitle={`Live verification codes and trust history built through proof, not passwords. ${TRUST_PASS_DISCLAIMER}`}
       className="trust-cred-page"
     >
       <p className="trust-cred-lead">
-        {TRUST_PASS_DISCLAIMER} A temporary online pass for digital trust — not a legal
+        {TRUST_PASS_DISCLAIMER} A temporary online pass for digital trust, not a legal
         identity document.
       </p>
 
@@ -436,7 +436,7 @@ export default function IdentityCardPage() {
           <GlassPanel title="How trust works">
             <ul className="identity-card-notices trust-manifesto">
               <li>
-                Live Trust Code rotates on your plan&apos;s refresh window — Free 60s, Plus 30s,
+                Live Trust Code rotates on your plan&apos;s refresh window: Free 60s, Plus 30s,
                 Professional 20s, Business &amp; Enterprise 10s.
               </li>
               <li>Trust History records created and verified events on ProofOrigin servers.</li>

@@ -270,7 +270,7 @@ export default function PublicTrustPassPage() {
                   aria-describedby="trust-code-hint"
                 />
                 <span id="trust-code-hint" className="dataset-field__hint">
-                  {trustTierLabel} tier — code refreshes every {rotationWindow}s on the holder&apos;s
+                  {trustTierLabel} tier. Code refreshes every {rotationWindow}s on the holder&apos;s
                   device. Enter the live code shown right now
                   {strictVerifyWindow
                     ? " (current or immediately previous window only)."

@@ -2,14 +2,14 @@ import "./globals.css";
 import GuideAppShell from "../components/guide/GuideAppShell.jsx";
 
 const SITE_DESCRIPTION =
-  "Personal trust infrastructure — verify identity, protect documents, and stay in control with Trust Pass, Private Vault, and zero-knowledge design.";
+  "Personal trust infrastructure for identity, custody, and recovery. Trust Pass, Private Vault, and zero-knowledge design.";
 
 export const metadata = {
-  title: "ProofOrigin — Personal Trust Infrastructure",
+  title: "ProofOrigin | Personal Trust Infrastructure",
   description: SITE_DESCRIPTION,
 
   openGraph: {
-    title: "ProofOrigin — Personal Trust Infrastructure",
+    title: "ProofOrigin | Personal Trust Infrastructure",
     description: SITE_DESCRIPTION,
     url: "https://www.prooforigin.org",
     siteName: "ProofOrigin",
@@ -18,7 +18,7 @@ export const metadata = {
 
   twitter: {
     card: "summary_large_image",
-    title: "ProofOrigin — Personal Trust Infrastructure",
+    title: "ProofOrigin | Personal Trust Infrastructure",
     description: SITE_DESCRIPTION,
   },
 };

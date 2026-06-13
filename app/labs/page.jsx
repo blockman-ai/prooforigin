@@ -10,7 +10,7 @@ const PROVENANCE_LINKS = [
   {
     href: "/detect",
     title: "Live Detector",
-    description: "Run the protocol evaluation engine on an image — not absolute truth.",
+    description: "Run the evaluation engine on an image. Not absolute truth.",
   },
   {
     href: "/dashboard",
@@ -33,13 +33,13 @@ export default function LabsPage() {
     <PageShell
       badge="Labs • Experimental"
       title="Research and experiments"
-      subtitle="Provenance evaluation tools and protocol arcade — separate from the core trust stack."
+      subtitle="Provenance tools and protocol arcade, separate from the core trust stack."
     >
       <section className="labs-section" aria-label="Media provenance">
         <GlassPanel title="Media provenance">
           <p className="labs-section__lead">
             Protocol-scoped evaluation for digital media. Structural evidence and engine
-            diagnostics — not a definitive truth verdict.
+            diagnostics. Not a definitive truth verdict.
           </p>
           <ul className="labs-link-list">
             {PROVENANCE_LINKS.map((link) => (
@@ -57,7 +57,7 @@ export default function LabsPage() {
       <section className="labs-section" aria-label="Protocol arcade">
         <GlassPanel title="Protocol arcade">
           <p className="labs-section__lead">
-            Experimental arcade drills — not part of ProofOrigin trust infrastructure.
+            Experimental drills. Not part of ProofOrigin trust infrastructure.
           </p>
           <div className="protocol-actions labs-arcade__actions">
             {ARCADE_LINKS.map((link) => (

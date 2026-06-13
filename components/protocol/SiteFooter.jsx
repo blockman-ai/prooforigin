@@ -5,8 +5,7 @@ export default function SiteFooter() {
     <footer className="site-footer">
       <div className="site-footer__inner">
         <p className="site-footer__notice">
-          ProofOrigin is personal trust infrastructure — verify identity, protect documents,
-          and stay in control with zero-knowledge design.
+          ProofOrigin is personal trust infrastructure for identity, custody and recovery.
         </p>
         <div className="site-footer__links">
           <Link href="/identity-card">Trust Pass</Link>

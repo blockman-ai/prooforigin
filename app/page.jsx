@@ -6,7 +6,7 @@ const TRUST_STACK = [
   {
     name: "Trust Pass",
     role: "Identity",
-    description: "Rotating verification codes and public trust history — not a government ID.",
+    description: "Rotating codes and public trust history. Not a government ID.",
     accent: "cyan",
   },
   {
@@ -18,7 +18,7 @@ const TRUST_STACK = [
   {
     name: "Vault",
     role: "Custody",
-    description: "Zero-knowledge encrypted documents — keys stay on your device.",
+    description: "Encrypted documents with keys that never leave your device.",
     accent: "mint",
   },
   {
@@ -30,7 +30,7 @@ const TRUST_STACK = [
   {
     name: "Sentinel",
     role: "Protection",
-    description: "Platform integrity monitoring for ops — never accesses your secrets.",
+    description: "Platform monitoring for operators. Never accesses your secrets.",
     accent: "violet",
   },
 ];
@@ -39,21 +39,21 @@ const START_HERE = [
   {
     step: "01",
     title: "Create Trust Pass",
-    description: "Generate a live verification pass for chats, communities, and online trust.",
+    description: "Live verification for chats, communities, and online trust.",
     href: "/identity-card",
     accent: "cyan",
   },
   {
     step: "02",
     title: "Open Private Vault",
-    description: "Set up your encrypted vault for documents and trust assets.",
+    description: "Encrypted storage for documents and trust assets.",
     href: "/vault",
     accent: "violet",
   },
   {
     step: "03",
     title: "Save Recovery Kit",
-    description: "Export your recovery kit inside the vault — required for device loss.",
+    description: "Export your kit in the vault before you rely on one device.",
     href: "/vault",
     accent: "mint",
   },
@@ -62,9 +62,10 @@ const START_HERE = [
 export default function Home() {
   return (
     <PageShell
+      className="home-page"
       badge="Personal Trust Infrastructure • Beta"
       title="Verify identity. Protect documents. Stay in control."
-      subtitle="Trust Pass, Private Vault, Recovery Kit, Guide, and Sentinel — built around zero-knowledge principles."
+      subtitle="Trust Pass, Private Vault, Recovery Kit, Guide and Sentinel work together to keep your identity, documents and trust history private, verifiable and under your control."
     >
       <div className="hero-cta-row">
         <a href="/identity-card" className="primary hero-cta-row__primary">
@@ -79,8 +80,8 @@ export default function Home() {
         <header className="home-section__header">
           <h2 className="home-section__title">The trust stack</h2>
           <p className="home-section__lead">
-            Five layers that work together — identity, authenticity, custody, understanding,
-            and protection.
+            Five layers working together: identity, authenticity, custody, understanding, and
+            protection.
           </p>
         </header>
         <div className="trust-stack__grid">
@@ -100,7 +101,7 @@ export default function Home() {
       <section className="home-start-here" aria-label="Start here">
         <header className="home-section__header">
           <h2 className="home-section__title">Start here</h2>
-          <p className="home-section__lead">Three steps to get value in minutes.</p>
+          <p className="home-section__lead">Three steps to get started.</p>
         </header>
         <div className="home-start-here__grid">
           {START_HERE.map((item) => (
@@ -124,32 +125,33 @@ export default function Home() {
       </section>
 
       <section className="home-guide-promo" aria-label="ProofOrigin Guide">
-        <GlassPanel className="home-guide-promo__panel" title="Questions about passkeys, recovery, or vaults?">
+        <GlassPanel
+          className="home-guide-promo__panel home-panel"
+          title="Questions about passkeys, recovery, or vaults?"
+        >
           <p className="home-guide-promo__copy">
-            Ask Guide from any page — safe, in-app help about unlock, Recovery Kit, and Trust
-            Pass. Guide never asks for your PIN, recovery phrase, or vault keys.
+            Ask Guide on any page for safe help with unlock, Recovery Kit, and Trust Pass. Guide
+            never asks for your PIN, recovery phrase, or vault keys.
           </p>
           <p className="home-guide-promo__hint">
-            Use the <strong>Need help?</strong> button in the corner of this page.
+            Tap <strong>Need help?</strong> in the corner.
           </p>
         </GlassPanel>
       </section>
 
       <section className="home-beta-notice" aria-label="Beta notice">
-        <GlassPanel title="Honest beta boundaries">
+        <GlassPanel className="home-panel" title="Beta boundaries">
           <p className="home-beta-notice__copy">
-            ProofOrigin is personal trust infrastructure in cautious beta — not a government ID,
-            not absolute truth verification, and not account recovery if you lose your device
-            and recovery kit. Losing all three — device, PIN or passkey, and recovery kit — means
-            permanent vault lockout by design.
+            ProofOrigin is trust infrastructure in careful beta. It is not a government ID or
+            absolute truth verification. If you lose your device and recovery kit, we cannot
+            restore access. That is intentional zero-knowledge design.
           </p>
         </GlassPanel>
       </section>
 
       <section className="home-labs-link" aria-label="Labs">
         <p className="home-labs-link__copy">
-          Researchers and experimenters: media provenance tools and protocol arcade live in{" "}
-          <a href="/labs">Labs</a>.
+          Media provenance tools and protocol arcade live in <a href="/labs">Labs</a>.
         </p>
       </section>
     </PageShell>
