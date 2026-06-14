@@ -4,10 +4,19 @@ import crypto from "crypto";
 export const VAULT_DOCUMENTS_TABLE = "vault_documents";
 export const VAULT_DEVICE_REGISTRATIONS_TABLE = "vault_device_registrations";
 export const VAULT_REQUEST_NONCES_TABLE = "vault_request_nonces";
+export const VAULT_OWNERSHIP_KEYS_TABLE = "vault_ownership_keys";
+export const VAULT_DOCUMENT_MIGRATIONS_TABLE = "vault_document_migrations";
 export const VAULT_STORAGE_BUCKET = "vault-documents";
 export const VAULT_ENCRYPTION_VERSION_LEGACY = 1;
 export const VAULT_ENCRYPTION_VERSION_MVK = 2;
 export const VAULT_ALLOWED_ENCRYPTION_VERSIONS = [1, 2];
+export const VAULT_DOCUMENT_AAD_VERSION_LEGACY = 1;
+export const VAULT_DOCUMENT_AAD_VERSION_VAULT_SCOPED = 3;
+export const VAULT_ALLOWED_AAD_VERSIONS = [
+  VAULT_DOCUMENT_AAD_VERSION_LEGACY,
+  VAULT_DOCUMENT_AAD_VERSION_VAULT_SCOPED,
+];
+export const VAULT_OWNERSHIP_KEY_ALGORITHM = "ECDSA-P256-SHA256";
 /** @deprecated Use VAULT_ENCRYPTION_VERSION_LEGACY */
 export const VAULT_ENCRYPTION_VERSION = VAULT_ENCRYPTION_VERSION_LEGACY;
 export const VAULT_SIGNED_URL_TTL_SECONDS = 120;
@@ -68,6 +77,9 @@ function mapVaultDeviceRegistrationRow(row) {
     vault_device_id: row.vault_device_id,
     device_public_id: row.device_public_id,
     auth_secret_hash: row.auth_secret_hash,
+    vault_id: row.vault_id || null,
+    vault_id_bound_at: row.vault_id_bound_at || null,
+    vault_ownership_proof_metadata: row.vault_ownership_proof_metadata || {},
     created_at: row.created_at,
     last_seen_at: row.last_seen_at,
     revoked_at: row.revoked_at,
@@ -80,7 +92,7 @@ export async function getVaultDeviceRegistration(vaultDeviceId) {
   const { data, error } = await supabase
     .from(VAULT_DEVICE_REGISTRATIONS_TABLE)
     .select(
-      "id, vault_device_id, device_public_id, auth_secret_hash, created_at, last_seen_at, revoked_at, metadata"
+      "id, vault_device_id, device_public_id, auth_secret_hash, vault_id, vault_id_bound_at, vault_ownership_proof_metadata, created_at, last_seen_at, revoked_at, metadata"
     )
     .eq("vault_device_id", vaultDeviceId)
     .is("revoked_at", null)
@@ -103,6 +115,9 @@ export async function vaultDeviceRegistered(vaultDeviceId) {
 export async function registerVaultDevice({
   vaultDeviceId,
   authSecretHash,
+  vaultId = null,
+  vaultIdBoundAt = null,
+  vaultOwnershipProofMetadata = {},
   metadata = {},
 }) {
   const supabase = createVaultAdminClient();
@@ -115,12 +130,42 @@ export async function registerVaultDevice({
       vault_device_id: vaultDeviceId,
       device_public_id: devicePublicId,
       auth_secret_hash: authSecretHash,
+      vault_id: vaultId,
+      vault_id_bound_at: vaultIdBoundAt,
+      vault_ownership_proof_metadata: vaultOwnershipProofMetadata,
       created_at: now,
       last_seen_at: now,
       metadata,
     })
     .select(
-      "id, vault_device_id, device_public_id, auth_secret_hash, created_at, last_seen_at, revoked_at, metadata"
+      "id, vault_device_id, device_public_id, auth_secret_hash, vault_id, vault_id_bound_at, vault_ownership_proof_metadata, created_at, last_seen_at, revoked_at, metadata"
+    )
+    .single();
+
+  return {
+    registration: mapVaultDeviceRegistrationRow(data),
+    error,
+  };
+}
+
+export async function bindVaultDeviceToVault({
+  vaultDeviceId,
+  vaultId,
+  vaultOwnershipProofMetadata = {},
+  vaultIdBoundAt = new Date().toISOString(),
+}) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_DEVICE_REGISTRATIONS_TABLE)
+    .update({
+      vault_id: vaultId,
+      vault_id_bound_at: vaultIdBoundAt,
+      vault_ownership_proof_metadata: vaultOwnershipProofMetadata,
+    })
+    .eq("vault_device_id", vaultDeviceId)
+    .is("revoked_at", null)
+    .select(
+      "id, vault_device_id, device_public_id, auth_secret_hash, vault_id, vault_id_bound_at, vault_ownership_proof_metadata, created_at, last_seen_at, revoked_at, metadata"
     )
     .single();
 
@@ -179,6 +224,8 @@ function mapVaultDocumentRow(row) {
   return {
     id: row.id,
     vault_device_id: row.vault_device_id,
+    vault_id: row.vault_id || null,
+    aad_version: row.aad_version ?? VAULT_DOCUMENT_AAD_VERSION_LEGACY,
     storage_path: row.storage_path,
     ciphertext_sha256: row.ciphertext_sha256,
     ciphertext_bytes: row.ciphertext_bytes,
@@ -197,7 +244,7 @@ export async function getVaultDocumentByDevice(vaultDeviceId) {
   const { data, error } = await supabase
     .from(VAULT_DOCUMENTS_TABLE)
     .select(
-      "id, vault_device_id, storage_path, ciphertext_sha256, ciphertext_bytes, content_type_hint, label_ciphertext, encryption_version, compromised_at, created_at, updated_at, deleted_at"
+      "id, vault_device_id, vault_id, aad_version, storage_path, ciphertext_sha256, ciphertext_bytes, content_type_hint, label_ciphertext, encryption_version, compromised_at, created_at, updated_at, deleted_at"
     )
     .eq("vault_device_id", vaultDeviceId)
     .is("deleted_at", null)
@@ -214,7 +261,7 @@ export async function getVaultDocumentById(documentId) {
   const { data, error } = await supabase
     .from(VAULT_DOCUMENTS_TABLE)
     .select(
-      "id, vault_device_id, storage_path, ciphertext_sha256, ciphertext_bytes, content_type_hint, label_ciphertext, encryption_version, compromised_at, created_at, updated_at, deleted_at"
+      "id, vault_device_id, vault_id, aad_version, storage_path, ciphertext_sha256, ciphertext_bytes, content_type_hint, label_ciphertext, encryption_version, compromised_at, created_at, updated_at, deleted_at"
     )
     .eq("id", documentId)
     .maybeSingle();
@@ -383,6 +430,8 @@ export async function verifyVaultCiphertextObject({
 export async function completeVaultDocument({
   vaultDeviceId,
   docId,
+  vaultId = null,
+  aadVersion = VAULT_DOCUMENT_AAD_VERSION_LEGACY,
   storagePath,
   ciphertextSha256,
   ciphertextBytes,
@@ -399,6 +448,8 @@ export async function completeVaultDocument({
     .insert({
       id: docId,
       vault_device_id: vaultDeviceId,
+      vault_id: vaultId,
+      aad_version: aadVersion,
       storage_path: storagePath,
       ciphertext_sha256: ciphertextSha256,
       ciphertext_bytes: ciphertextBytes,
@@ -410,7 +461,7 @@ export async function completeVaultDocument({
       updated_at: now,
     })
     .select(
-      "id, vault_device_id, storage_path, ciphertext_sha256, ciphertext_bytes, content_type_hint, label_ciphertext, encryption_version, compromised_at, created_at, updated_at, deleted_at"
+      "id, vault_device_id, vault_id, aad_version, storage_path, ciphertext_sha256, ciphertext_bytes, content_type_hint, label_ciphertext, encryption_version, compromised_at, created_at, updated_at, deleted_at"
     )
     .single();
 
@@ -423,6 +474,8 @@ export async function completeVaultDocument({
 export async function completeVaultDocumentAtomic({
   vaultDeviceId,
   docId,
+  vaultId = null,
+  aadVersion = VAULT_DOCUMENT_AAD_VERSION_LEGACY,
   storagePath,
   ciphertextSha256,
   ciphertextBytes,
@@ -440,6 +493,8 @@ export async function completeVaultDocumentAtomic({
   const { data, error } = await supabase.rpc("vault_complete_document_atomic", {
     p_doc_id: docId,
     p_vault_device_id: vaultDeviceId,
+    p_vault_id: vaultId,
+    p_aad_version: aadVersion,
     p_storage_path: storagePath,
     p_ciphertext_sha256: ciphertextSha256,
     p_ciphertext_bytes: ciphertextBytes,
@@ -461,6 +516,125 @@ export async function completeVaultDocumentAtomic({
     document: mapVaultDocumentRow(data),
     error: null,
     usedRpc: true,
+  };
+}
+
+function mapVaultOwnershipKeyRow(row) {
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    vault_id: row.vault_id,
+    public_key_jwk: row.public_key_jwk,
+    algorithm: row.algorithm,
+    created_at: row.created_at,
+    metadata: row.metadata || {},
+  };
+}
+
+export async function getVaultOwnershipKey(vaultId) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_OWNERSHIP_KEYS_TABLE)
+    .select("id, vault_id, public_key_jwk, algorithm, created_at, metadata")
+    .eq("vault_id", vaultId)
+    .maybeSingle();
+
+  return {
+    ownershipKey: mapVaultOwnershipKeyRow(data),
+    error,
+  };
+}
+
+export async function createVaultOwnershipKey({
+  vaultId,
+  publicKeyJwk,
+  algorithm = VAULT_OWNERSHIP_KEY_ALGORITHM,
+  metadata = {},
+}) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_OWNERSHIP_KEYS_TABLE)
+    .insert({
+      vault_id: vaultId,
+      public_key_jwk: publicKeyJwk,
+      algorithm,
+      metadata,
+    })
+    .select("id, vault_id, public_key_jwk, algorithm, created_at, metadata")
+    .single();
+
+  return {
+    ownershipKey: mapVaultOwnershipKeyRow(data),
+    error,
+  };
+}
+
+function mapVaultDocumentMigrationRow(row) {
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    vault_id: row.vault_id,
+    source_document_id: row.source_document_id,
+    target_document_id: row.target_document_id,
+    source_vault_device_id: row.source_vault_device_id,
+    target_vault_device_id: row.target_vault_device_id,
+    state: row.state,
+    failure_reason: row.failure_reason,
+    source_retirement_state: row.source_retirement_state,
+    upload_started_at: row.upload_started_at,
+    completed_at: row.completed_at,
+    source_retired_at: row.source_retired_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    metadata: row.metadata || {},
+  };
+}
+
+export async function createVaultDocumentMigrationRecord({
+  vaultId,
+  sourceDocumentId,
+  targetDocumentId = null,
+  sourceVaultDeviceId,
+  targetVaultDeviceId,
+  state = "pending",
+  failureReason = null,
+  sourceRetirementState = "active",
+  uploadStartedAt = null,
+  completedAt = null,
+  sourceRetiredAt = null,
+  metadata = {},
+}) {
+  const supabase = createVaultAdminClient();
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from(VAULT_DOCUMENT_MIGRATIONS_TABLE)
+    .insert({
+      vault_id: vaultId,
+      source_document_id: sourceDocumentId,
+      target_document_id: targetDocumentId,
+      source_vault_device_id: sourceVaultDeviceId,
+      target_vault_device_id: targetVaultDeviceId,
+      state,
+      failure_reason: failureReason,
+      source_retirement_state: sourceRetirementState,
+      upload_started_at: uploadStartedAt,
+      completed_at: completedAt,
+      source_retired_at: sourceRetiredAt,
+      created_at: now,
+      updated_at: now,
+      metadata,
+    })
+    .select(
+      "id, vault_id, source_document_id, target_document_id, source_vault_device_id, target_vault_device_id, state, failure_reason, source_retirement_state, upload_started_at, completed_at, source_retired_at, created_at, updated_at, metadata"
+    )
+    .single();
+
+  return {
+    migration: mapVaultDocumentMigrationRow(data),
+    error,
   };
 }
 
@@ -537,7 +711,7 @@ export async function markVaultDocumentCompromised(vaultDeviceId) {
     .eq("vault_device_id", vaultDeviceId)
     .is("deleted_at", null)
     .select(
-      "id, vault_device_id, storage_path, ciphertext_sha256, ciphertext_bytes, content_type_hint, label_ciphertext, encryption_version, compromised_at, created_at, updated_at, deleted_at"
+      "id, vault_device_id, vault_id, aad_version, storage_path, ciphertext_sha256, ciphertext_bytes, content_type_hint, label_ciphertext, encryption_version, compromised_at, created_at, updated_at, deleted_at"
     )
     .single();
 
