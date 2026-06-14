@@ -4262,6 +4262,185 @@ p {
   flex-wrap: wrap;
 }
 
+.vault-restore-page .protocol-shell {
+  max-width: 42rem;
+}
+
+.vault-restore-wizard {
+  display: grid;
+  gap: 20px;
+}
+
+.vault-restore-wizard__hint {
+  margin: 0;
+  color: var(--po-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.vault-restore-wizard__hint a {
+  color: var(--po-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.vault-restore-wizard__hint a:hover {
+  text-decoration: underline;
+}
+
+.vault-restore-wizard__security-lead,
+.vault-restore-wizard__security-copy,
+.vault-restore-wizard__lead {
+  margin: 0 0 12px;
+  color: var(--po-muted);
+  font-size: 15px;
+  line-height: 1.62;
+}
+
+.vault-restore-wizard__security-list {
+  margin: 0 0 12px;
+  padding-left: 1.25rem;
+  color: var(--po-muted);
+  font-size: 15px;
+  line-height: 1.6;
+  display: grid;
+  gap: 6px;
+}
+
+.vault-restore-wizard__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.vault-restore-wizard__step {
+  display: grid;
+  gap: 6px;
+  padding: 10px 8px;
+  border-radius: var(--po-radius-md);
+  border: 1px solid var(--po-gunmetal);
+  background: rgba(255, 255, 255, 0.02);
+  text-align: center;
+}
+
+.vault-restore-wizard__step--current {
+  border-color: rgba(94, 196, 220, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(94, 196, 220, 0.12);
+}
+
+.vault-restore-wizard__step--complete {
+  opacity: 0.72;
+}
+
+.vault-restore-wizard__step-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: rgba(94, 196, 220, 0.12);
+  color: var(--po-accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.vault-restore-wizard__step-label {
+  color: var(--po-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.vault-restore-wizard__step--current .vault-restore-wizard__step-label {
+  color: var(--po-text);
+}
+
+.vault-restore-wizard__error {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--po-radius-md);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.08);
+  color: #fecaca;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.vault-restore-wizard__form {
+  display: grid;
+  gap: 14px;
+}
+
+.vault-restore-wizard__field {
+  display: grid;
+  gap: 6px;
+  color: var(--po-muted);
+  font-size: 14px;
+}
+
+.vault-restore-wizard__input,
+.vault-restore-wizard__textarea,
+.vault-restore-wizard__file-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--po-radius-md);
+  border: 1px solid var(--po-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--po-text);
+  font: inherit;
+}
+
+.vault-restore-wizard__textarea {
+  resize: vertical;
+  min-height: 5.5rem;
+}
+
+.vault-restore-wizard__file-label {
+  display: grid;
+  gap: 8px;
+}
+
+.vault-restore-wizard__file-label-text {
+  color: var(--po-muted);
+  font-size: 14px;
+}
+
+.vault-restore-wizard__file-meta {
+  margin: 12px 0 0;
+  color: var(--po-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.vault-restore-wizard__file-meta code {
+  font-family: var(--po-font-mono);
+  font-size: 12px;
+  color: var(--po-accent);
+}
+
+.vault-restore-wizard__success-title {
+  margin: 0 0 12px;
+  color: var(--po-text);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.vault-restore-wizard__actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+@media (max-width: 700px) {
+  .vault-restore-wizard__steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .vault-recovery-warning {
   margin: 0 0 16px;
 }

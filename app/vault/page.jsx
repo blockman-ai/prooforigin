@@ -1369,13 +1369,19 @@ export default function VaultPage() {
 
               <p className="vault-bootstrap-panel__lead">
 
-                Recovery import opens next. This path does not create a vault identity, genesis record,
+                Use the restore wizard with your recovery kit file and 12-word phrase. No vault identity,
 
-                or encryption keys until you complete restore with your recovery phrase and kit file.
+                genesis record, or encryption keys are created until restore completes successfully.
 
               </p>
 
               <div className="protocol-actions vault-bootstrap-panel__actions">
+
+                <a href="/vault/restore" className="primary">
+
+                  Go to Restore Wizard
+
+                </a>
 
                 <button type="button" className="secondary" onClick={handleChangeBootstrapChoice}>
 
