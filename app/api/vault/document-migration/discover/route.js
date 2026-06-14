@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { authorizeVaultRequest, vaultAuthFailureResponse } from "../../../../lib/vaultAuth";
 import {
   getBoundVaultDeviceRegistration,
+  hasVerifiedVaultOwnershipForDevice,
   getVaultOwnershipKey,
   isVaultAdminConfigured,
   listVaultDiscoveryDocuments,
@@ -135,6 +136,26 @@ export async function POST(req) {
       );
     }
 
+    const { verified: migrationAuthorityVerified, error: verifyLookupError } =
+      await hasVerifiedVaultOwnershipForDevice({
+        vaultId,
+        vaultDeviceId: auth.vault_device_id,
+      });
+    if (verifyLookupError) {
+      recordVaultMigrationDiscoverySentinelCounter(
+        VAULT_MIGRATION_DISCOVERY_SENTINEL_COUNTERS.ERROR_TOTAL
+      );
+      return NextResponse.json(
+        {
+          success: false,
+          code: "DISCOVERY_VERIFY_LOOKUP_FAILED",
+          error:
+            verifyLookupError.message || "Unable to determine ownership verification state.",
+        },
+        { status: 502 }
+      );
+    }
+
     const { documents, error: documentsError } = await listVaultDiscoveryDocuments(vaultId);
     if (documentsError) {
       recordVaultMigrationDiscoverySentinelCounter(
@@ -176,9 +197,11 @@ export async function POST(req) {
         vault_id: vaultId,
         ownership: {
           ownership_key_registered: ownershipKeyRegistered,
-          migration_authority_verified: false,
+          migration_authority_verified: migrationAuthorityVerified,
           required_next_step: ownershipKeyRegistered
-            ? "ownership_proof_verification_required"
+            ? migrationAuthorityVerified
+              ? "ready_for_migration_discovery"
+              : "ownership_proof_verification_required"
             : "ownership_key_registration_required",
         },
         documents: (documents || []).map(normalizeDiscoveryDocument),

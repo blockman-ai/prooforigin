@@ -33,6 +33,7 @@ test("migration discovery marks ownership key absent while staying non-actionabl
         error: null,
       }),
       getVaultOwnershipKey: async () => ({ ownershipKey: null, error: null }),
+      hasVerifiedVaultOwnershipForDevice: async () => ({ verified: false, error: null }),
       listVaultDiscoveryDocuments: async () => ({ documents: [], error: null }),
       countLegacyUnboundVaultDocuments: async () => ({ count: 0, error: null }),
     },

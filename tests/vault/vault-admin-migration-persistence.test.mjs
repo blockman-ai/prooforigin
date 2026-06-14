@@ -45,6 +45,14 @@ function createSupabaseStub({ onInsert, onUpdate, singleResult, maybeSingleResul
       filters.push({ type: "is", column, value });
       return chain;
     },
+    not(column, operator, value) {
+      filters.push({ type: "not", column, operator, value });
+      return chain;
+    },
+    limit(value) {
+      filters.push({ type: "limit", value });
+      return chain;
+    },
     insert(nextPayload) {
       operation = "insert";
       payload = nextPayload;
@@ -105,6 +113,23 @@ test("vault admin persistence helpers pass Phase 2 fields", async (t) => {
           : {},
         public_key_jwk: payload.public_key_jwk,
         algorithm: payload.algorithm || "ECDSA-P256-SHA256",
+        status: hasOwn(payload, "status") ? payload.status : "pending",
+        challenge_type: hasOwn(payload, "challenge_type")
+          ? payload.challenge_type
+          : "migration_authority_verify",
+        challenge_id: hasOwn(payload, "challenge_id")
+          ? payload.challenge_id
+          : "66666666-6666-4666-8666-666666666666",
+        challenge_nonce_hash: hasOwn(payload, "challenge_nonce_hash")
+          ? payload.challenge_nonce_hash
+          : "f".repeat(64),
+        issued_at: hasOwn(payload, "issued_at") ? payload.issued_at : "2026-06-14T17:00:00.000Z",
+        expires_at: hasOwn(payload, "expires_at")
+          ? payload.expires_at
+          : "2026-06-14T17:05:00.000Z",
+        consumed_at: hasOwn(payload, "consumed_at") ? payload.consumed_at : null,
+        verified_at: hasOwn(payload, "verified_at") ? payload.verified_at : null,
+        ownership_key_id: hasOwn(payload, "ownership_key_id") ? payload.ownership_key_id : null,
         source_document_id: hasOwn(payload, "source_document_id")
           ? payload.source_document_id
           : DOC_ID,
@@ -133,6 +158,44 @@ test("vault admin persistence helpers pass Phase 2 fields", async (t) => {
       },
       error: null,
     }),
+    maybeSingleResult: ({ tableName, filters, payload }) => {
+      if (tableName !== "vault_ownership_verifications") {
+        return { data: null, error: null };
+      }
+      const challengeFilter = (filters || []).find(
+        (entry) => entry.type === "eq" && entry.column === "challenge_id"
+      );
+      const verificationFilter = (filters || []).find(
+        (entry) => entry.type === "eq" && entry.column === "id"
+      );
+      const statusFilter = (filters || []).find(
+        (entry) => entry.type === "eq" && entry.column === "status"
+      );
+
+      if (challengeFilter || verificationFilter) {
+        return {
+          data: {
+            id: verificationFilter?.value || "row-1",
+            challenge_id: challengeFilter?.value || "row-1",
+            status: payload?.status || statusFilter?.value || "pending",
+            challenge_type: "migration_authority_verify",
+            challenge_nonce_hash: "f".repeat(64),
+            issued_at: "2026-06-14T17:00:00.000Z",
+            expires_at: "2026-06-14T17:05:00.000Z",
+            consumed_at: payload?.consumed_at || null,
+            verified_at: payload?.verified_at || null,
+            ownership_key_id: payload?.ownership_key_id || "row-1",
+            vault_id: VAULT_ID,
+            vault_device_id: DEVICE_ID,
+            created_at: "2026-06-14T17:00:00.000Z",
+            metadata: payload?.metadata || {},
+          },
+          error: null,
+        };
+      }
+
+      return { data: { id: "row-1" }, error: null };
+    },
   });
 
   mock.module("@supabase/supabase-js", {
@@ -150,6 +213,10 @@ test("vault admin persistence helpers pass Phase 2 fields", async (t) => {
     completeVaultDocumentAtomic,
     completeVaultDocument,
     createVaultOwnershipKey,
+    createVaultOwnershipVerificationChallenge,
+    getVaultOwnershipVerificationChallengeById,
+    verifyVaultOwnershipChallenge,
+    hasVerifiedVaultOwnershipForDevice,
     createVaultDocumentMigrationRecord,
     VAULT_DOCUMENT_AAD_VERSION_LEGACY,
     VAULT_ALLOWED_AAD_VERSIONS,
@@ -219,6 +286,44 @@ test("vault admin persistence helpers pass Phase 2 fields", async (t) => {
   assert.equal(ownershipKey?.vault_id, VAULT_ID);
   assert.equal(ownershipKey?.algorithm, "ECDSA-P256-SHA256");
 
+  const { verification: challenge, error: challengeError } =
+    await createVaultOwnershipVerificationChallenge({
+      challengeType: "migration_authority_verify",
+      challengeNonceHash: "f".repeat(64),
+      issuedAt: "2026-06-14T17:00:00.000Z",
+      expiresAt: "2026-06-14T17:05:00.000Z",
+      ownershipKeyId: ownershipKey.id,
+      vaultId: VAULT_ID,
+      vaultDeviceId: DEVICE_ID,
+      metadata: { source: "phase5-test" },
+    });
+  assert.equal(challengeError, null);
+  assert.equal(challenge?.status, "pending");
+  assert.equal(challenge?.challenge_type, "migration_authority_verify");
+
+  const { verification: loadedChallenge, error: loadedChallengeError } =
+    await getVaultOwnershipVerificationChallengeById(challenge.id);
+  assert.equal(loadedChallengeError, null);
+  assert.equal(loadedChallenge?.challenge_id, challenge.id);
+
+  const { verification: verifiedChallenge, error: verifyChallengeError } =
+    await verifyVaultOwnershipChallenge({
+      verificationId: challenge.id,
+      ownershipKeyId: ownershipKey.id,
+      verifiedAt: "2026-06-14T17:01:00.000Z",
+      metadata: { signature_verified: true },
+    });
+  assert.equal(verifyChallengeError, null);
+  assert.equal(verifiedChallenge?.status, "verified");
+  assert.equal(verifiedChallenge?.verified_at, "2026-06-14T17:01:00.000Z");
+
+  const { verified, error: verifiedLookupError } = await hasVerifiedVaultOwnershipForDevice({
+    vaultId: VAULT_ID,
+    vaultDeviceId: DEVICE_ID,
+  });
+  assert.equal(verifiedLookupError, null);
+  assert.equal(typeof verified, "boolean");
+
   const { migration, error: migrationError } = await createVaultDocumentMigrationRecord({
     vaultId: VAULT_ID,
     sourceDocumentId: DOC_ID,
@@ -247,6 +352,13 @@ test("vault admin persistence helpers pass Phase 2 fields", async (t) => {
   const ownershipInsert = inserts.find((entry) => entry.tableName === "vault_ownership_keys");
   assert.ok(ownershipInsert);
   assert.equal(ownershipInsert.payload.vault_id, VAULT_ID);
+
+  const verificationInsert = inserts.find(
+    (entry) => entry.tableName === "vault_ownership_verifications"
+  );
+  assert.ok(verificationInsert);
+  assert.equal(verificationInsert.payload.vault_id, VAULT_ID);
+  assert.equal(verificationInsert.payload.challenge_type, "migration_authority_verify");
 
   const migrationInsert = inserts.find((entry) => entry.tableName === "vault_document_migrations");
   assert.ok(migrationInsert);

@@ -38,6 +38,7 @@ test("migration discovery returns bound vault scoped candidates and redacts sens
         ownershipKey: { id: "own-1", vault_id: VAULT_ID },
         error: null,
       }),
+      hasVerifiedVaultOwnershipForDevice: async () => ({ verified: true, error: null }),
       listVaultDiscoveryDocuments: async () => ({
         documents: [
           {
@@ -97,10 +98,10 @@ test("migration discovery returns bound vault scoped candidates and redacts sens
   assert.equal(json.success, true);
   assert.equal(json.discovery.vault_id, VAULT_ID);
   assert.equal(json.discovery.ownership.ownership_key_registered, true);
-  assert.equal(json.discovery.ownership.migration_authority_verified, false);
+  assert.equal(json.discovery.ownership.migration_authority_verified, true);
   assert.equal(
     json.discovery.ownership.required_next_step,
-    "ownership_proof_verification_required"
+    "ready_for_migration_discovery"
   );
   assert.equal(json.discovery.legacy_unbound_candidate_count, 3);
   assert.equal(json.discovery.documents.length, 1);

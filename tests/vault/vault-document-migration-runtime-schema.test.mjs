@@ -38,6 +38,18 @@ test("runtime ddl enforces immutable ownership keys", () => {
   assert.doesNotMatch(sql, /\brevoked_at\b/i);
 });
 
+test("runtime ddl includes ownership verification challenge persistence", () => {
+  const sql = readRuntimeSql();
+
+  assert.match(sql, /create table if not exists public\.vault_ownership_verifications/i);
+  assert.match(sql, /challenge_id uuid not null unique default gen_random_uuid\(\)/i);
+  assert.match(sql, /challenge_nonce_hash char\(64\)/i);
+  assert.match(sql, /constraint vault_ownership_verifications_status_allowed/i);
+  assert.match(sql, /constraint vault_ownership_verifications_challenge_type_allowed/i);
+  assert.match(sql, /challenge_type in \('migration_authority_verify'\)/i);
+  assert.match(sql, /constraint vault_ownership_verifications_verified_consistent/i);
+});
+
 test("runtime ddl enforces migration invariants and uniqueness", () => {
   const sql = readRuntimeSql();
 

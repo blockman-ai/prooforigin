@@ -95,6 +95,50 @@ revoke all on table public.vault_ownership_keys from anon, authenticated, public
 grant select, insert, update, delete on table public.vault_ownership_keys to service_role;
 
 -- ---------------------------------------------------------------------------
+-- Ownership verification challenges and verified authority records
+-- ---------------------------------------------------------------------------
+create table if not exists public.vault_ownership_verifications (
+  id uuid primary key default gen_random_uuid(),
+  challenge_id uuid not null unique default gen_random_uuid(),
+  status text not null default 'pending',
+  challenge_type text not null,
+  challenge_nonce_hash char(64),
+  issued_at timestamptz,
+  expires_at timestamptz,
+  consumed_at timestamptz,
+  verified_at timestamptz,
+  ownership_key_id uuid,
+  vault_id uuid not null,
+  vault_device_id uuid not null,
+  created_at timestamptz not null default now(),
+  metadata jsonb not null default '{}'::jsonb,
+
+  constraint vault_ownership_verifications_status_allowed
+    check (status in ('pending', 'verified', 'failed')),
+  constraint vault_ownership_verifications_challenge_type_allowed
+    check (challenge_type in ('migration_authority_verify')),
+  constraint vault_ownership_verifications_nonce_hash_format
+    check (challenge_nonce_hash is null or challenge_nonce_hash ~ '^[0-9a-f]{64}$'),
+  constraint vault_ownership_verifications_metadata_object
+    check (jsonb_typeof(metadata) = 'object'),
+  constraint vault_ownership_verifications_verified_consistent
+    check (
+      status <> 'verified' or
+      (verified_at is not null and consumed_at is not null and ownership_key_id is not null)
+    )
+);
+
+create index if not exists vault_ownership_verifications_vault_device_idx
+  on public.vault_ownership_verifications (vault_id, vault_device_id, status, verified_at desc);
+
+create index if not exists vault_ownership_verifications_pending_idx
+  on public.vault_ownership_verifications (challenge_id, status, expires_at);
+
+alter table public.vault_ownership_verifications enable row level security;
+revoke all on table public.vault_ownership_verifications from anon, authenticated, public;
+grant select, insert, update, delete on table public.vault_ownership_verifications to service_role;
+
+-- ---------------------------------------------------------------------------
 -- Migration record persistence + invariants
 -- ---------------------------------------------------------------------------
 create table if not exists public.vault_document_migrations (

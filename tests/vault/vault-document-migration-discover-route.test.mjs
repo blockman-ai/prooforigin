@@ -26,6 +26,7 @@ test("migration discovery returns safe empty result for unbound device", async (
       isVaultAdminConfigured: () => true,
       getBoundVaultDeviceRegistration: async () => ({ registration: null, error: null }),
       getVaultOwnershipKey: async () => ({ ownershipKey: null, error: null }),
+      hasVerifiedVaultOwnershipForDevice: async () => ({ verified: false, error: null }),
       listVaultDiscoveryDocuments: async () => ({ documents: [], error: null }),
       countLegacyUnboundVaultDocuments: async () => ({ count: 0, error: null }),
     },

@@ -5,6 +5,7 @@ export const VAULT_DOCUMENTS_TABLE = "vault_documents";
 export const VAULT_DEVICE_REGISTRATIONS_TABLE = "vault_device_registrations";
 export const VAULT_REQUEST_NONCES_TABLE = "vault_request_nonces";
 export const VAULT_OWNERSHIP_KEYS_TABLE = "vault_ownership_keys";
+export const VAULT_OWNERSHIP_VERIFICATIONS_TABLE = "vault_ownership_verifications";
 export const VAULT_DOCUMENT_MIGRATIONS_TABLE = "vault_document_migrations";
 export const VAULT_STORAGE_BUCKET = "vault-documents";
 export const VAULT_ENCRYPTION_VERSION_LEGACY = 1;
@@ -17,6 +18,7 @@ export const VAULT_ALLOWED_AAD_VERSIONS = [
   VAULT_DOCUMENT_AAD_VERSION_VAULT_SCOPED,
 ];
 export const VAULT_OWNERSHIP_KEY_ALGORITHM = "ECDSA-P256-SHA256";
+export const VAULT_OWNERSHIP_VERIFICATION_STATUS_VERIFIED = "verified";
 /** @deprecated Use VAULT_ENCRYPTION_VERSION_LEGACY */
 export const VAULT_ENCRYPTION_VERSION = VAULT_ENCRYPTION_VERSION_LEGACY;
 export const VAULT_SIGNED_URL_TTL_SECONDS = 120;
@@ -620,6 +622,27 @@ function mapVaultOwnershipKeyRow(row) {
   };
 }
 
+function mapVaultOwnershipVerificationRow(row) {
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    status: row.status,
+    challenge_type: row.challenge_type,
+    challenge_id: row.challenge_id,
+    challenge_nonce_hash: row.challenge_nonce_hash || null,
+    issued_at: row.issued_at || null,
+    expires_at: row.expires_at || null,
+    consumed_at: row.consumed_at || null,
+    verified_at: row.verified_at || null,
+    ownership_key_id: row.ownership_key_id || null,
+    vault_id: row.vault_id,
+    vault_device_id: row.vault_device_id,
+    created_at: row.created_at,
+    metadata: row.metadata || {},
+  };
+}
+
 export async function getVaultOwnershipKey(vaultId) {
   const supabase = createVaultAdminClient();
   const { data, error } = await supabase
@@ -654,6 +677,107 @@ export async function createVaultOwnershipKey({
 
   return {
     ownershipKey: mapVaultOwnershipKeyRow(data),
+    error,
+  };
+}
+
+export async function createVaultOwnershipVerificationChallenge({
+  challengeType,
+  challengeNonceHash,
+  issuedAt,
+  expiresAt,
+  ownershipKeyId = null,
+  vaultId,
+  vaultDeviceId,
+  metadata = {},
+}) {
+  const supabase = createVaultAdminClient();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from(VAULT_OWNERSHIP_VERIFICATIONS_TABLE)
+    .insert({
+      status: "pending",
+      challenge_type: challengeType,
+      challenge_nonce_hash: challengeNonceHash,
+      issued_at: issuedAt,
+      expires_at: expiresAt,
+      ownership_key_id: ownershipKeyId,
+      vault_id: vaultId,
+      vault_device_id: vaultDeviceId,
+      created_at: now,
+      metadata,
+    })
+    .select(
+      "id, status, challenge_type, challenge_id, challenge_nonce_hash, issued_at, expires_at, consumed_at, verified_at, ownership_key_id, vault_id, vault_device_id, created_at, metadata"
+    )
+    .single();
+
+  return {
+    verification: mapVaultOwnershipVerificationRow(data),
+    error,
+  };
+}
+
+export async function getVaultOwnershipVerificationChallengeById(challengeId) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_OWNERSHIP_VERIFICATIONS_TABLE)
+    .select(
+      "id, status, challenge_type, challenge_id, challenge_nonce_hash, issued_at, expires_at, consumed_at, verified_at, ownership_key_id, vault_id, vault_device_id, created_at, metadata"
+    )
+    .eq("challenge_id", challengeId)
+    .maybeSingle();
+
+  return {
+    verification: mapVaultOwnershipVerificationRow(data),
+    error,
+  };
+}
+
+export async function verifyVaultOwnershipChallenge({
+  verificationId,
+  ownershipKeyId,
+  metadata = {},
+  verifiedAt = new Date().toISOString(),
+}) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_OWNERSHIP_VERIFICATIONS_TABLE)
+    .update({
+      status: VAULT_OWNERSHIP_VERIFICATION_STATUS_VERIFIED,
+      ownership_key_id: ownershipKeyId,
+      consumed_at: verifiedAt,
+      verified_at: verifiedAt,
+      metadata,
+    })
+    .eq("id", verificationId)
+    .eq("status", "pending")
+    .is("consumed_at", null)
+    .select(
+      "id, status, challenge_type, challenge_id, challenge_nonce_hash, issued_at, expires_at, consumed_at, verified_at, ownership_key_id, vault_id, vault_device_id, created_at, metadata"
+    )
+    .maybeSingle();
+
+  return {
+    verification: mapVaultOwnershipVerificationRow(data),
+    error,
+  };
+}
+
+export async function hasVerifiedVaultOwnershipForDevice({ vaultId, vaultDeviceId }) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_OWNERSHIP_VERIFICATIONS_TABLE)
+    .select("id")
+    .eq("vault_id", vaultId)
+    .eq("vault_device_id", vaultDeviceId)
+    .eq("status", VAULT_OWNERSHIP_VERIFICATION_STATUS_VERIFIED)
+    .not("verified_at", "is", null)
+    .limit(1)
+    .maybeSingle();
+
+  return {
+    verified: Boolean(data?.id),
     error,
   };
 }
