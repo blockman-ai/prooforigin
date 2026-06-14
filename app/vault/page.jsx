@@ -110,6 +110,10 @@ import { VAULT_WATERMARK } from "../lib/privacyCapture";
 import { buildVaultGuideSafeContext } from "../lib/guideSafeContext";
 import { isVaultUsingMasterVaultKey } from "../lib/vaultKeyRingStorage";
 import { isVaultRecoveryKitConfigured } from "../lib/vaultRecoveryStatus";
+import {
+  clearVaultOwnershipRegistrationDeferred,
+  ensureVaultOwnershipReadyForMigrationBoundary,
+} from "../lib/vaultOwnershipClient";
 
 import { shouldSuspendVaultFocusVanish } from "../lib/vaultVanishPolicy";
 import {
@@ -201,6 +205,7 @@ export default function VaultPage() {
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
 
   const [lifecycleError, setLifecycleError] = useState("");
+  const [ownershipBoundaryError, setOwnershipBoundaryError] = useState("");
 
 
 
@@ -392,6 +397,19 @@ export default function VaultPage() {
 
       }
 
+      const unlockKeys = getVaultSessionUnlockKeys();
+      if (unlockKeys.mode === "mvk" && unlockKeys.masterVaultKey instanceof Uint8Array) {
+        try {
+          await ensureVaultOwnershipReadyForMigrationBoundary();
+          setOwnershipBoundaryError("");
+        } catch (ownershipError) {
+          setOwnershipBoundaryError(
+            ownershipError?.message ||
+              "Vault ownership registration boundary failed. Recovery kit remains identity-only."
+          );
+        }
+      }
+
 
 
       const [metadataResult, historyResult] = await Promise.all([
@@ -457,6 +475,7 @@ export default function VaultPage() {
       setTimelineEvents([]);
 
       setTimelineError("");
+      setOwnershipBoundaryError("");
 
     } finally {
 
@@ -858,6 +877,7 @@ export default function VaultPage() {
       setVaultDocument(result.document);
 
       setDisplayLabel(result.displayLabel);
+      clearVaultOwnershipRegistrationDeferred();
 
       setShowUploadModal(false);
 
@@ -1147,6 +1167,13 @@ export default function VaultPage() {
               <p className="privacy-capture-disclaimer" role="note">
                 {PRIVACY_CAPTURE_DISCLAIMER}
               </p>
+
+              {ownershipBoundaryError && (
+                <div className="alert-banner alert-banner--warning" role="status">
+                  <strong>Ownership boundary notice</strong>
+                  {ownershipBoundaryError}
+                </div>
+              )}
 
               <section className="vault-genesis-card" aria-label="Vault Genesis">
 

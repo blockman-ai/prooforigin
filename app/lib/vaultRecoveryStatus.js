@@ -61,6 +61,33 @@ export function markVaultRecoveryKitConfirmed({ vaultId, kitVersion, kitCreatedA
     vault_id: vaultId,
     kit_version: kitVersion,
     kit_created_at: kitCreatedAt || null,
+    ownership_key_registered_at: false,
+    confirmed_at: new Date().toISOString(),
+  };
+
+  window.localStorage.setItem(VAULT_RECOVERY_KIT_CONFIRMED_STORAGE_KEY, JSON.stringify(record));
+  return record;
+}
+
+export function markVaultRecoveryKitOwnershipKeyBoundary({
+  vaultId,
+  kitVersion,
+  kitCreatedAt,
+  ownershipKeyRegisteredAt = true,
+}) {
+  if (typeof window === "undefined") {
+    throw new Error("Recovery kit confirmation is only available in the browser.");
+  }
+
+  if (!vaultId || !kitVersion) {
+    throw new Error("Recovery kit confirmation requires vault_id and kit version.");
+  }
+
+  const record = {
+    vault_id: vaultId,
+    kit_version: kitVersion,
+    kit_created_at: kitCreatedAt || null,
+    ownership_key_registered_at: ownershipKeyRegisteredAt,
     confirmed_at: new Date().toISOString(),
   };
 
