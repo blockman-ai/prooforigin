@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "corpus_version": "2026.06.2",
+  "corpus_version": "2026.06.3",
   "articles": [
     {
       "id": "platform-overview",
@@ -204,8 +204,137 @@
       ],
       "related": ["recovery-kit"],
       "source_of_truth": "docs/help/restore-vault.md"
+    },
+    {
+      "id": "ops/production-readiness",
+      "path": "ops/production-readiness.md",
+      "audience": ["ops"],
+      "product": "sentinel",
+      "version": 1,
+      "status": "active",
+      "title": "Deploy and environment checklist",
+      "sentinel_rules": [],
+      "source_of_truth": "docs/knowledge/ops/production-readiness.md"
+    },
+    {
+      "id": "ops/health-blockers",
+      "path": "ops/health-blockers.md",
+      "audience": ["ops"],
+      "product": "sentinel",
+      "version": 1,
+      "status": "active",
+      "title": "Health status triage",
+      "sentinel_rules": ["health.not_ok"],
+      "source_of_truth": "docs/knowledge/ops/health-blockers.md"
+    },
+    {
+      "id": "ops/storage-audit",
+      "path": "ops/storage-audit.md",
+      "audience": ["ops"],
+      "product": "sentinel",
+      "version": 1,
+      "status": "active",
+      "title": "Vault storage audit runbook",
+      "sentinel_rules": [
+        "storage.bucket_public",
+        "storage.orphan_objects",
+        "storage.missing_ciphertext"
+      ],
+      "source_of_truth": "docs/knowledge/ops/storage-audit.md"
+    },
+    {
+      "id": "ops/nonce-housekeeping",
+      "path": "ops/nonce-housekeeping.md",
+      "audience": ["ops"],
+      "product": "sentinel",
+      "version": 1,
+      "status": "active",
+      "title": "Replay nonce housekeeping",
+      "sentinel_rules": ["replay.expired_nonce_housekeeping"],
+      "source_of_truth": "docs/knowledge/ops/nonce-housekeeping.md"
+    },
+    {
+      "id": "ops/vault-auth-incidents",
+      "path": "ops/vault-auth-incidents.md",
+      "audience": ["ops"],
+      "product": "sentinel",
+      "version": 1,
+      "status": "active",
+      "title": "Vault auth incident triage",
+      "sentinel_rules": [
+        "vault.auth.replay_rejected",
+        "vault.auth.signature_failed",
+        "vault.auth.device_not_registered"
+      ],
+      "source_of_truth": "docs/knowledge/ops/vault-auth-incidents.md"
+    },
+    {
+      "id": "ops/sentinel-runbook",
+      "path": "ops/sentinel-runbook.md",
+      "audience": ["ops"],
+      "product": "sentinel",
+      "version": 1,
+      "status": "active",
+      "title": "Sentinel counter and Guide abuse runbook",
+      "sentinel_rules": [
+        "guide.prompt_injection",
+        "guide.secret_request",
+        "guide.output_filter_rejected",
+        "trust.invalid_code_ratio"
+      ],
+      "source_of_truth": "docs/knowledge/ops/sentinel-runbook.md"
     }
   ],
+  "sentinel_rule_map": {
+    "storage.bucket_public": {
+      "knowledge_ref": "ops/storage-audit#bucket-privacy",
+      "guide_topic": null
+    },
+    "storage.orphan_objects": {
+      "knowledge_ref": "ops/storage-audit#orphan-reconciliation",
+      "guide_topic": null
+    },
+    "storage.missing_ciphertext": {
+      "knowledge_ref": "ops/storage-audit#missing-ciphertext",
+      "guide_topic": null
+    },
+    "replay.expired_nonce_housekeeping": {
+      "knowledge_ref": "ops/nonce-housekeeping#cleanup-procedure",
+      "guide_topic": null
+    },
+    "health.not_ok": {
+      "knowledge_ref": "ops/health-blockers#blocker-triage",
+      "guide_topic": null
+    },
+    "guide.prompt_injection": {
+      "knowledge_ref": "ops/sentinel-runbook#guide-prompt-injection",
+      "guide_topic": null
+    },
+    "guide.secret_request": {
+      "knowledge_ref": "ops/sentinel-runbook#guide-secret-requests",
+      "guide_topic": "recovery-kit"
+    },
+    "guide.output_filter_rejected": {
+      "knowledge_ref": "ops/sentinel-runbook#guide-output-filter",
+      "guide_topic": null
+    },
+    "trust.invalid_code_ratio": {
+      "knowledge_ref": "ops/sentinel-runbook#trust-verify-ratio",
+      "guide_topic": null
+    },
+    "vault.auth.replay_rejected": {
+      "knowledge_ref": "ops/vault-auth-incidents#replay-rejected",
+      "guide_topic": null
+    },
+    "vault.auth.signature_failed": {
+      "knowledge_ref": "ops/vault-auth-incidents#signature-failed",
+      "guide_topic": null
+    },
+    "vault.auth.device_not_registered": {
+      "knowledge_ref": "ops/vault-auth-incidents#device-not-registered",
+      "guide_topic": null
+    }
+  },
   "topic_resolution": {
     "default": "vault-overview",
     "by_feature": {

@@ -6,6 +6,7 @@ import {
   buildGuideHelpTopicsMap,
   getGuideArticles,
   getKnowledgeCorpusVersion,
+  getOpsArticles,
   loadKnowledgeManifest,
   resetKnowledgeManifestCacheForTests,
   resolveGuideTopic,
@@ -18,6 +19,7 @@ test("knowledge manifest loads and validates", () => {
   assert.equal(manifest.schema_version, 1);
   assert.ok(manifest.corpus_version);
   assert.equal(getGuideArticles(manifest).length, 10);
+  assert.equal(getOpsArticles(manifest).length, 6);
   assert.equal(getKnowledgeCorpusVersion(manifest), manifest.corpus_version);
 });
 
@@ -28,7 +30,7 @@ test("knowledge manifest article ids are unique and files exist", () => {
   for (const article of manifest.articles) {
     assert.ok(!ids.has(article.id), `duplicate id ${article.id}`);
     ids.add(article.id);
-    assert.ok(article.audience.includes("guide"));
+    assert.ok(article.audience.includes("guide") || article.audience.includes("ops"));
     assert.equal(article.status, "active");
   }
 });

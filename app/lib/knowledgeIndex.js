@@ -5,6 +5,22 @@ export const KNOWLEDGE_DIR = path.join(process.cwd(), "docs", "knowledge");
 export const KNOWLEDGE_MANIFEST_PATH = path.join(KNOWLEDGE_DIR, "manifest.json");
 
 const GUIDE_AUDIENCE = "guide";
+const OPS_AUDIENCE = "ops";
+
+export const SENTINEL_S2_RECOMMENDATION_IDS = [
+  "storage.bucket_public",
+  "storage.orphan_objects",
+  "storage.missing_ciphertext",
+  "replay.expired_nonce_housekeeping",
+  "health.not_ok",
+  "guide.prompt_injection",
+  "guide.secret_request",
+  "guide.output_filter_rejected",
+  "trust.invalid_code_ratio",
+  "vault.auth.replay_rejected",
+  "vault.auth.signature_failed",
+  "vault.auth.device_not_registered",
+];
 
 let cachedManifest = null;
 
@@ -82,14 +98,31 @@ export function validateKnowledgeManifest(manifest) {
     assertStringArray(article.audience, `articles.${article.id}.audience`);
 
     if (article.status !== "active") {
-      throw new Error(`Phase 0 only supports active articles (${article.id}).`);
+      throw new Error(`Knowledge manifest only supports active articles (${article.id}).`);
     }
 
-    if (!article.audience.includes(GUIDE_AUDIENCE)) {
-      throw new Error(`Guide corpus article ${article.id} must include guide audience.`);
+    const isGuideArticle = article.audience.includes(GUIDE_AUDIENCE);
+    const isOpsArticle = article.audience.includes(OPS_AUDIENCE);
+
+    if (!isGuideArticle && !isOpsArticle) {
+      throw new Error(`Article ${article.id} must include guide or ops audience.`);
     }
 
-    compileKeywordPatterns(article.keyword_patterns || []);
+    if (isGuideArticle) {
+      compileKeywordPatterns(article.keyword_patterns || []);
+    }
+
+    if (isOpsArticle) {
+      if (!Array.isArray(article.sentinel_rules)) {
+        throw new Error(`Ops article ${article.id} must declare sentinel_rules array.`);
+      }
+
+      for (const ruleId of article.sentinel_rules) {
+        if (typeof ruleId !== "string" || !ruleId.trim()) {
+          throw new Error(`Ops article ${article.id} has invalid sentinel_rules entry.`);
+        }
+      }
+    }
 
     const filePath = path.join(KNOWLEDGE_DIR, article.path);
     if (!fs.existsSync(filePath)) {
@@ -116,11 +149,62 @@ export function validateKnowledgeManifest(manifest) {
     }
   }
 
+  validateSentinelRuleMap(manifest, seenIds);
+
   return manifest;
+}
+
+function validateSentinelRuleMap(manifest, seenIds) {
+  const ruleMap = manifest.sentinel_rule_map;
+  if (!ruleMap || typeof ruleMap !== "object") {
+    throw new Error("Knowledge manifest must include sentinel_rule_map.");
+  }
+
+  for (const ruleId of SENTINEL_S2_RECOMMENDATION_IDS) {
+    if (!ruleMap[ruleId]) {
+      throw new Error(`sentinel_rule_map missing S2 recommendation: ${ruleId}`);
+    }
+  }
+
+  for (const [ruleId, entry] of Object.entries(ruleMap)) {
+    if (!entry || typeof entry !== "object") {
+      throw new Error(`sentinel_rule_map.${ruleId} must be an object.`);
+    }
+
+    assertString(entry.knowledge_ref, `sentinel_rule_map.${ruleId}.knowledge_ref`);
+
+    if (!entry.knowledge_ref.includes("#")) {
+      throw new Error(`sentinel_rule_map.${ruleId}.knowledge_ref must include #anchor.`);
+    }
+
+    const articleId = entry.knowledge_ref.split("#")[0];
+    if (!seenIds.has(articleId)) {
+      throw new Error(`sentinel_rule_map.${ruleId} references unknown article: ${articleId}`);
+    }
+
+    if (entry.guide_topic != null && entry.guide_topic !== "") {
+      assertString(entry.guide_topic, `sentinel_rule_map.${ruleId}.guide_topic`);
+      if (!manifest.articles.some((article) => article.id === entry.guide_topic && article.audience.includes(GUIDE_AUDIENCE))) {
+        throw new Error(`sentinel_rule_map.${ruleId}.guide_topic is not a guide article: ${entry.guide_topic}`);
+      }
+    }
+  }
 }
 
 export function getGuideArticles(manifest = loadKnowledgeManifest()) {
   return manifest.articles.filter((article) => article.audience.includes(GUIDE_AUDIENCE));
+}
+
+export function getOpsArticles(manifest = loadKnowledgeManifest()) {
+  return manifest.articles.filter((article) => article.audience.includes(OPS_AUDIENCE));
+}
+
+export function getOpsArticleById(articleId, manifest = loadKnowledgeManifest()) {
+  return getOpsArticles(manifest).find((article) => article.id === articleId) || null;
+}
+
+export function getSentinelRuleMap(manifest = loadKnowledgeManifest()) {
+  return manifest.sentinel_rule_map || {};
 }
 
 export function getGuideArticleById(topicId, manifest = loadKnowledgeManifest()) {
