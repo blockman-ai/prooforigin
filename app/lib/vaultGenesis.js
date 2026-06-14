@@ -49,6 +49,37 @@ function writeVaultGenesis(record) {
   window.localStorage.setItem(VAULT_GENESIS_STORAGE_KEY, JSON.stringify(record));
 }
 
+export async function importVaultGenesisFromRecovery({ vaultId, importedAt }) {
+  if (typeof vaultId !== "string" || !vaultId.trim()) {
+    throw new Error("vault_id is required to import vault genesis.");
+  }
+
+  const existing = readVaultGenesis();
+  if (existing) {
+    throw new Error("Vault genesis already exists on this device.");
+  }
+
+  const vault_id = vaultId.trim();
+  const vault_created_at =
+    typeof importedAt === "string" && importedAt.trim()
+      ? importedAt.trim()
+      : new Date().toISOString();
+  const vault_genesis_hash = await computeVaultGenesisHash(vault_id, vault_created_at);
+
+  const record = {
+    vault_id,
+    vault_created_at,
+    vault_genesis_hash,
+    vault_state: VAULT_IDENTITY_STATES.SEALED,
+    restored_at: new Date().toISOString(),
+  };
+
+  writeVaultGenesis(record);
+  clearVaultBootstrapChoice();
+
+  return record;
+}
+
 export async function createVaultGenesis() {
   const existing = readVaultGenesis();
   if (existing) {
