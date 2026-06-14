@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "corpus_version": "2026.06.1",
+  "articles": [
+    {
+      "id": "vault-overview",
+      "path": "guide/vault-overview.md",
+      "audience": ["guide"],
+      "product": "vault",
+      "version": 1,
+      "status": "active",
+      "title": "Your Private Vault",
+      "routes": ["/vault"],
+      "features": ["vault"],
+      "keyword_patterns": [
+        { "pattern": "protected view", "flags": "i" },
+        { "pattern": "watermark", "flags": "i" },
+        { "pattern": "what is the vault", "flags": "i" },
+        { "pattern": "overview", "flags": "i" }
+      ],
+      "related": [],
+      "source_of_truth": "docs/help/vault-overview.md"
+    },
+    {
+      "id": "vault-unlock",
+      "path": "guide/vault-unlock.md",
+      "audience": ["guide"],
+      "product": "vault",
+      "version": 1,
+      "status": "active",
+      "title": "Unlocking your vault",
+      "routes": ["/vault"],
+      "features": ["vault"],
+      "keyword_patterns": [
+        { "pattern": "unlock", "flags": "i" },
+        { "pattern": "\\bpin\\b", "flags": "i" },
+        { "pattern": "lock", "flags": "i" },
+        { "pattern": "vanish", "flags": "i" },
+        { "pattern": "how do i open", "flags": "i" }
+      ],
+      "related": ["passkey"],
+      "source_of_truth": "docs/help/vault-unlock.md"
+    },
+    {
+      "id": "passkey",
+      "path": "guide/passkey.md",
+      "audience": ["guide"],
+      "product": "vault",
+      "version": 1,
+      "status": "active",
+      "title": "Vault passkeys",
+      "routes": ["/vault"],
+      "features": ["vault", "passkey"],
+      "keyword_patterns": [
+        { "pattern": "passkey", "flags": "i" },
+        { "pattern": "face id", "flags": "i" },
+        { "pattern": "touch id", "flags": "i" },
+        { "pattern": "windows hello", "flags": "i" },
+        { "pattern": "webauthn", "flags": "i" },
+        { "pattern": "biometric", "flags": "i" }
+      ],
+      "related": ["vault-unlock"],
+      "source_of_truth": "docs/help/passkey.md"
+    },
+    {
+      "id": "recovery-kit",
+      "path": "guide/recovery-kit.md",
+      "audience": ["guide"],
+      "product": "vault",
+      "version": 1,
+      "status": "active",
+      "title": "Recovery Kit",
+      "routes": ["/vault"],
+      "features": ["vault", "recovery"],
+      "keyword_patterns": [
+        { "pattern": "recovery kit", "flags": "i" },
+        { "pattern": "recovery phrase", "flags": "i" },
+        { "pattern": "lose my device", "flags": "i" },
+        { "pattern": "lockout", "flags": "i" },
+        { "pattern": "forgot", "flags": "i" }
+      ],
+      "related": ["restore-vault"],
+      "source_of_truth": "docs/help/recovery-kit.md"
+    },
+    {
+      "id": "restore-vault",
+      "path": "guide/restore-vault.md",
+      "audience": ["guide"],
+      "product": "vault",
+      "version": 1,
+      "status": "active",
+      "title": "Restore vault on a new device",
+      "routes": ["/vault/restore", "/vault"],
+      "features": ["vault", "recovery"],
+      "keyword_patterns": [
+        { "pattern": "restore vault", "flags": "i" },
+        { "pattern": "restore from recovery", "flags": "i" },
+        { "pattern": "new device", "flags": "i" },
+        { "pattern": "import recovery", "flags": "i" },
+        { "pattern": "recovery import", "flags": "i" },
+        { "pattern": "/vault/restore", "flags": "i" }
+      ],
+      "related": ["recovery-kit"],
+      "source_of_truth": "docs/help/restore-vault.md"
+    },
+    {
+      "id": "trust-pass-voice",
+      "path": "guide/trust-pass-voice.md",
+      "audience": ["guide"],
+      "product": "trust_pass",
+      "version": 1,
+      "status": "active",
+      "title": "Trust Pass + Voice Anchor",
+      "routes": ["/identity-card", "/voice-anchor"],
+      "features": ["trust_pass", "voice_anchor"],
+      "keyword_patterns": [
+        { "pattern": "voice documented", "flags": "i" },
+        { "pattern": "link voice", "flags": "i" },
+        { "pattern": "voice anchor", "flags": "i" },
+        { "pattern": "trust pass voice", "flags": "i" },
+        { "pattern": "voice enrollment", "flags": "i" }
+      ],
+      "related": [],
+      "source_of_truth": "docs/help/trust-pass-voice.md"
+    }
+  ],
+  "topic_resolution": {
+    "default": "vault-overview",
+    "by_feature": {
+      "passkey": "passkey",
+      "recovery": "restore-vault"
+    },
+    "by_context": {
+      "protectedView.active": "vault-overview",
+      "vault.locked": "vault-unlock"
+    }
+  }
+}

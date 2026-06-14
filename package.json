@@ -8,7 +8,8 @@
     "start": "next start",
     "test": "node --experimental-test-module-mocks --test tests/**/*.test.mjs",
     "test:vault": "node --experimental-test-module-mocks --test tests/vault/**/*.test.mjs",
-    "test:guide": "node --test tests/guide/*.test.mjs"
+    "test:guide": "node --test tests/guide/*.test.mjs",
+    "test:knowledge": "node --test tests/knowledge/*.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
