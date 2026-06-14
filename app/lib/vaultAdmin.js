@@ -239,6 +239,20 @@ function mapVaultDocumentRow(row) {
   };
 }
 
+function mapVaultDiscoveryDocumentRow(row) {
+  if (!row) return null;
+
+  return {
+    document_id: row.id,
+    aad_version: row.aad_version ?? VAULT_DOCUMENT_AAD_VERSION_LEGACY,
+    encryption_version: row.encryption_version,
+    label_present: Boolean(row.label_ciphertext),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    blocker_codes: [],
+  };
+}
+
 export async function getVaultDocumentByDevice(vaultDeviceId) {
   const supabase = createVaultAdminClient();
   const { data, error } = await supabase
@@ -270,6 +284,80 @@ export async function getVaultDocumentById(documentId) {
     document: mapVaultDocumentRow(data),
     error,
   };
+}
+
+export async function getBoundVaultDeviceRegistration(vaultDeviceId) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_DEVICE_REGISTRATIONS_TABLE)
+    .select(
+      "id, vault_device_id, device_public_id, auth_secret_hash, vault_id, vault_id_bound_at, vault_ownership_proof_metadata, created_at, last_seen_at, revoked_at, metadata"
+    )
+    .eq("vault_device_id", vaultDeviceId)
+    .is("revoked_at", null)
+    .not("vault_id", "is", null)
+    .maybeSingle();
+
+  return {
+    registration: mapVaultDeviceRegistrationRow(data),
+    error,
+  };
+}
+
+export async function listVaultDiscoveryDocuments(vaultId) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_DOCUMENTS_TABLE)
+    .select("id, aad_version, encryption_version, label_ciphertext, created_at, updated_at")
+    .eq("vault_id", vaultId)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false });
+
+  return {
+    documents: (data || []).map(mapVaultDiscoveryDocumentRow),
+    error,
+  };
+}
+
+export async function countLegacyUnboundVaultDocuments(vaultId) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_DOCUMENTS_TABLE)
+    .select("id, vault_device_id")
+    .is("deleted_at", null)
+    .is("vault_id", null);
+
+  if (error) {
+    return { count: 0, error };
+  }
+
+  const sourceDeviceIds = Array.from(
+    new Set((data || []).map((row) => row?.vault_device_id).filter(Boolean))
+  );
+  if (sourceDeviceIds.length === 0) {
+    return { count: 0, error: null };
+  }
+
+  const { data: registrations, error: registrationError } = await supabase
+    .from(VAULT_DEVICE_REGISTRATIONS_TABLE)
+    .select("vault_device_id")
+    .eq("vault_id", vaultId)
+    .is("revoked_at", null)
+    .in("vault_device_id", sourceDeviceIds);
+
+  if (registrationError) {
+    return { count: 0, error: registrationError };
+  }
+
+  const allowedDeviceIds = new Set((registrations || []).map((row) => row.vault_device_id));
+  const count = (data || []).reduce((total, row) => {
+    if (allowedDeviceIds.has(row.vault_device_id)) {
+      return total + 1;
+    }
+    return total;
+  }, 0);
+
+  return { count, error: null };
 }
 
 export async function createVaultSignedUploadUrl(vaultDeviceId, docId) {

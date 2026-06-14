@@ -4,6 +4,7 @@ export const SENTINEL_COUNTERS_TABLE = "sentinel_counters";
 
 export const SENTINEL_COUNTER_PREFIXES = [
   "vault.auth.",
+  "vault.migration.discovery.",
   "guide.",
   "trust.verify.",
   "trust.voice_link.",
@@ -38,6 +39,11 @@ export const SENTINEL_OPERATIONAL_COUNTER_KEYS = new Set([
   "vault.auth.missing_headers",
   "vault.auth.device_not_registered",
   "vault.auth.rate_limited",
+  "vault.migration.discovery.request_total",
+  "vault.migration.discovery.success_total",
+  "vault.migration.discovery.unbound_device_total",
+  "vault.migration.discovery.ownership_key_absent_total",
+  "vault.migration.discovery.error_total",
 ]);
 
 const COUNTER_KEY_PATTERN = /^[a-z0-9]+(?:[._][a-z0-9]+)*$/;
