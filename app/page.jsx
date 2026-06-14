@@ -149,9 +149,11 @@ export default function Home() {
         </GlassPanel>
       </section>
 
-      <section className="home-labs-link" aria-label="Labs">
+      <section className="home-labs-link" aria-label="More to explore">
         <p className="home-labs-link__copy">
-          Media provenance tools and protocol arcade live in <a href="/labs">Labs</a>.
+          See how ProofOrigin applies in practice on the{" "}
+          <a href="/use-cases">Use Cases</a> page. Media provenance tools and protocol arcade live
+          in <a href="/labs">Labs</a>.
         </p>
       </section>
     </PageShell>

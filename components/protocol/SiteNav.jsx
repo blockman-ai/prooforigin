@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 const LINKS = [
   { href: "/identity-card", label: "Trust Pass" },
   { href: "/vault", label: "Vault" },
+  { href: "/use-cases", label: "Use Cases" },
   { href: "/voice-anchor", label: "Voice Anchor" },
   { href: "/labs", label: "Labs" },
   { href: "/dashboard", label: "Records" },
