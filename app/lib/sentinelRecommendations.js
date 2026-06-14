@@ -1,3 +1,10 @@
+import {
+  getKnowledgeCorpusVersion,
+  getSentinelRuleMap,
+  loadKnowledgeManifest,
+} from "./knowledgeIndex.js";
+import { loadOpsRunbookExcerpt } from "./knowledgeOpsLoader.js";
+
 export const SENTINEL_RECOMMENDATIONS_VERSION = "s2";
 
 const SEVERITY_RANK = {
@@ -295,6 +302,42 @@ function buildHealthRecommendation(snapshot, recommendations, seenIds) {
   });
 }
 
+function attachKnowledgeRunbooks(
+  recommendations,
+  {
+    manifest = null,
+    loadRunbookExcerpt = loadOpsRunbookExcerpt,
+  } = {}
+) {
+  let resolvedManifest = manifest;
+  let ruleMap;
+
+  try {
+    resolvedManifest = resolvedManifest ?? loadKnowledgeManifest();
+    ruleMap = getSentinelRuleMap(resolvedManifest);
+  } catch {
+    return recommendations;
+  }
+
+  return recommendations.map((recommendation) => {
+    const mapEntry = ruleMap[recommendation.id];
+    if (!mapEntry?.knowledge_ref) {
+      return recommendation;
+    }
+
+    try {
+      const loaded = loadRunbookExcerpt(mapEntry.knowledge_ref, resolvedManifest);
+      return {
+        ...recommendation,
+        knowledge_ref: loaded.knowledge_ref,
+        runbook_excerpt: loaded.excerpt,
+      };
+    } catch {
+      return recommendation;
+    }
+  });
+}
+
 function attachTrendEvidence(recommendations, trend) {
   if (!trend || typeof trend !== "object") {
     return recommendations;
@@ -324,6 +367,8 @@ export function buildSentinelRecommendations({
   trend = null,
   counters = [],
   timestamp = new Date().toISOString(),
+  knowledgeManifest = null,
+  loadRunbookExcerpt = loadOpsRunbookExcerpt,
 } = {}) {
   const recommendations = [];
   const seenIds = new Set();
@@ -341,12 +386,26 @@ export function buildSentinelRecommendations({
 
   const sorted = sortRecommendations(recommendations);
   const withTrend = attachTrendEvidence(sorted, trend);
+  const withKnowledge = attachKnowledgeRunbooks(withTrend, {
+    manifest: knowledgeManifest,
+    loadRunbookExcerpt,
+  });
+
+  let corpus_version = null;
+  try {
+    corpus_version = getKnowledgeCorpusVersion(
+      knowledgeManifest ?? loadKnowledgeManifest()
+    );
+  } catch {
+    corpus_version = null;
+  }
 
   return {
     service: "prooforigin-sentinel",
     version: SENTINEL_RECOMMENDATIONS_VERSION,
     timestamp,
-    recommendation_count: withTrend.length,
-    recommendations: withTrend,
+    corpus_version,
+    recommendation_count: withKnowledge.length,
+    recommendations: withKnowledge,
   };
 }

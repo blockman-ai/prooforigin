@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { buildSentinelRecommendations } from "../../app/lib/sentinelRecommendations.js";
 import { buildSentinelSnapshotFromParts } from "../../app/lib/sentinelSnapshot.js";
+import { getKnowledgeCorpusVersion } from "../../app/lib/knowledgeIndex.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const CLEAN_SNAPSHOT = buildSentinelSnapshotFromParts({
   timestamp: "2026-06-12T18:35:30.262Z",
@@ -58,12 +64,44 @@ function countersFromMap(map) {
   }));
 }
 
+const RUNBOOK_SECRET_PATTERNS = [
+  /-----BEGIN/i,
+  /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/,
+  /sk-[A-Za-z0-9]{20,}/,
+  /service_role\s*[:=]\s*\S+/i,
+  /PROOFORIGIN_OPS_SECRET\s*[:=]\s*\S+/i,
+];
+
 function assertNoSecretsInRecommendations(report) {
-  const serialized = JSON.stringify(report);
+  const redacted = {
+    ...report,
+    recommendations: report.recommendations.map(({ runbook_excerpt, ...rest }) => rest),
+  };
+  const serialized = JSON.stringify(redacted);
 
   for (const pattern of FORBIDDEN_OUTPUT_FRAGMENTS) {
     assert.doesNotMatch(serialized, pattern, `Recommendation output must not match ${pattern}`);
   }
+}
+
+function assertRunbookExcerptsSafe(report) {
+  for (const recommendation of report.recommendations) {
+    if (!recommendation.runbook_excerpt) {
+      continue;
+    }
+
+    for (const pattern of RUNBOOK_SECRET_PATTERNS) {
+      assert.doesNotMatch(
+        recommendation.runbook_excerpt,
+        pattern,
+        `Runbook excerpt for ${recommendation.id} must not match ${pattern}`
+      );
+    }
+  }
+}
+
+function readAppSource(relativePath) {
+  return fs.readFileSync(path.join(__dirname, "../../", relativePath), "utf8");
 }
 
 function findRecommendation(report, id) {
@@ -97,7 +135,10 @@ test("public bucket recommendation is critical", () => {
   assert.equal(recommendation.severity, "critical");
   assert.equal(recommendation.category, "storage");
   assert.equal(recommendation.evidence.bucket_public, true);
+  assert.match(recommendation.knowledge_ref, /^ops\/storage-audit#/);
+  assert.ok(recommendation.runbook_excerpt?.length > 0);
   assertNoSecretsInRecommendations(report);
+  assertRunbookExcerptsSafe(report);
 });
 
 test("missing ciphertext recommendation is high severity", () => {
@@ -213,16 +254,65 @@ test("degraded health produces high ops recommendation with boolean evidence onl
 });
 
 test("ops route exposes sentinel_recommendations action", async () => {
-  const fs = await import("node:fs");
-  const path = await import("node:path");
-  const { fileURLToPath } = await import("node:url");
-
-  const routePath = path.join(
-    path.dirname(fileURLToPath(import.meta.url)),
-    "../../app/api/health/prooforigin/ops/route.js"
-  );
-  const source = fs.readFileSync(routePath, "utf8");
+  const source = readAppSource("app/api/health/prooforigin/ops/route.js");
 
   assert.match(source, /sentinel_recommendations/);
   assert.match(source, /buildSentinelRecommendations/);
+});
+
+test("mapped recommendations include knowledge_ref and runbook_excerpt", () => {
+  const snapshot = buildSentinelSnapshotFromParts({
+    ...CLEAN_SNAPSHOT,
+    storage: {
+      ...CLEAN_SNAPSHOT.storage,
+      orphan_count: 3,
+    },
+  });
+
+  const report = buildSentinelRecommendations({ snapshot, counters: [] });
+  const recommendation = findRecommendation(report, "storage.orphan_objects");
+
+  assert.ok(recommendation);
+  assert.equal(recommendation.knowledge_ref, "ops/storage-audit#orphan-reconciliation");
+  assert.match(recommendation.runbook_excerpt, /orphan/i);
+  assert.equal(report.corpus_version, getKnowledgeCorpusVersion());
+  assertRunbookExcerptsSafe(report);
+});
+
+test("runbook loader failures do not break recommendation response", () => {
+  const snapshot = buildSentinelSnapshotFromParts({
+    ...CLEAN_SNAPSHOT,
+    storage: {
+      ...CLEAN_SNAPSHOT.storage,
+      bucket_public: true,
+    },
+  });
+
+  const report = buildSentinelRecommendations({
+    snapshot,
+    counters: [],
+    loadRunbookExcerpt: () => {
+      throw new Error("runbook loader unavailable");
+    },
+  });
+
+  const recommendation = findRecommendation(report, "storage.bucket_public");
+
+  assert.ok(recommendation);
+  assert.equal(recommendation.severity, "critical");
+  assert.equal(recommendation.knowledge_ref, undefined);
+  assert.equal(recommendation.runbook_excerpt, undefined);
+  assert.equal(report.recommendation_count, 1);
+});
+
+test("guide and public APIs do not expose ops runbooks", () => {
+  const guideRoute = readAppSource("app/api/guide/route.js");
+  const publicHealthRoute = readAppSource("app/api/health/prooforigin/route.js");
+  const publicVerifyRoute = readAppSource("app/api/identity-card/public/[cardId]/route.js");
+
+  for (const source of [guideRoute, publicHealthRoute, publicVerifyRoute]) {
+    assert.doesNotMatch(source, /knowledgeOpsLoader/);
+    assert.doesNotMatch(source, /loadOpsRunbookExcerpt/);
+    assert.doesNotMatch(source, /runbook_excerpt/);
+  }
 });

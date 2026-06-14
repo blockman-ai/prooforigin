@@ -122,6 +122,37 @@ S2 adds a **read-only recommendation engine** in `app/lib/sentinelRecommendation
 | `source` | Which input produced the rule (`snapshot.storage`, `counters.guide`, etc.) |
 | `guide_topic` | Optional help topic id when Guide content may help |
 | `evidence` | Counts and booleans only |
+| `knowledge_ref` | Ops runbook pointer (`article-id#section-anchor`) from `docs/knowledge/manifest.json` |
+| `runbook_excerpt` | Deterministic excerpt from the mapped ops runbook section (max 1200 chars) |
+
+### Knowledge layer runbooks (Phase 2B)
+
+S2 recommendations can attach **ops-only** runbook context from `docs/knowledge/ops/` via `sentinel_rule_map` in the knowledge manifest. Wiring lives in `buildSentinelRecommendations()` using `app/lib/knowledgeOpsLoader.js`.
+
+| Property | Guarantee |
+|----------|-----------|
+| Visibility | **Ops endpoint only** — Guide, public health, Trust Pass, and vault user APIs never return runbooks |
+| `corpus_version` | Included on the `sentinel_recommendations` response when the manifest loads (for example `2026.06.3`) |
+| `knowledge_ref` | Stable pointer such as `ops/storage-audit#bucket-privacy` |
+| `runbook_excerpt` | Section body under the mapped `##` heading; truncated at 1200 characters |
+| Failures | Loader or manifest errors **never break** the ops response — recommendations return without runbook fields |
+| Secrets | Runbooks describe triage steps only; excerpts must not contain credentials, keys, or user secrets |
+
+Guide users continue to receive help snippets from `docs/knowledge/guide/` only. Ops runbooks are not embedded in Guide answers or OpenAI prompts.
+
+Example recommendation item:
+
+```json
+{
+  "id": "storage.bucket_public",
+  "severity": "critical",
+  "category": "storage",
+  "knowledge_ref": "ops/storage-audit#bucket-privacy",
+  "runbook_excerpt": "## Bucket privacy\n\n1. POST /api/health/prooforigin/ops ..."
+}
+```
+
+Response envelope adds `corpus_version` at the top level alongside `recommendations`.
 
 ### V1 rules (deterministic)
 
@@ -150,7 +181,7 @@ Content-Type: application/json
 { "action": "sentinel_recommendations", "baseline_label": "baseline_v1" }
 ```
 
-This builds a live snapshot, includes trend when a baseline exists, loads durable counters, and returns recommendations only — **no mutations**.
+This builds a live snapshot, includes trend when a baseline exists, loads durable counters, and returns recommendations only — **no mutations**. The response includes `corpus_version` when the knowledge manifest is available.
 
 ## Ops read API (counters)
 
