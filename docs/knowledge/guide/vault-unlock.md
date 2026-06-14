@@ -5,7 +5,7 @@ title: Unlocking your vault
 audience: guide
 product: vault
 status: active
-source_of_truth: docs/help/vault-unlock.md
+source_of_truth: docs/knowledge/guide/vault-unlock.md
 last_reviewed: 2026-06-14
 ---
 

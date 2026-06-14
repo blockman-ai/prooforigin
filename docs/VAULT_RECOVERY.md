@@ -143,7 +143,7 @@ Wrapped records must never contain plaintext MVK.
 - `app/lib/vaultRecoveryImportWizard.js` — restore wizard validation/navigation
 - `components/vault/RecoveryImportWizard.jsx` — restore wizard UI
 - `app/vault/restore/page.jsx` — `/vault/restore` route
-- `docs/help/restore-vault.md` — Guide restore flow and limitations
+- `docs/knowledge/guide/restore-vault.md` — Guide restore flow and limitations
 - `components/vault/VaultRecoverySection.jsx` — generate/download/confirm UI
 - `app/lib/vaultPasskey.js` — passkey PRF wrap/unwrap foundation + capability detection (P1-C1)
 - `app/lib/vaultPasskeyStorage.js` — passkey wrap record persistence (P1-C2)

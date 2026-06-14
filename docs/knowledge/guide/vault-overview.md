@@ -5,7 +5,7 @@ title: Your Private Vault
 audience: guide
 product: vault
 status: active
-source_of_truth: docs/help/vault-overview.md
+source_of_truth: docs/knowledge/guide/vault-overview.md
 last_reviewed: 2026-06-14
 ---
 

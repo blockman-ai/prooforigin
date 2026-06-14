@@ -5,7 +5,7 @@ title: Trust Pass + Voice Anchor
 audience: guide
 product: trust_pass
 status: active
-source_of_truth: docs/help/trust-pass-voice.md
+source_of_truth: docs/knowledge/guide/trust-pass-voice.md
 last_reviewed: 2026-06-14
 ---
 

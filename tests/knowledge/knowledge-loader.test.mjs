@@ -5,12 +5,13 @@ import { test } from "node:test";
 import { getGuideArticles, loadKnowledgeManifest } from "../../app/lib/knowledgeIndex.js";
 import {
   loadGuideHelpSnippet,
+  loadKnowledgeArticleFile,
   normalizeKnowledgeBody,
   parseKnowledgeFrontmatter,
   stripKnowledgeFrontmatter,
 } from "../../app/lib/knowledgeLoader.js";
 
-const LEGACY_HELP_DIR = path.join(process.cwd(), "docs", "help");
+const KNOWLEDGE_GUIDE_DIR = path.join(process.cwd(), "docs", "knowledge", "guide");
 
 test("stripKnowledgeFrontmatter removes yaml header", () => {
   const raw = "---\nid: demo\n---\n\n# Title\n\nBody";
@@ -32,25 +33,39 @@ test("loadGuideHelpSnippet returns title and body without frontmatter", () => {
   assert.match(snippet.body, /^# Vault passkeys/);
 });
 
-test("knowledge guide bodies match legacy help files", () => {
+test("guide articles use knowledge-native source_of_truth and frontmatter", () => {
   const manifest = loadKnowledgeManifest();
 
   for (const article of getGuideArticles(manifest)) {
-    const legacyFileName = path.basename(article.path);
-    const legacyPath = path.join(LEGACY_HELP_DIR, legacyFileName);
-    if (!fs.existsSync(legacyPath)) {
-      continue;
-    }
+    const expectedSource = `docs/knowledge/${article.path}`;
+    assert.equal(article.source_of_truth, expectedSource, `${article.id} manifest source_of_truth`);
 
-    const legacyBody = normalizeKnowledgeBody(fs.readFileSync(legacyPath, "utf8"));
-    const snippet = loadGuideHelpSnippet(article.id);
+    const raw = loadKnowledgeArticleFile(article.path);
+    const { frontmatter, body } = parseKnowledgeFrontmatter(raw);
 
+    assert.equal(frontmatter.id, article.id, `${article.id} frontmatter id`);
     assert.equal(
-      snippet.body,
-      legacyBody,
-      `${article.id} body drifted from docs/help/${legacyFileName}`
+      frontmatter.source_of_truth,
+      expectedSource,
+      `${article.id} frontmatter source_of_truth`
     );
+    assert.ok(normalizeKnowledgeBody(body).length > 40, `${article.id} body too short`);
+    assert.doesNotMatch(body, /^---/);
   }
+});
+
+test("guide article files exist only under docs/knowledge/guide", () => {
+  const manifest = loadKnowledgeManifest();
+  const guideFiles = fs
+    .readdirSync(KNOWLEDGE_GUIDE_DIR)
+    .filter((entry) => entry.endsWith(".md"))
+    .sort();
+
+  const manifestPaths = getGuideArticles(manifest)
+    .map((article) => path.basename(article.path))
+    .sort();
+
+  assert.deepEqual(guideFiles, manifestPaths);
 });
 
 test("loadGuideHelpSnippet loads phase 1 guide articles", () => {

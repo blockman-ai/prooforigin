@@ -5,7 +5,7 @@ title: Recovery Kit
 audience: guide
 product: vault
 status: active
-source_of_truth: docs/help/recovery-kit.md
+source_of_truth: docs/knowledge/guide/recovery-kit.md
 last_reviewed: 2026-06-14
 ---
 

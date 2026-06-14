@@ -5,7 +5,7 @@ title: Restore vault on a new device
 audience: guide
 product: vault
 status: active
-source_of_truth: docs/help/restore-vault.md
+source_of_truth: docs/knowledge/guide/restore-vault.md
 last_reviewed: 2026-06-14
 ---
 

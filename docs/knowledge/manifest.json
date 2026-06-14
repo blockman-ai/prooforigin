@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "corpus_version": "2026.06.3",
+  "corpus_version": "2026.06.5",
   "articles": [
     {
       "id": "platform-overview",
@@ -102,7 +102,7 @@
         { "pattern": "unlink voice", "flags": "i" }
       ],
       "related": ["trust-pass-overview", "voice-anchor-overview"],
-      "source_of_truth": "docs/help/trust-pass-voice.md"
+      "source_of_truth": "docs/knowledge/guide/trust-pass-voice.md"
     },
     {
       "id": "vault-overview",
@@ -121,7 +121,7 @@
         { "pattern": "private vault", "flags": "i" }
       ],
       "related": ["platform-overview"],
-      "source_of_truth": "docs/help/vault-overview.md"
+      "source_of_truth": "docs/knowledge/guide/vault-overview.md"
     },
     {
       "id": "vault-unlock",
@@ -141,7 +141,7 @@
         { "pattern": "how do i open", "flags": "i" }
       ],
       "related": ["passkey"],
-      "source_of_truth": "docs/help/vault-unlock.md"
+      "source_of_truth": "docs/knowledge/guide/vault-unlock.md"
     },
     {
       "id": "passkey",
@@ -162,7 +162,7 @@
         { "pattern": "biometric", "flags": "i" }
       ],
       "related": ["vault-unlock"],
-      "source_of_truth": "docs/help/passkey.md"
+      "source_of_truth": "docs/knowledge/guide/passkey.md"
     },
     {
       "id": "recovery-kit",
@@ -182,7 +182,7 @@
         { "pattern": "forgot", "flags": "i" }
       ],
       "related": ["restore-vault"],
-      "source_of_truth": "docs/help/recovery-kit.md"
+      "source_of_truth": "docs/knowledge/guide/recovery-kit.md"
     },
     {
       "id": "restore-vault",
@@ -196,14 +196,17 @@
       "features": ["vault", "recovery"],
       "keyword_patterns": [
         { "pattern": "restore vault", "flags": "i" },
+        { "pattern": "restore my vault", "flags": "i" },
+        { "pattern": "recover my vault", "flags": "i" },
         { "pattern": "restore from recovery", "flags": "i" },
+        { "pattern": "new device restore", "flags": "i" },
         { "pattern": "new device", "flags": "i" },
         { "pattern": "import recovery", "flags": "i" },
         { "pattern": "recovery import", "flags": "i" },
         { "pattern": "/vault/restore", "flags": "i" }
       ],
       "related": ["recovery-kit"],
-      "source_of_truth": "docs/help/restore-vault.md"
+      "source_of_truth": "docs/knowledge/guide/restore-vault.md"
     },
     {
       "id": "ops/production-readiness",

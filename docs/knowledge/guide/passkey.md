@@ -5,7 +5,7 @@ title: Vault passkeys
 audience: guide
 product: vault
 status: active
-source_of_truth: docs/help/passkey.md
+source_of_truth: docs/knowledge/guide/passkey.md
 last_reviewed: 2026-06-14
 ---
 
