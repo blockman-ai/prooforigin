@@ -183,7 +183,8 @@ test("restore route and wizard include security and migration copy", () => {
   assert.match(wizard, /Vault identity restored/);
   assert.match(wizard, /Documents from your previous device are not available on this device yet/);
   assert.match(wizard, /Cross-device document migration is a future phase/);
-  assert.match(wizard, /data-error-code/);
+  assert.match(wizard, /getRecoveryImportBlockReason/);
+  assert.match(wizard, /Vault storage already present/);
   assert.match(vaultPage, /Go to Restore Wizard/);
   assert.match(vaultPage, /\/vault\/restore/);
 });

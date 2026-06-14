@@ -5,9 +5,9 @@ import { useMemo, useState } from "react";
 import GlassPanel from "../protocol/GlassPanel";
 import {
   completeRecoveryImport,
+  getRecoveryImportBlockReason,
   VaultRecoveryImportError,
 } from "../../app/lib/vaultRecoveryImport.js";
-import { readVaultGenesis } from "../../app/lib/vaultGenesis.js";
 import { isVaultBootstrapPending, isVaultRestoreBootstrapChosen } from "../../app/lib/vaultBootstrap.js";
 import { isValidPinFormat, VAULT_PIN_MIN_LENGTH } from "../../app/lib/vaultPin.js";
 import {
@@ -21,6 +21,41 @@ import {
   validateRecoveryPhraseStep,
   verifyRecoveryPhraseForWizard,
 } from "../../app/lib/vaultRecoveryImportWizard.js";
+
+const IMPORT_BLOCK_COPY = {
+  GENESIS_EXISTS: {
+    title: "Vault already on this device",
+    message:
+      "This browser profile already has vault identity storage. Recovery import is for fresh restore targets only.",
+  },
+  PIN_EXISTS: {
+    title: "Vault storage already present",
+    message:
+      "This browser profile already has vault PIN storage without a complete restore. Recovery import requires a clean restore target.",
+  },
+  MVK_STORAGE_EXISTS: {
+    title: "Vault storage already present",
+    message:
+      "This browser profile already has wrapped vault key storage without a complete restore. Recovery import requires a clean restore target.",
+  },
+  BROWSER_REQUIRED: {
+    title: "Restore unavailable",
+    message: "Recovery import is only available in the browser.",
+  },
+};
+
+function getImportBlockCopy(blockReason) {
+  if (!blockReason) {
+    return null;
+  }
+
+  return (
+    IMPORT_BLOCK_COPY[blockReason.code] || {
+      title: "Restore unavailable",
+      message: blockReason.message,
+    }
+  );
+}
 
 const STEP_LABELS = {
   [RECOVERY_WIZARD_STEPS.KIT]: "Recovery Kit",
@@ -85,7 +120,8 @@ export default function RecoveryImportWizard() {
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
 
-  const vaultAlreadyExists = useMemo(() => Boolean(readVaultGenesis()), []);
+  const importBlockReason = useMemo(() => getRecoveryImportBlockReason(), []);
+  const importBlockCopy = useMemo(() => getImportBlockCopy(importBlockReason), [importBlockReason]);
   const restoreBootstrapReady = useMemo(
     () => isVaultBootstrapPending() && isVaultRestoreBootstrapChosen(),
     []
@@ -216,14 +252,11 @@ export default function RecoveryImportWizard() {
     }
   }
 
-  if (vaultAlreadyExists) {
+  if (importBlockCopy) {
     return (
       <section className="vault-restore-wizard vault-restore-wizard--blocked" aria-live="polite">
-        <GlassPanel title="Vault already on this device">
-          <p className="vault-restore-wizard__lead">
-            This browser profile already has vault identity storage. Recovery import is for fresh
-            restore targets only.
-          </p>
+        <GlassPanel title={importBlockCopy.title}>
+          <p className="vault-restore-wizard__lead">{importBlockCopy.message}</p>
           <div className="protocol-actions vault-restore-wizard__actions">
             <Link href="/vault" className="primary">
               Open Vault

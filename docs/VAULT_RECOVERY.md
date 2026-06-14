@@ -30,13 +30,13 @@ PIN (fallback)           ──wraps──► MVK
 - **Document key:** Derived from MVK via HKDF (see `app/lib/vaultCrypto.js`). AAD still binds ciphertext to device scope until Phase 2 custody transfer.
 - **PIN wrap:** PBKDF2 + AES-256-GCM protects MVK locally (`app/lib/vaultKeyRing.js`).
 - **Passkey wrap:** WebAuthn PRF wraps MVK locally (`vaultPasskey.js`, `vaultPasskeyEnroll.js`, `vaultUnlock.js`); enrollment orchestration in P1-C2; unlock wiring in P1-C3; enroll UI in P1-C4.
-- **Recovery kit:** Planned — user-held phrase encrypts MVK export; setup/export UI in a later commit.
+- **Recovery kit:** User-held phrase encrypts MVK export; export UI and restore wizard shipped in Phase 1–2.
 
 ## Unlock priority (target behavior)
 
 1. **Passkey** — primary when enrolled (local WebAuthn, no server key material).
 2. **PIN** — fallback when passkey unavailable or user chooses PIN.
-3. **Recovery kit** — disaster recovery on a new device (Phase 2+); requires phrase or imported kit file.
+3. **Recovery kit** — disaster recovery on a new device; requires phrase and imported kit file via `/vault/restore`.
 
 Session behavior (vanish mode, Protected View) is unchanged by the Key Ring.
 
@@ -54,11 +54,11 @@ Passkey or PIN unwraps MVK in browser memory only. MVK is cleared on vanish / lo
 
 ### Lost phone
 
-Requires recovery kit (Phase 2). Same-device Phase 1 does not promise cross-device restore.
+Requires recovery kit and phrase via the restore wizard. Identity restore is available; cross-device **document** migration is a future phase.
 
 ### Stolen phone
 
-User marks vault **compromised** (existing flow). Attacker needs PIN/passkey to decrypt. Recovery on new device uses recovery kit + device re-registration (Phase 2).
+User marks vault **compromised** (existing flow). Attacker needs PIN/passkey to decrypt. Recovery on new device uses recovery kit + device re-registration via restore wizard.
 
 ## Phase roadmap
 
@@ -67,13 +67,15 @@ User marks vault **compromised** (existing flow). Attacker needs PIN/passkey to 
 | **1 — Commit 1** | `vaultKeyRing.js` + spec; tests only; no production change |
 | **1 — Commit 2** | MVK storage on **new** vault setup; `isVaultUsingMasterVaultKey()`; legacy unlock/crypto unchanged |
 | **1 — Commit 3** | Unlock branching + MVK-mode crypto; `encryption_version` 2 for MVK uploads; legacy vaults unchanged |
-| **1 — Commit 4** | Recovery kit generate/export + acknowledgment gate (export only; no cross-device restore) |
+| **1 — Commit 4** | Recovery kit generate/export + acknowledgment gate (export only) |
 | **1 — Commit 5** | Legacy vault migration to MVK on unlock (optional future commit) |
+| **1 — Import Phase 1** | `vaultRecoveryImport.js` orchestration (kit + phrase + PIN apply) |
+| **1 — Import Phase 2** | Restore wizard UI at `/vault/restore`; identity restore on clean targets |
 | **1 — P1-C1** | `vaultPasskey.js` PRF wrap/unwrap primitives + capability detection; tests only |
 | **1 — P1-C2** | `vaultPasskeyStorage.js` + `vaultPasskeyEnroll.js`; local passkey wrap persistence + enroll orchestration; no UI/unlock yet |
 | **1 — P1-C3** | Passkey unlock in `vaultUnlock.js` + minimal vault page unlock button; PIN fallback unchanged |
 | **1 — P1-C4** | Passkey enrollment UI (`VaultPasskeySection.jsx`) |
-| **2** | Cross-device recovery, `vault_id` device registry, ciphertext re-homing |
+| **2** | Cross-device document migration, `vault_id` server binding, ciphertext re-homing |
 
 ## Storage
 
@@ -100,7 +102,7 @@ Wrapped records must never contain plaintext MVK.
 - User generates a **12-word recovery phrase** and downloads a **recovery kit JSON** containing `vault_id`, `wrapped_mvk`, `version`, and `created_at`.
 - The recovery phrase is **never** included in the kit file or sent to ProofOrigin servers.
 - After the user confirms they saved phrase + kit, this device marks recovery as configured (`prooforigin_vault_recovery_kit_confirmed_v1`).
-- **No cross-device restore** and **no server-side recovery** in Commit 4.
+- **No cross-device document restore** and **no server-side recovery** in Commit 4. Identity restore ships in Import Phase 1–2; document re-homing remains Phase 2.
 
 ### P1-C2 — passkey storage + enrollment orchestration
 
@@ -121,7 +123,13 @@ Wrapped records must never contain plaintext MVK.
 - **Vault page:** when a passkey wrap record exists and the vault is not in first-time PIN setup, **Unlock with Passkey** is shown alongside PIN unlock. Successful passkey unlock calls `setVaultSessionUnlockKeys()` and continues the normal unlock bootstrap.
 - **Not in P1-C3:** passkey enrollment UI (P1-C4), cross-device restore, server routes.
 
-### P1-C4 — passkey enrollment UI
+### Import Phase 2 — restore wizard + hardening
+
+- Restore wizard at `/vault/restore` (kit → phrase → PIN → complete).
+- `applyImportedVaultState()` snapshots pre-apply localStorage and **rolls back on failure** so PIN/MVK/genesis cannot orphan.
+- Successful import clears stale local vault device identity; first unlock registers a fresh device.
+- **Identity restore only** — document slot starts empty; cross-device ciphertext migration remains Phase 2.
+
 
 - `VaultPasskeySection` shows passkey status (not enrolled / enrolled + timestamp) for MVK vaults while unlocked.
 - **Enroll Passkey** calls `enrollVaultPasskey()`; **Replace Passkey** re-wraps with `replace: true`.
@@ -131,7 +139,11 @@ Wrapped records must never contain plaintext MVK.
 ## Related code
 
 - `app/lib/vaultRecovery.js` — recovery phrase, key derivation, kit export/import
-- `app/lib/vaultRecoveryStatus.js` — recovery configured flag + warnings
+- `app/lib/vaultRecoveryImport.js` — import orchestration, atomic apply rollback, device reset on success
+- `app/lib/vaultRecoveryImportWizard.js` — restore wizard validation/navigation
+- `components/vault/RecoveryImportWizard.jsx` — restore wizard UI
+- `app/vault/restore/page.jsx` — `/vault/restore` route
+- `docs/help/restore-vault.md` — Guide restore flow and limitations
 - `components/vault/VaultRecoverySection.jsx` — generate/download/confirm UI
 - `app/lib/vaultPasskey.js` — passkey PRF wrap/unwrap foundation + capability detection (P1-C1)
 - `app/lib/vaultPasskeyStorage.js` — passkey wrap record persistence (P1-C2)

@@ -17,6 +17,16 @@ The phrase is **never** stored inside the kit file or on ProofOrigin servers.
 4. Write the recovery phrase on paper or another offline backup.
 5. Confirm you saved both on this device.
 
+## How to restore on a new device
+
+1. Open **Restore from Recovery Kit** (`/vault/restore`) on the new device.
+2. Upload your saved kit JSON file and enter your 12-word phrase.
+3. Set a new PIN, then open the vault and unlock to register this device.
+
+Restore recovers **vault identity** only. Documents from your previous device are **not migrated yet**—your document slot starts empty until cross-device migration ships.
+
+See also: **Restore Vault on a New Device** in Guide for the full flow and limitations.
+
 ## If you did not save a kit
 
 ProofOrigin **cannot** unlock your vault for you. No email reset. No staff override. This protects your privacy by design.

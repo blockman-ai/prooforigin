@@ -17,7 +17,7 @@ const AVAILABLE_NOW = [
   {
     title: "Recovery Kit",
     description:
-      "Export a recovery kit so vault access is not tied to one device. Import on a new device is coming next.",
+      "Export a recovery kit and restore vault identity on a new device with the restore wizard. Document migration is a future phase.",
     accent: "mint",
   },
   {
@@ -36,8 +36,8 @@ const AVAILABLE_NOW = [
 
 const NEAR_FUTURE = [
   {
-    title: "Recovery Import",
-    description: "Restore access on a new device using recovery phrase + kit.",
+    title: "Cross-device document migration",
+    description: "Re-home encrypted vault documents after identity restore on a new device.",
     accent: "mint",
   },
   {

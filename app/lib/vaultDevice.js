@@ -115,6 +115,14 @@ export function clearVaultDeviceRegisteredLocally() {
   window.localStorage.removeItem(VAULT_DEVICE_REGISTERED_KEY);
 }
 
+/** Clear local vault device identity so restore targets register a fresh device on unlock. */
+export function clearVaultDeviceIdentity() {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.removeItem(VAULT_DEVICE_STORAGE_KEY);
+  clearVaultDeviceRegisteredLocally();
+}
+
 export async function registerVaultDeviceWithServer() {
   const device = ensureVaultDevice();
   const authSecretHash = await computeVaultAuthSecretHash(device.vault_auth_secret);

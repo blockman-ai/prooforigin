@@ -116,12 +116,16 @@ export async function ensureVaultGenesis() {
   throw new Error("Vault genesis does not exist. Choose Create New Vault or complete restore.");
 }
 
-export function resetVaultGenesisForTests() {
+export function clearVaultGenesis() {
   if (typeof window === "undefined") {
     return;
   }
 
   window.localStorage.removeItem(VAULT_GENESIS_STORAGE_KEY);
+}
+
+export function resetVaultGenesisForTests() {
+  clearVaultGenesis();
 }
 
 export function formatVaultCreatedAt(value) {

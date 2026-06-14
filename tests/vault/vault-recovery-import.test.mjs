@@ -14,7 +14,7 @@ import {
   storePasskeyWrapRecord,
   VAULT_PASSKEY_WRAP_STORAGE_KEY,
 } from "../../app/lib/vaultPasskeyStorage.js";
-import { clearVaultPinRecord, VAULT_PIN_STORAGE_KEY } from "../../app/lib/vaultPin.js";
+import { clearVaultPinRecord, setupVaultPin, VAULT_PIN_STORAGE_KEY } from "../../app/lib/vaultPin.js";
 import {
   exportRecoveryKit,
   generateRecoveryPhrase,
@@ -39,6 +39,7 @@ import {
 import {
   applyImportedVaultState,
   completeRecoveryImport,
+  getRecoveryImportBlockReason,
   unwrapMvkForImport,
   validateRecoveryImportInputs,
   VaultRecoveryImportError,
@@ -256,4 +257,21 @@ test("completeRecoveryImport rejects invalid kit payload", async () => {
       }),
     (error) => error instanceof VaultRecoveryImportError && error.code === "KIT_INVALID"
   );
+});
+
+test("getRecoveryImportBlockReason reports genesis, pin, and mvk conflicts", async () => {
+  assert.equal(getRecoveryImportBlockReason(), null);
+
+  await setupVaultPin(TEST_PIN);
+  assert.equal(getRecoveryImportBlockReason()?.code, "PIN_EXISTS");
+
+  clearVaultPinRecord();
+  const { masterVaultKey, kit } = await buildTestRecoveryKit();
+  await applyImportedVaultState({
+    masterVaultKey,
+    pin: TEST_PIN,
+    recoveryKit: kit,
+  });
+
+  assert.equal(getRecoveryImportBlockReason()?.code, "GENESIS_EXISTS");
 });

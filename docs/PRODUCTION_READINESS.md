@@ -177,9 +177,10 @@ Review vault CSP when adding scripts or workers.
 
 ## Known limitations (Phase 1)
 
-- No recovery kit export UI (warning shown in vault)
-- No passkey unlock (stub only)
+- Recovery kit export and restore wizard shipped for MVK vaults; legacy vaults must migrate before export
+- Passkey enroll and unlock shipped for MVK vaults; browser support varies
 - Single active document slot per device
+- Recovery import restores vault identity only — cross-device document migration is Phase 2
 - In-memory rate limits — weak under multi-instance Vercel until Redis/DB limits
 - Voice Anchor not wired to Trust Pass create flow
 - No Sign in with ProofOrigin / public developer API
@@ -193,7 +194,7 @@ Review vault CSP when adding scripts or workers.
 
 1. service_role blast radius — mitigate with rotation runbook + least-privilege review
 2. XSS → localStorage theft — CSP + minimal third-party scripts
-3. Recovery kit missing — Phase 1 warning only; full kit in Vault Recovery Commit 6
+3. Recovery kit missing — warn in vault UI; export + restore wizard available for MVK vaults
 4. Nonce table growth — schedule cleanup
 5. Orphan blobs — schedule audit
 6. Multi-instance rate limits — Phase 2 hardening
