@@ -6,6 +6,7 @@ export const SENTINEL_COUNTER_PREFIXES = [
   "vault.auth.",
   "guide.",
   "trust.verify.",
+  "trust.voice_link.",
 ];
 
 export const SENTINEL_OPERATIONAL_COUNTER_KEYS = new Set([
@@ -24,6 +25,13 @@ export const SENTINEL_OPERATIONAL_COUNTER_KEYS = new Set([
   "trust.verify.expired",
   "trust.verify.rate_limited",
   "trust.verify.server_error",
+  "trust.voice_link.success",
+  "trust.voice_link.invalid_credentials",
+  "trust.voice_link.not_found",
+  "trust.voice_link.already_linked",
+  "trust.voice_link.rate_limited",
+  "trust.voice_link.server_error",
+  "trust.voice_link.unlink.success",
   "vault.auth.replay_rejected",
   "vault.auth.replay_expired_nonce",
   "vault.auth.signature_failed",

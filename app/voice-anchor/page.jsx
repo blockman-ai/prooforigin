@@ -13,6 +13,11 @@ import {
   VOICE_ANCHOR_MAX_BYTES,
   writeStoredEnrollment,
 } from "../lib/voiceAnchor";
+import {
+  readStoredIdentityCard,
+} from "../lib/identityCardClient";
+import { formatCardDate } from "../lib/identityCardShared";
+import Link from "next/link";
 
 const MAX_RECORD_MS = 30_000;
 
@@ -51,6 +56,10 @@ export default function VoiceAnchorPage() {
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
   const [enrollment, setEnrollment] = useState(null);
+  const [localCard, setLocalCard] = useState(null);
+  const [voiceAnchor, setVoiceAnchor] = useState(null);
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkConsent, setLinkConsent] = useState(false);
 
   const mediaStreamRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -77,11 +86,89 @@ export default function VoiceAnchorPage() {
         typeof MediaRecorder !== "undefined"
     );
     setEnrollment(readStoredEnrollment());
+    setLocalCard(readStoredIdentityCard());
     return () => {
       clearRecordTimer();
       stopMediaStream();
     };
   }, [clearRecordTimer, stopMediaStream]);
+
+  useEffect(() => {
+    if (!localCard?.card_id || !localCard.stored) {
+      setVoiceAnchor(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function syncVoiceAnchor() {
+      try {
+        const res = await fetch(`/api/identity-card/public/${encodeURIComponent(localCard.card_id)}`);
+        const data = await res.json();
+        if (!cancelled && data.success) {
+          setVoiceAnchor(data.voice_anchor || null);
+        }
+      } catch {
+        if (!cancelled) {
+          setVoiceAnchor(null);
+        }
+      }
+    }
+
+    syncVoiceAnchor();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [localCard]);
+
+  async function handleLinkToTrustPass() {
+    if (!localCard?.card_id || !(localCard.secret_seed || localCard.secret_token)) {
+      setError("Create a Trust Pass in this browser before linking.");
+      return;
+    }
+
+    if (!enrollment?.enrollment_id || !enrollment?.enrollment_token) {
+      setError("Enroll a voice anchor before linking.");
+      return;
+    }
+
+    if (!linkConsent) {
+      setError("Confirm the documentation disclaimer before linking.");
+      return;
+    }
+
+    setLinkBusy(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/identity-card/link-voice-anchor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          card_id: localCard.card_id,
+          secret_seed: localCard.secret_seed || localCard.secret_token,
+          enrollment_id: enrollment.enrollment_id,
+          enrollment_token: enrollment.enrollment_token,
+          consent: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Could not link to Trust Pass.");
+      }
+
+      setVoiceAnchor(data.voice_anchor || null);
+      setLinkConsent(false);
+    } catch (err) {
+      setError(err.message || "Could not link to Trust Pass.");
+    } finally {
+      setLinkBusy(false);
+    }
+  }
+
+  const voiceLinked = Boolean(voiceAnchor?.linked);
 
   function resetCapture() {
     setFile(null);
@@ -323,6 +410,65 @@ export default function VoiceAnchorPage() {
                 {deleting ? "Removing…" : "Delete voice anchor"}
               </button>
             </div>
+            {localCard ? (
+              <div className="voice-anchor-trust-link">
+                {voiceLinked ? (
+                  <>
+                    <p className="voice-anchor-trust-link__status">
+                      <ProtocolBadge variant="success">Linked to Trust Pass</ProtocolBadge>
+                      {voiceAnchor?.linked_at ? (
+                        <span> · Documented {formatCardDate(voiceAnchor.linked_at)}</span>
+                      ) : null}
+                    </p>
+                    <div className="protocol-actions">
+                      <Link href="/identity-card" className="secondary">
+                        Manage on Trust Pass
+                      </Link>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="voice-anchor-trust-link__lead">
+                      Optional: link this enrollment to your Trust Pass as a documentation signal.
+                    </p>
+                    {!localCard.stored || !enrollment.stored ? (
+                      <p className="voice-anchor-trust-link__hint">
+                        Both Trust Pass and voice enrollment must be saved on ProofOrigin servers.
+                      </p>
+                    ) : null}
+                    <label className="identity-card-consent">
+                      <input
+                        type="checkbox"
+                        checked={linkConsent}
+                        onChange={(event) => setLinkConsent(event.target.checked)}
+                      />
+                      <span>
+                        I understand this is documentation only — not live voice verification.
+                      </span>
+                    </label>
+                    <div className="protocol-actions">
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={handleLinkToTrustPass}
+                        disabled={linkBusy || !localCard.stored || !enrollment.stored}
+                      >
+                        {linkBusy ? "Linking…" : "Link to Trust Pass"}
+                      </button>
+                      <Link href="/identity-card" className="secondary">
+                        Open Trust Pass
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="protocol-actions">
+                <Link href="/identity-card" className="secondary">
+                  Create Trust Pass to link
+                </Link>
+              </div>
+            )}
           </div>
         </StatusCard>
       )}

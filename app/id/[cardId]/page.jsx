@@ -41,6 +41,7 @@ export default function PublicTrustPassPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [card, setCard] = useState(null);
+  const [voiceAnchor, setVoiceAnchor] = useState(null);
   const [trustHistory, setTrustHistory] = useState([]);
   const [trustCode, setTrustCode] = useState("");
   const [verifyResult, setVerifyResult] = useState(null);
@@ -62,6 +63,7 @@ export default function PublicTrustPassPage() {
           throw new Error("Trust pass not found.");
         }
         setCard(data.card);
+        setVoiceAnchor(data.voice_anchor || null);
         setTrustHistory(data.trust_history || []);
       } catch (err) {
         setError(err.message || "Could not load trust pass.");
@@ -127,6 +129,9 @@ export default function PublicTrustPassPage() {
           if (historyData.card) {
             setCard((prev) => (prev ? { ...prev, ...historyData.card, card_id: prev.card_id } : prev));
           }
+          if (historyData.voice_anchor) {
+            setVoiceAnchor(historyData.voice_anchor);
+          }
         }
       }
     } catch (err) {
@@ -145,6 +150,13 @@ export default function PublicTrustPassPage() {
     : ROTATING_CODE_WINDOW_SECONDS;
   const trustTierLabel = card ? formatTrustTierLabel(card.trust_tier || "free") : "Free";
   const strictVerifyWindow = card ? usesStrictVerifyWindow(resolveCardTrustTier(card)) : false;
+  const voiceDocumented = Boolean(voiceAnchor?.linked);
+  const voiceAnchorStatus = voiceDocumented ? "Voice documented" : "Not documented";
+  const voiceAnchorDetail = voiceDocumented
+    ? voiceAnchor?.linked_at
+      ? `Linked ${formatCardDate(voiceAnchor.linked_at)}`
+      : "Optional documentation signal"
+    : "No voice anchor on file";
 
   return (
     <PageShell
@@ -244,6 +256,27 @@ export default function PublicTrustPassPage() {
             </footer>
           </article>
 
+          <GlassPanel title="Voice documentation" className="trust-voice-public-panel">
+            {voiceDocumented ? (
+              <>
+                <p className="trust-voice-public-panel__status">
+                  <ProtocolBadge variant="success">Voice documented</ProtocolBadge>
+                  {voiceAnchor?.linked_at ? (
+                    <span> Linked {formatCardDate(voiceAnchor.linked_at)}</span>
+                  ) : null}
+                </p>
+                <p className="trust-voice-public-panel__disclaimer">
+                  Optional documentation signal. Not live voice verification. Live Trust Code
+                  verification below remains the primary proof.
+                </p>
+              </>
+            ) : (
+              <p className="trust-voice-public-panel__lead">
+                No voice anchor documented on this Trust Pass.
+              </p>
+            )}
+          </GlassPanel>
+
           <GlassPanel title="Live Trust Code" className="trust-verify-panel privacy-print-hide">
             <PrivacyScreenGuard
               strict
@@ -317,6 +350,8 @@ export default function PublicTrustPassPage() {
             issuedAt={card.issued_at}
             verificationCount={verifiedCount}
             historyCount={trustHistory.length}
+            voiceAnchorStatus={voiceAnchorStatus}
+            voiceAnchorDetail={voiceAnchorDetail}
           />
         </>
       )}

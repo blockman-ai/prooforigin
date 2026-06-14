@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveTrustState, resolveCardRotationSeconds, resolveCardTrustTier } from "../../../../lib/identityCard";
+import { buildPublicVoiceAnchorFromCard } from "../../../../lib/identityCardVoiceLink";
 import {
   ensureExpiredStateEvent,
   getTrustHistory,
@@ -37,7 +38,7 @@ export async function GET(_req, { params }) {
     const { data: card, error } = await supabase
       .from(CARDS_TABLE)
       .select(
-        "id, display_name, username, purpose, issued_at, expires_at, revoked_at, trust_state, latest_state_hash, verification_count, last_verified_at, identity_card_version, metadata"
+        "id, display_name, username, purpose, issued_at, expires_at, revoked_at, trust_state, latest_state_hash, verification_count, last_verified_at, identity_card_version, metadata, voice_anchor_hash"
       )
       .eq("id", cardId)
       .maybeSingle();
@@ -55,7 +56,7 @@ export async function GET(_req, { params }) {
     const { data: refreshedCard } = await supabase
       .from(CARDS_TABLE)
       .select(
-        "id, display_name, username, purpose, issued_at, expires_at, revoked_at, trust_state, latest_state_hash, verification_count, last_verified_at, identity_card_version, metadata"
+        "id, display_name, username, purpose, issued_at, expires_at, revoked_at, trust_state, latest_state_hash, verification_count, last_verified_at, identity_card_version, metadata, voice_anchor_hash"
       )
       .eq("id", cardId)
       .maybeSingle();
@@ -64,6 +65,7 @@ export async function GET(_req, { params }) {
     const trustState = resolveTrustState(activeCard);
     const trustHistory = await getTrustHistory(supabase, cardId);
     const rotationSeconds = resolveCardRotationSeconds(activeCard);
+    const voiceAnchor = buildPublicVoiceAnchorFromCard(activeCard);
 
     return NextResponse.json({
       success: true,
@@ -86,6 +88,7 @@ export async function GET(_req, { params }) {
         trust_tier: resolveCardTrustTier(activeCard),
         rotation_seconds: rotationSeconds,
       },
+      voice_anchor: voiceAnchor,
       trust_history: trustHistory,
     });
   } catch (error) {

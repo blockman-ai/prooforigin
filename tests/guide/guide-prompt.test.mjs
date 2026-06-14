@@ -14,6 +14,8 @@ test("resolveGuideTopic maps common vault questions to help snippets", () => {
   assert.equal(resolveGuideTopic("How do I unlock?"), "vault-unlock");
   assert.equal(resolveGuideTopic("Why doesn't passkey work?"), "passkey");
   assert.equal(resolveGuideTopic("What is a Recovery Kit?"), "recovery-kit");
+  assert.equal(resolveGuideTopic("How do I restore on a new device?"), "restore-vault");
+  assert.equal(resolveGuideTopic("What does Voice documented mean?"), "trust-pass-voice");
   assert.equal(resolveGuideTopic("What is Protected View?"), "vault-overview");
 });
 

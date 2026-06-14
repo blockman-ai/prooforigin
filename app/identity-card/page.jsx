@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import GlassPanel from "../../components/protocol/GlassPanel";
 import PageShell from "../../components/protocol/PageShell";
@@ -30,6 +31,7 @@ import {
   writeStoredIdentityCard,
 } from "../lib/identityCardClient";
 import { preparePhotoForLocalStorage } from "../lib/identityCardPhoto";
+import { readStoredEnrollment } from "../lib/voiceAnchor";
 
 const TRUST_PASS_DISCLAIMER =
   "This is a ProofOrigin Online Trust Pass, not a government ID.";
@@ -49,6 +51,10 @@ export default function IdentityCardPage() {
   const [rotatingCode, setRotatingCode] = useState("------");
   const [codeSecondsLeft, setCodeSecondsLeft] = useState(ROTATING_CODE_WINDOW_SECONDS);
   const [verifyCardId, setVerifyCardId] = useState("");
+  const [localEnrollment, setLocalEnrollment] = useState(null);
+  const [voiceAnchor, setVoiceAnchor] = useState(null);
+  const [voiceLinkBusy, setVoiceLinkBusy] = useState(false);
+  const [voiceLinkConsent, setVoiceLinkConsent] = useState(false);
 
   const refreshRotatingCode = useCallback(async (activeCard) => {
     if (!activeCard?.card_id) return;
@@ -60,12 +66,42 @@ export default function IdentityCardPage() {
   useEffect(() => {
     const stored = readStoredIdentityCard();
     if (stored) setCard(stored);
+    setLocalEnrollment(readStoredEnrollment());
 
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       setVerifyCardId(params.get("verify") || "");
     }
   }, []);
+
+  useEffect(() => {
+    if (!card?.card_id || !card.stored) {
+      setVoiceAnchor(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function syncVoiceAnchor() {
+      try {
+        const res = await fetch(`/api/identity-card/public/${encodeURIComponent(card.card_id)}`);
+        const data = await res.json();
+        if (!cancelled && data.success) {
+          setVoiceAnchor(data.voice_anchor || null);
+        }
+      } catch {
+        if (!cancelled) {
+          setVoiceAnchor(null);
+        }
+      }
+    }
+
+    syncVoiceAnchor();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [card]);
 
   useEffect(() => {
     if (!card) return undefined;
@@ -178,9 +214,95 @@ export default function IdentityCardPage() {
     setPhotoPreview("");
   }
 
+  async function handleLinkVoiceAnchor() {
+    if (!card?.card_id || !(card.secret_seed || card.secret_token)) {
+      setError("Trust pass credentials are missing in this browser.");
+      return;
+    }
+
+    if (!localEnrollment?.enrollment_id || !localEnrollment?.enrollment_token) {
+      setError("Enroll a Voice Anchor on this device before linking.");
+      return;
+    }
+
+    if (!voiceLinkConsent) {
+      setError("Confirm the voice documentation disclaimer before linking.");
+      return;
+    }
+
+    setVoiceLinkBusy(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/identity-card/link-voice-anchor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          card_id: card.card_id,
+          secret_seed: card.secret_seed || card.secret_token,
+          enrollment_id: localEnrollment.enrollment_id,
+          enrollment_token: localEnrollment.enrollment_token,
+          consent: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Could not link voice anchor.");
+      }
+
+      setVoiceAnchor(data.voice_anchor || null);
+      setVoiceLinkConsent(false);
+    } catch (err) {
+      setError(err.message || "Could not link voice anchor.");
+    } finally {
+      setVoiceLinkBusy(false);
+    }
+  }
+
+  async function handleUnlinkVoiceAnchor() {
+    if (!card?.card_id || !(card.secret_seed || card.secret_token)) {
+      setError("Trust pass credentials are missing in this browser.");
+      return;
+    }
+
+    setVoiceLinkBusy(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/identity-card/unlink-voice-anchor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          card_id: card.card_id,
+          secret_seed: card.secret_seed || card.secret_token,
+          consent: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Could not unlink voice anchor.");
+      }
+
+      setVoiceAnchor(data.voice_anchor || { linked: false, linked_at: null, version: null });
+    } catch (err) {
+      setError(err.message || "Could not unlink voice anchor.");
+    } finally {
+      setVoiceLinkBusy(false);
+    }
+  }
+
   const verificationUrl = card ? buildVerificationUrl(card.card_id) : "";
   const rotationWindow = card ? resolveCardRotationSeconds(card) : ROTATING_CODE_WINDOW_SECONDS;
   const trustTierLabel = card ? formatTrustTierLabel(card.trust_tier || "free") : "Free";
+  const voiceDocumented = Boolean(voiceAnchor?.linked);
+  const voiceAnchorStatus = voiceDocumented ? "Voice documented" : localEnrollment ? "Ready to link" : "Not enrolled";
+  const voiceAnchorDetail = voiceDocumented
+    ? voiceAnchor?.linked_at
+      ? `Linked ${formatCardDate(voiceAnchor.linked_at)}`
+      : "Optional documentation signal"
+    : "Optional documentation signal — not live voice verification";
 
   return (
     <PageShell
@@ -323,10 +445,86 @@ export default function IdentityCardPage() {
             </footer>
           </article>
 
+          <GlassPanel title="Voice Anchor (optional)" className="trust-voice-link-panel">
+            <p className="trust-voice-link-panel__lead">
+              Link an existing Voice Anchor enrollment to show <strong>Voice documented</strong> on
+              your public Trust Pass. This is a historical documentation signal — not live voice
+              verification.
+            </p>
+
+            {!card.stored && (
+              <div className="alert-banner alert-banner--warning" role="status">
+                <strong>Server storage required</strong>
+                Public verifiers will not see voice status until this Trust Pass is saved on
+                ProofOrigin servers.
+              </div>
+            )}
+
+            {localEnrollment && !localEnrollment.stored && (
+              <div className="alert-banner alert-banner--warning" role="status">
+                <strong>Voice enrollment not saved</strong>
+                Re-enroll on the Voice Anchor page with Supabase configured before linking publicly.
+              </div>
+            )}
+
+            {voiceDocumented ? (
+              <>
+                <p className="trust-voice-link-panel__status">
+                  <ProtocolBadge variant="success">Voice documented</ProtocolBadge>
+                  {voiceAnchor?.linked_at ? (
+                    <span> Linked on {formatCardDate(voiceAnchor.linked_at)}.</span>
+                  ) : null}
+                </p>
+                <div className="protocol-actions">
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={handleUnlinkVoiceAnchor}
+                    disabled={voiceLinkBusy || !card.stored}
+                  >
+                    {voiceLinkBusy ? "Updating…" : "Unlink Voice Anchor"}
+                  </button>
+                </div>
+              </>
+            ) : localEnrollment?.enrollment_id && localEnrollment?.enrollment_token ? (
+              <>
+                <label className="identity-card-consent">
+                  <input
+                    type="checkbox"
+                    checked={voiceLinkConsent}
+                    onChange={(event) => setVoiceLinkConsent(event.target.checked)}
+                  />
+                  <span>
+                    I understand this documents an enrollment signal only — not live voice
+                    verification or biometric proof.
+                  </span>
+                </label>
+                <div className="protocol-actions">
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={handleLinkVoiceAnchor}
+                    disabled={voiceLinkBusy || !card.stored || !localEnrollment.stored}
+                  >
+                    {voiceLinkBusy ? "Linking…" : "Link Voice Anchor"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="protocol-actions">
+                <Link href="/voice-anchor" className="secondary">
+                  Enroll Voice Anchor
+                </Link>
+              </div>
+            )}
+          </GlassPanel>
+
           <TrustDNAV0
             issuedAt={card.issued_at}
             verificationCount={0}
             historyCount={1}
+            voiceAnchorStatus={voiceAnchorStatus}
+            voiceAnchorDetail={voiceAnchorDetail}
           />
         </>
       ) : (

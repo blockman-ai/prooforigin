@@ -26,12 +26,39 @@ export const GUIDE_HELP_TOPICS = {
     file: "recovery-kit.md",
     keywords: [/recovery kit/i, /recovery phrase/i, /lose my device/i, /lockout/i, /forgot/i],
   },
+  "restore-vault": {
+    id: "restore-vault",
+    title: "Restore vault on a new device",
+    file: "restore-vault.md",
+    keywords: [
+      /restore vault/i,
+      /restore from recovery/i,
+      /new device/i,
+      /import recovery/i,
+      /recovery import/i,
+      /\/vault\/restore/i,
+    ],
+  },
+  "trust-pass-voice": {
+    id: "trust-pass-voice",
+    title: "Trust Pass + Voice Anchor",
+    file: "trust-pass-voice.md",
+    keywords: [
+      /voice documented/i,
+      /link voice/i,
+      /voice anchor/i,
+      /trust pass voice/i,
+      /voice enrollment/i,
+    ],
+  },
 };
 
 export const GUIDE_SUGGESTED_QUESTIONS = [
   { label: "How do I unlock?", question: "How do I unlock?" },
   { label: "Why doesn't passkey work?", question: "Why doesn't passkey work?" },
   { label: "What is a Recovery Kit?", question: "What is a Recovery Kit?" },
+  { label: "How do I restore on a new device?", question: "How do I restore on a new device?" },
+  { label: "What does Voice documented mean?", question: "What does Voice documented mean?" },
   { label: "What is Protected View?", question: "What is Protected View?" },
 ];
 
@@ -51,7 +78,7 @@ export function resolveGuideTopic(question, context = {}) {
   }
 
   if (context.feature === "recovery") {
-    return "recovery-kit";
+    return "restore-vault";
   }
 
   if (context.protectedView?.active) {

@@ -20,6 +20,7 @@ export default function TrustDNAV0({
   verificationCount = 0,
   historyCount = 0,
   voiceAnchorStatus = "Not enrolled",
+  voiceAnchorDetail = "Optional documentation signal",
 }) {
   const metrics = [
     {
@@ -30,7 +31,7 @@ export default function TrustDNAV0({
     {
       label: "Voice Anchor",
       value: voiceAnchorStatus,
-      detail: "V1 enrollment preview",
+      detail: voiceAnchorDetail,
     },
     {
       label: "Verification Events",
