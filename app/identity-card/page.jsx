@@ -309,7 +309,7 @@ export default function IdentityCardPage() {
       narrow
       badge="Trust Pass • Beta"
       title="Create your Trust Pass"
-      subtitle={`Live verification codes and trust history built through proof, not passwords. ${TRUST_PASS_DISCLAIMER}`}
+      subtitle={`Live trust signals and trust history built through proof, not passwords. ${TRUST_PASS_DISCLAIMER}`}
       className="trust-cred-page"
     >
       <p className="trust-cred-lead">

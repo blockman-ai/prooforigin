@@ -23,11 +23,11 @@ const MAX_RECORD_MS = 30_000;
 
 const NOTICES = [
   "Voice anchoring is optional — you choose when to enroll.",
-  "ProofOrigin creates a private fingerprint hash, not a public recording.",
+  "ProofOrigin creates a private voice enrollment hash, not a public recording.",
   "Raw audio is processed in memory and is not permanently stored.",
-  "ProofOrigin does not sell voiceprints or share them with third parties.",
+  "ProofOrigin does not sell enrollment records or share them with third parties.",
   "You can delete your voice anchor record later from this browser session.",
-  "This is V1 enrollment only — not live scam-call detection yet.",
+  "This is V1 enrollment only — not live voice verification, not biometric proof, not scam-call detection.",
 ];
 
 function pickRecorderMimeType() {
@@ -360,9 +360,9 @@ export default function VoiceAnchorPage() {
   return (
     <PageShell
       narrow
-      badge="Voice Identity • V1 Preview"
-      title="Voice Identity Anchor"
-      subtitle="Optional enrollment to create a private voice fingerprint hash — a first step toward protecting people from AI voice scams."
+      badge="Voice Documented • V1 Preview"
+      title="Voice Anchor"
+      subtitle="Optional enrollment to create a private voice enrollment hash — an authenticity signal you can link to your Trust Pass. Not live voice verification, not biometric proof."
     >
       <GlassPanel title="How this works">
         <ul className="voice-anchor-notices">
@@ -378,8 +378,8 @@ export default function VoiceAnchorPage() {
             <ProtocolBadge variant="success">Anchor active</ProtocolBadge>
             <p className="voice-anchor-result__lead">
               {enrollment.stored
-                ? "Your fingerprint metadata is saved securely."
-                : "Demo mode — fingerprint shown locally only."}
+                ? "Your voice enrollment record is saved securely."
+                : "Demo mode — enrollment hash shown locally only."}
             </p>
             <dl className="voice-anchor-result__meta">
               {enrollment.enrollment_id && (
@@ -388,7 +388,7 @@ export default function VoiceAnchorPage() {
                   <dd className="voice-anchor-result__mono">{enrollment.enrollment_id}</dd>
                 </>
               )}
-              <dt>Fingerprint preview</dt>
+              <dt>Enrollment hash preview</dt>
               <dd className="voice-anchor-result__mono">
                 {enrollment.fingerprint_preview ||
                   fingerprintPreview(enrollment.fingerprint_hash)}
@@ -578,8 +578,8 @@ export default function VoiceAnchorPage() {
           />
           <span>
             I consent to ProofOrigin processing my audio in memory to create a private
-            fingerprint hash. I understand raw audio is not permanently stored and this is
-            V1 enrollment, not scam-call blocking.
+            voice enrollment hash. I understand raw audio is not permanently stored, and this is
+            V1 enrollment — not live voice verification, not biometric proof, not scam-call blocking.
           </span>
         </label>
 

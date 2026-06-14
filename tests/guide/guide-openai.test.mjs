@@ -53,7 +53,7 @@ test("buildGuideAnswer uses OpenAI when configured and output passes filter", as
     snippet,
     generateOpenAI: async () => ({
       answer: "Secure passkey encryption is unavailable here. Use your PIN to unlock.",
-      disclaimer: "I cannot see your vault contents, PIN, recovery phrase, documents, or trust secrets.",
+      disclaimer: "Do not enter PINs, recovery phrases, recovery kits, Trust Pass seeds, enrollment tokens, or any other secrets here.",
       topic: "passkey",
       mode: "openai",
     }),

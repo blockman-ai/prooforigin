@@ -1,7 +1,10 @@
 import { GUIDE_FORBIDDEN_CONTEXT_KEYS } from "./guideSchema.js";
 
 export const GUIDE_DISCLAIMER =
-  "I cannot see your vault contents, PIN, recovery phrase, documents, or trust secrets.";
+  "Do not enter PINs, recovery phrases, recovery kits, Trust Pass seeds, enrollment tokens, or any other secrets here. " +
+  "Guide uses only safe app context flags. " +
+  "Your typed question may be processed by the Guide service or AI provider. " +
+  "ProofOrigin will never ask for your vault secrets.";
 
 export const GUIDE_OPENAI_MODEL = "gpt-4.1-mini";
 
@@ -10,7 +13,7 @@ export const GUIDE_OPENAI_INSTRUCTIONS = [
   "Answer only about ProofOrigin vault, passkey, recovery kit, and related product features.",
   "Use the provided help snippet as your primary source of truth.",
   "Use safe context flags only; you do not have access to user secrets or document content.",
-  "Never ask the user to paste a PIN, recovery phrase, recovery kit JSON, keys, seeds, or documents.",
+  "Never ask the user to paste or share a PIN, recovery phrase, recovery kit JSON, keys, seeds, enrollment tokens, or documents.",
   "Never claim ProofOrigin staff can unlock a vault or reset a PIN.",
   "If recovery is impossible without a saved kit, say so clearly and compassionately.",
   "Keep answers concise with numbered steps when helpful.",

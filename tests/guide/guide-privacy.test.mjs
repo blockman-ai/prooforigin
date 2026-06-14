@@ -92,7 +92,8 @@ test("POST /api/guide returns deterministic answer for safe request", async () =
 
   const json = await response.json();
   assert.match(json.answer, /unlock/i);
-  assert.match(json.disclaimer, /cannot see your vault contents/i);
+  assert.match(json.disclaimer, /Do not enter PINs/i);
+  assert.match(json.disclaimer, /ProofOrigin will never ask/i);
   assert.equal(json.mode, "deterministic");
   assert.equal(json.topic, "vault-unlock");
 });

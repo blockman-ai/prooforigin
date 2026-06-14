@@ -157,7 +157,7 @@ export default function UseCasesPage() {
       className="use-cases-page"
       badge="Use Cases • Trust Infrastructure"
       title="Use cases for personal trust infrastructure"
-      subtitle="ProofOrigin helps people verify identity, protect important records, and build trust without giving up control of private keys, vault contents, or recovery secrets."
+      subtitle="ProofOrigin helps people build trust signals, protect important records, and stay in control without giving up private keys, vault contents, or recovery secrets. Not a government ID — not absolute identity verification."
     >
       <div className="hero-cta-row">
         <a href="/identity-card" className="primary hero-cta-row__primary">

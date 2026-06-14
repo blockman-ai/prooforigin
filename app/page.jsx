@@ -12,7 +12,7 @@ const TRUST_STACK = [
   {
     name: "Voice Anchor",
     role: "Authenticity",
-    description: "Optional private voice fingerprint hash to document your real voice.",
+    description: "Optional voice enrollment record to document an authenticity signal. Not live voice verification.",
     accent: "violet",
   },
   {
@@ -39,7 +39,7 @@ const START_HERE = [
   {
     step: "01",
     title: "Create Trust Pass",
-    description: "Live verification for chats, communities, and online trust.",
+    description: "Live trust signals for chats, communities, and online verification.",
     href: "/identity-card",
     accent: "cyan",
   },
@@ -64,8 +64,8 @@ export default function Home() {
     <PageShell
       className="home-page"
       badge="Personal Trust Infrastructure • Beta"
-      title="Verify identity. Protect documents. Stay in control."
-      subtitle="Trust Pass, Private Vault, Recovery Kit, Guide and Sentinel work together to keep your identity, documents and trust history private, verifiable and under your control."
+      title="Prove you are the real you. Protect documents. Stay in control."
+      subtitle="Trust Pass, Private Vault, Recovery Kit, Guide and Sentinel work together to keep your documents and trust history private, verifiable, and under your control. Not a government ID — not absolute identity verification."
     >
       <div className="hero-cta-row">
         <a href="/identity-card" className="primary hero-cta-row__primary">
