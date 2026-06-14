@@ -22,6 +22,7 @@ import ProtectedView from "../../components/vault/ProtectedView";
 
 import {
 
+  createVaultGenesis,
   ensureVaultGenesis,
 
   formatGenesisHashPreview,
@@ -111,6 +112,15 @@ import { isVaultUsingMasterVaultKey } from "../lib/vaultKeyRingStorage";
 import { isVaultRecoveryKitConfigured } from "../lib/vaultRecoveryStatus";
 
 import { shouldSuspendVaultFocusVanish } from "../lib/vaultVanishPolicy";
+import {
+  clearVaultBootstrapChoice,
+  isVaultBootstrapPending,
+  isVaultCreateBootstrapChosen,
+  isVaultRestoreBootstrapChosen,
+  shouldShowVaultBootstrapChoice,
+  VAULT_BOOTSTRAP_CHOICES,
+  writeVaultBootstrapChoice,
+} from "../lib/vaultBootstrap";
 
 
 
@@ -155,6 +165,8 @@ export default function VaultPage() {
   const [passkeyStatusTick, setPasskeyStatusTick] = useState(0);
 
   const [passkeyUnlockSupported, setPasskeyUnlockSupported] = useState(null);
+
+  const [bootstrapTick, setBootstrapTick] = useState(0);
 
   const [genesis, setGenesis] = useState(null);
 
@@ -638,7 +650,36 @@ export default function VaultPage() {
 
 
 
+  function refreshBootstrapView() {
+    setBootstrapTick((value) => value + 1);
+  }
+
+  function handleChooseCreateVault() {
+    writeVaultBootstrapChoice(VAULT_BOOTSTRAP_CHOICES.CREATE);
+    refreshBootstrapView();
+  }
+
+  function handleChooseRestoreVault() {
+    writeVaultBootstrapChoice(VAULT_BOOTSTRAP_CHOICES.RESTORE);
+    refreshBootstrapView();
+  }
+
+  function handleChangeBootstrapChoice() {
+    clearVaultBootstrapChoice();
+    refreshBootstrapView();
+  }
+
+
+
   function openUnlockPanel() {
+
+    if (isVaultBootstrapPending() && !isVaultCreateBootstrapChosen()) {
+
+      setError("Choose Create New Vault before setting up a vault PIN.");
+
+      return;
+
+    }
 
     setPasskeyUnlockSupported(null);
 
@@ -656,13 +697,17 @@ export default function VaultPage() {
 
 
 
-  async function completeVaultUnlock(unlockKeys) {
+  async function completeVaultUnlock(unlockKeys, { setup = false } = {}) {
 
     setVaultSessionUnlockKeys(unlockKeys);
 
 
 
-    const genesisRecord = await ensureVaultGenesis();
+    const genesisRecord = setup
+
+      ? await createVaultGenesis()
+
+      : await ensureVaultGenesis();
 
     setGenesis(genesisRecord);
 
@@ -724,7 +769,7 @@ export default function VaultPage() {
 
       }
 
-      await completeVaultUnlock(unlockKeys);
+      await completeVaultUnlock(unlockKeys, { setup: isSetupMode });
 
     } catch (err) {
 
@@ -953,6 +998,21 @@ export default function VaultPage() {
     enrolled: isVaultPasskeyEnrolled(),
     passkeySupported: passkeyUnlockSupported,
   });
+
+  const showVaultBootstrapChoice = useMemo(
+    () => shouldShowVaultBootstrapChoice(),
+    [bootstrapTick]
+  );
+
+  const showVaultRestoreBootstrap = useMemo(
+    () => isVaultRestoreBootstrapChosen(),
+    [bootstrapTick]
+  );
+
+  const showVaultCreateLockedPanel = useMemo(
+    () => isVaultCreateBootstrapChosen() || !isVaultBootstrapPending(),
+    [bootstrapTick]
+  );
 
   const guideContext = useMemo(
     () =>
@@ -1270,7 +1330,64 @@ export default function VaultPage() {
 
             </PrivacyScreenGuard>
 
-          ) : (
+          ) : showVaultBootstrapChoice ? (
+
+            <section className="vault-bootstrap-panel" aria-label="Vault setup choice">
+
+              <p className="vault-bootstrap-panel__lead">
+
+                Choose whether to create a new vault or restore access from a saved Recovery Kit.
+
+                No vault identity is created until you continue.
+
+              </p>
+
+              <div className="protocol-actions vault-bootstrap-panel__actions">
+
+                <button type="button" className="primary" onClick={handleChooseCreateVault}>
+
+                  Create New Vault
+
+                </button>
+
+                <button type="button" className="secondary" onClick={handleChooseRestoreVault}>
+
+                  Restore From Recovery Kit
+
+                </button>
+
+              </div>
+
+            </section>
+
+          ) : showVaultRestoreBootstrap ? (
+
+            <section
+              className="vault-bootstrap-panel vault-bootstrap-panel--restore"
+              aria-label="Restore vault"
+            >
+
+              <p className="vault-bootstrap-panel__lead">
+
+                Recovery import opens next. This path does not create a vault identity, genesis record,
+
+                or encryption keys until you complete restore with your recovery phrase and kit file.
+
+              </p>
+
+              <div className="protocol-actions vault-bootstrap-panel__actions">
+
+                <button type="button" className="secondary" onClick={handleChangeBootstrapChoice}>
+
+                  Change choice
+
+                </button>
+
+              </div>
+
+            </section>
+
+          ) : showVaultCreateLockedPanel ? (
 
             <section className="vault-locked-panel">
 
@@ -1326,7 +1443,7 @@ export default function VaultPage() {
 
             </section>
 
-          )}
+          ) : null}
 
         </div>
 

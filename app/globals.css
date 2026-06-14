@@ -4245,6 +4245,23 @@ p {
   justify-content: flex-start;
 }
 
+.vault-bootstrap-panel {
+  padding: 8px 0 4px;
+}
+
+.vault-bootstrap-panel__lead {
+  margin: 0 0 20px;
+  max-width: 52ch;
+  color: var(--po-muted);
+  line-height: 1.65;
+  font-size: 15px;
+}
+
+.vault-bootstrap-panel__actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
 .vault-recovery-warning {
   margin: 0 0 16px;
 }

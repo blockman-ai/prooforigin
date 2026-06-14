@@ -1,3 +1,8 @@
+import {
+  canCreateVaultGenesis,
+  clearVaultBootstrapChoice,
+} from "./vaultBootstrap.js";
+
 export const VAULT_GENESIS_STORAGE_KEY = "prooforigin_vault_genesis_v1";
 export const VAULT_GENESIS_PREFIX = "prooforigin-vault-genesis-v1";
 
@@ -44,10 +49,14 @@ function writeVaultGenesis(record) {
   window.localStorage.setItem(VAULT_GENESIS_STORAGE_KEY, JSON.stringify(record));
 }
 
-export async function ensureVaultGenesis() {
+export async function createVaultGenesis() {
   const existing = readVaultGenesis();
   if (existing) {
     return existing;
+  }
+
+  if (!canCreateVaultGenesis()) {
+    throw new Error("Choose Create New Vault before creating vault genesis.");
   }
 
   const vault_id = crypto.randomUUID();
@@ -62,7 +71,26 @@ export async function ensureVaultGenesis() {
   };
 
   writeVaultGenesis(record);
+  clearVaultBootstrapChoice();
+
   return record;
+}
+
+export async function ensureVaultGenesis() {
+  const existing = readVaultGenesis();
+  if (existing) {
+    return existing;
+  }
+
+  throw new Error("Vault genesis does not exist. Choose Create New Vault or complete restore.");
+}
+
+export function resetVaultGenesisForTests() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(VAULT_GENESIS_STORAGE_KEY);
 }
 
 export function formatVaultCreatedAt(value) {
