@@ -9,7 +9,7 @@ import {
 } from "../../app/lib/guideHelpMap.js";
 
 test("guideHelpMap exports knowledge-backed topic map", () => {
-  assert.equal(Object.keys(GUIDE_HELP_TOPICS).length, 6);
+  assert.equal(Object.keys(GUIDE_HELP_TOPICS).length, 10);
   assert.ok(GUIDE_HELP_TOPICS["restore-vault"]);
   assert.ok(Array.isArray(GUIDE_HELP_TOPICS.passkey.keywords));
 });

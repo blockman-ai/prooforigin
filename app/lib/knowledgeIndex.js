@@ -159,12 +159,8 @@ export function resolveGuideTopic(question, context = {}, manifest = loadKnowled
 
   const byFeature = manifest.topic_resolution?.by_feature || {};
 
-  if (context.feature === "passkey" && byFeature.passkey) {
-    return byFeature.passkey;
-  }
-
-  if (context.feature === "recovery" && byFeature.recovery) {
-    return byFeature.recovery;
+  if (context.feature && byFeature[context.feature]) {
+    return byFeature[context.feature];
   }
 
   const byContext = manifest.topic_resolution?.by_context || {};

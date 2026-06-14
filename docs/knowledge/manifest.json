@@ -1,7 +1,109 @@
 {
   "schema_version": 1,
-  "corpus_version": "2026.06.1",
+  "corpus_version": "2026.06.2",
   "articles": [
+    {
+      "id": "platform-overview",
+      "path": "guide/platform-overview.md",
+      "audience": ["guide"],
+      "product": "platform",
+      "version": 1,
+      "status": "active",
+      "title": "How ProofOrigin fits together",
+      "routes": ["/", "/use-cases", "/dashboard"],
+      "features": ["general"],
+      "keyword_patterns": [
+        { "pattern": "what is prooforigin", "flags": "i" },
+        { "pattern": "difference between vault and trust pass", "flags": "i" },
+        { "pattern": "vault vs trust pass", "flags": "i" },
+        { "pattern": "how prooforigin fits", "flags": "i" },
+        { "pattern": "trust stack", "flags": "i" }
+      ],
+      "related": ["product-boundaries", "trust-pass-overview", "vault-overview"],
+      "source_of_truth": "docs/knowledge/guide/platform-overview.md"
+    },
+    {
+      "id": "product-boundaries",
+      "path": "guide/product-boundaries.md",
+      "audience": ["guide"],
+      "product": "platform",
+      "version": 1,
+      "status": "active",
+      "title": "What ProofOrigin is and is not",
+      "routes": ["/", "/use-cases"],
+      "features": ["general"],
+      "keyword_patterns": [
+        { "pattern": "absolute truth", "flags": "i" },
+        { "pattern": "absolute proof", "flags": "i" },
+        { "pattern": "protect privacy", "flags": "i" },
+        { "pattern": "what prooforigin is not", "flags": "i" },
+        { "pattern": "not a bank", "flags": "i" },
+        { "pattern": "not a government", "flags": "i" },
+        { "pattern": "cannot unlock", "flags": "i" }
+      ],
+      "related": ["platform-overview"],
+      "source_of_truth": "docs/knowledge/guide/product-boundaries.md"
+    },
+    {
+      "id": "voice-anchor-overview",
+      "path": "guide/voice-anchor-overview.md",
+      "audience": ["guide"],
+      "product": "voice_anchor",
+      "version": 1,
+      "status": "active",
+      "title": "Voice Anchor overview",
+      "routes": ["/voice-anchor"],
+      "features": ["voice_anchor"],
+      "keyword_patterns": [
+        { "pattern": "what is voice anchor", "flags": "i" },
+        { "pattern": "voice anchor enrollment stored", "flags": "i" },
+        { "pattern": "how is voice anchor enrollment", "flags": "i" },
+        { "pattern": "voice fingerprint", "flags": "i" },
+        { "pattern": "voice enrollment hash", "flags": "i" }
+      ],
+      "related": ["trust-pass-voice", "product-boundaries"],
+      "source_of_truth": "docs/knowledge/guide/voice-anchor-overview.md"
+    },
+    {
+      "id": "trust-pass-overview",
+      "path": "guide/trust-pass-overview.md",
+      "audience": ["guide"],
+      "product": "trust_pass",
+      "version": 1,
+      "status": "active",
+      "title": "ProofOrigin Trust Pass",
+      "routes": ["/identity-card", "/id"],
+      "features": ["trust_pass"],
+      "keyword_patterns": [
+        { "pattern": "what is a prooforigin trust pass", "flags": "i" },
+        { "pattern": "what is a trust pass", "flags": "i" },
+        { "pattern": "live trust code", "flags": "i" },
+        { "pattern": "verify a trust pass live code", "flags": "i" },
+        { "pattern": "verify someone", "flags": "i" },
+        { "pattern": "rotating trust code", "flags": "i" }
+      ],
+      "related": ["trust-pass-voice", "platform-overview"],
+      "source_of_truth": "docs/knowledge/guide/trust-pass-overview.md"
+    },
+    {
+      "id": "trust-pass-voice",
+      "path": "guide/trust-pass-voice.md",
+      "audience": ["guide"],
+      "product": "trust_pass",
+      "version": 1,
+      "status": "active",
+      "title": "Trust Pass + Voice Anchor",
+      "routes": ["/identity-card", "/voice-anchor"],
+      "features": ["trust_pass", "voice_anchor"],
+      "keyword_patterns": [
+        { "pattern": "voice documented", "flags": "i" },
+        { "pattern": "link voice", "flags": "i" },
+        { "pattern": "trust pass voice", "flags": "i" },
+        { "pattern": "unlink voice", "flags": "i" }
+      ],
+      "related": ["trust-pass-overview", "voice-anchor-overview"],
+      "source_of_truth": "docs/help/trust-pass-voice.md"
+    },
     {
       "id": "vault-overview",
       "path": "guide/vault-overview.md",
@@ -16,9 +118,9 @@
         { "pattern": "protected view", "flags": "i" },
         { "pattern": "watermark", "flags": "i" },
         { "pattern": "what is the vault", "flags": "i" },
-        { "pattern": "overview", "flags": "i" }
+        { "pattern": "private vault", "flags": "i" }
       ],
-      "related": [],
+      "related": ["platform-overview"],
       "source_of_truth": "docs/help/vault-overview.md"
     },
     {
@@ -102,33 +204,16 @@
       ],
       "related": ["recovery-kit"],
       "source_of_truth": "docs/help/restore-vault.md"
-    },
-    {
-      "id": "trust-pass-voice",
-      "path": "guide/trust-pass-voice.md",
-      "audience": ["guide"],
-      "product": "trust_pass",
-      "version": 1,
-      "status": "active",
-      "title": "Trust Pass + Voice Anchor",
-      "routes": ["/identity-card", "/voice-anchor"],
-      "features": ["trust_pass", "voice_anchor"],
-      "keyword_patterns": [
-        { "pattern": "voice documented", "flags": "i" },
-        { "pattern": "link voice", "flags": "i" },
-        { "pattern": "voice anchor", "flags": "i" },
-        { "pattern": "trust pass voice", "flags": "i" },
-        { "pattern": "voice enrollment", "flags": "i" }
-      ],
-      "related": [],
-      "source_of_truth": "docs/help/trust-pass-voice.md"
     }
   ],
   "topic_resolution": {
     "default": "vault-overview",
     "by_feature": {
       "passkey": "passkey",
-      "recovery": "restore-vault"
+      "recovery": "restore-vault",
+      "trust_pass": "trust-pass-overview",
+      "voice_anchor": "voice-anchor-overview",
+      "general": "platform-overview"
     },
     "by_context": {
       "protectedView.active": "vault-overview",
