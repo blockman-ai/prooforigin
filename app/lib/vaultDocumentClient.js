@@ -158,6 +158,13 @@ export async function fetchVaultCustodyTimeline(limit = 50) {
   });
 }
 
+export async function fetchVaultCustodyIntelligence() {
+  return vaultSignedFetch({
+    method: "GET",
+    path: "/api/vault/custody-intelligence",
+  });
+}
+
 export async function deleteVaultDocumentRemote() {
   return vaultSignedFetch({
     method: "DELETE",

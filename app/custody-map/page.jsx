@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import PageShell from "../../components/protocol/PageShell";
-import { fetchVaultCustodyMapSummary, fetchVaultCustodyTimeline } from "../lib/vaultDocumentClient";
+import { fetchVaultCustodyMapSummary, fetchVaultCustodyTimeline, fetchVaultCustodyIntelligence } from "../lib/vaultDocumentClient";
 
 function formatTimestamp(value) {
   if (!value) return "—";
@@ -39,6 +39,7 @@ function StatusPill({ children, variant = "neutral" }) {
 export default function CustodyMapPage() {
   const [summary, setSummary] = useState(null);
   const [timeline, setTimeline] = useState(null);
+  const [intelligence, setIntelligence] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -49,9 +50,10 @@ export default function CustodyMapPage() {
       setLoading(true);
       setError("");
       try {
-        const [summaryResponse, timelineResponse] = await Promise.all([
+        const [summaryResponse, timelineResponse, intelligenceResponse] = await Promise.all([
           fetchVaultCustodyMapSummary(),
           fetchVaultCustodyTimeline(50),
+          fetchVaultCustodyIntelligence(),
         ]);
         if (!summaryResponse.ok) {
           throw new Error(summaryResponse.data?.error || "Unable to load custody map.");
@@ -59,15 +61,20 @@ export default function CustodyMapPage() {
         if (!timelineResponse.ok) {
           throw new Error(timelineResponse.data?.error || "Unable to load custody timeline.");
         }
+        if (!intelligenceResponse.ok) {
+          throw new Error(intelligenceResponse.data?.error || "Unable to load custody intelligence.");
+        }
         if (!cancelled) {
           setSummary(summaryResponse.data);
           setTimeline(timelineResponse.data?.timeline || null);
+          setIntelligence(intelligenceResponse.data || null);
         }
       } catch (err) {
         if (!cancelled) {
           setError(err.message || "Unable to load custody map.");
           setSummary(null);
           setTimeline(null);
+          setIntelligence(null);
         }
       } finally {
         if (!cancelled) {
@@ -93,6 +100,20 @@ export default function CustodyMapPage() {
       ["Compromised documents", sentinel.compromised_document_count],
     ];
   }, [summary]);
+
+  const trustSignalItems = useMemo(() => {
+    const signals = intelligence?.signals || {};
+    return [
+      ["Ownership confidence", signals.ownership_confidence],
+      ["Device stability", signals.device_stability],
+      ["Migration reliability", signals.migration_reliability],
+      ["Cleanup hygiene", signals.cleanup_hygiene],
+      ["Retirement hygiene", signals.retirement_hygiene],
+      ["Storage integrity", signals.storage_integrity],
+      ["Auth integrity", signals.auth_integrity],
+      ["Identity trust", signals.identity_trust],
+    ].filter(([, signal]) => signal);
+  }, [intelligence]);
 
   return (
     <PageShell
@@ -217,6 +238,58 @@ export default function CustodyMapPage() {
                   </li>
                 ))}
               </ul>
+            )}
+          </section>
+
+          <section className="custody-panel" aria-label="Sentinel Intelligence">
+            <div className="custody-panel__header">
+              <h2>Sentinel Intelligence</h2>
+              <StatusPill
+                variant={
+                  intelligence?.health?.band === "critical"
+                    ? "critical"
+                    : intelligence?.health?.band === "attention"
+                      ? "warning"
+                      : intelligence?.health?.band === "watch"
+                        ? "neutral"
+                        : "success"
+                }
+              >
+                {intelligence?.health?.band || "—"}
+              </StatusPill>
+            </div>
+            {!intelligence ? (
+              <EmptyNote>Sentinel intelligence is unavailable.</EmptyNote>
+            ) : (
+              <>
+                <div className="sentinel-health-summary">
+                  <span>Overall custody health</span>
+                  <strong>{intelligence.health?.score ?? "—"}</strong>
+                </div>
+                {intelligence.anomalies?.length > 0 ? (
+                  <ul className="sentinel-anomaly-list">
+                    {intelligence.anomalies.slice(0, 3).map((anomaly) => (
+                      <li key={anomaly.kind}>
+                        <strong>{anomaly.label}</strong>
+                        <span>{anomaly.severity}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <EmptyNote>No active custody anomalies detected.</EmptyNote>
+                )}
+                {trustSignalItems.length > 0 && (
+                  <div className="sentinel-signal-grid">
+                    {trustSignalItems.map(([label, signal]) => (
+                      <div key={label} className={`sentinel-signal sentinel-signal--${signal.band}`}>
+                        <span>{label}</span>
+                        <strong>{signal.score}</strong>
+                        <small>{signal.band}</small>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </section>
 
