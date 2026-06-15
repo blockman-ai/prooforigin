@@ -235,6 +235,7 @@ function mapVaultDocumentRow(row, { includeLabelEnvelope = false } = {}) {
     encryption_version: row.encryption_version,
     label_present: Boolean(row.label_ciphertext),
     compromised_at: row.compromised_at,
+    source_retired_at: row.source_retired_at || null,
     created_at: row.created_at,
     updated_at: row.updated_at,
     deleted_at: row.deleted_at,
@@ -267,7 +268,7 @@ export async function getVaultDocumentByDevice(vaultDeviceId) {
   const { data, error } = await supabase
     .from(VAULT_DOCUMENTS_TABLE)
     .select(
-      "id, vault_device_id, vault_id, aad_version, storage_path, ciphertext_sha256, ciphertext_bytes, content_type_hint, label_ciphertext, encryption_version, compromised_at, created_at, updated_at, deleted_at"
+      "id, vault_device_id, vault_id, aad_version, storage_path, ciphertext_sha256, ciphertext_bytes, content_type_hint, label_ciphertext, encryption_version, compromised_at, source_retired_at, created_at, updated_at, deleted_at"
     )
     .eq("vault_device_id", vaultDeviceId)
     .is("deleted_at", null)
@@ -285,7 +286,7 @@ export async function getVaultDocumentById(documentId, { includeLabelEnvelope = 
   const { data, error } = await supabase
     .from(VAULT_DOCUMENTS_TABLE)
     .select(
-      `id, vault_device_id, vault_id, aad_version, storage_path, ciphertext_sha256, ciphertext_bytes, content_type_hint, label_ciphertext${labelFields}, encryption_version, compromised_at, created_at, updated_at, deleted_at`
+      `id, vault_device_id, vault_id, aad_version, storage_path, ciphertext_sha256, ciphertext_bytes, content_type_hint, label_ciphertext${labelFields}, encryption_version, compromised_at, source_retired_at, created_at, updated_at, deleted_at`
     )
     .eq("id", documentId)
     .maybeSingle();
@@ -321,6 +322,7 @@ export async function listVaultDiscoveryDocuments(vaultId) {
     .select("id, aad_version, encryption_version, label_ciphertext, created_at, updated_at")
     .eq("vault_id", vaultId)
     .is("deleted_at", null)
+    .is("source_retired_at", null)
     .order("created_at", { ascending: false });
 
   return {
@@ -1190,6 +1192,51 @@ export async function commitVaultDocumentMigrationAtomic({
 
   return {
     document: mapVaultDocumentRow(data?.document),
+    migration: mapVaultDocumentMigrationRow(data?.migration),
+    error: null,
+    usedRpc: true,
+  };
+}
+
+export async function retireVaultDocumentMigrationSourceAtomic({
+  migrationId,
+  vaultId,
+  sourceDocumentId,
+  sourceVaultDeviceId,
+  targetVaultDeviceId,
+  targetDocumentId,
+  expectedSourceCiphertextSha256,
+  targetStoragePath,
+  targetCiphertextSha256,
+  targetCiphertextBytes,
+  targetContentTypeHint,
+  retiredAt,
+  migrationMetadata = {},
+}) {
+  const supabase = createVaultAdminClient();
+
+  const { data, error } = await supabase.rpc("vault_retire_document_migration_source_atomic", {
+    p_migration_id: migrationId,
+    p_vault_id: vaultId,
+    p_source_document_id: sourceDocumentId,
+    p_source_vault_device_id: sourceVaultDeviceId,
+    p_target_vault_device_id: targetVaultDeviceId,
+    p_target_document_id: targetDocumentId,
+    p_expected_source_ciphertext_sha256: expectedSourceCiphertextSha256,
+    p_target_storage_path: targetStoragePath,
+    p_target_ciphertext_sha256: targetCiphertextSha256,
+    p_target_ciphertext_bytes: targetCiphertextBytes,
+    p_target_content_type_hint: targetContentTypeHint,
+    p_retired_at: retiredAt,
+    p_migration_metadata: migrationMetadata,
+  });
+
+  if (error) {
+    return { sourceDocument: null, migration: null, error, usedRpc: true };
+  }
+
+  return {
+    sourceDocument: mapVaultDocumentRow(data?.source_document),
     migration: mapVaultDocumentMigrationRow(data?.migration),
     error: null,
     usedRpc: true,

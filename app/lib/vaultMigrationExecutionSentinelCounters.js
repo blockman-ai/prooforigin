@@ -22,6 +22,14 @@ export const VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS = Object.freeze({
   CLEANUP_STAGING_FAILED_TOTAL: "vault.migration.execution.cleanup.staging.failed_total",
   CLEANUP_REJECTED_TOTAL: "vault.migration.execution.cleanup.rejected_total",
   RETIREMENT_ELIGIBLE_TOTAL: "vault.migration.execution.retirement_eligible.total",
+  RETIREMENT_REQUEST_TOTAL: "vault.migration.execution.retirement.request_total",
+  RETIREMENT_SUCCESS_TOTAL: "vault.migration.execution.retirement.success_total",
+  RETIREMENT_REJECTED_TOTAL: "vault.migration.execution.retirement.rejected_total",
+  RETIREMENT_IDEMPOTENT_TOTAL: "vault.migration.execution.retirement.idempotent_total",
+  RETIREMENT_NOT_BEFORE_REJECTED_TOTAL:
+    "vault.migration.execution.retirement.not_before_rejected_total",
+  RETIREMENT_TARGET_INVALID_TOTAL: "vault.migration.execution.retirement.target_invalid_total",
+  RETIREMENT_SOURCE_INVALID_TOTAL: "vault.migration.execution.retirement.source_invalid_total",
   ERROR_TOTAL: "vault.migration.execution.error_total",
 });
 

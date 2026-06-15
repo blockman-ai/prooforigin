@@ -22,6 +22,7 @@ create table if not exists public.vault_documents (
   compromised_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  source_retired_at timestamptz,
   deleted_at timestamptz,
 
   constraint vault_documents_ciphertext_sha256_len
