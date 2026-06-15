@@ -804,6 +804,40 @@ function mapVaultDocumentMigrationRow(row) {
   };
 }
 
+function normalizeMigrationMetadata(metadata) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return {};
+  }
+  return metadata;
+}
+
+function mergeMigrationMetadata(existingMetadata, patchMetadata) {
+  return {
+    ...normalizeMigrationMetadata(existingMetadata),
+    ...normalizeMigrationMetadata(patchMetadata),
+  };
+}
+
+function buildVaultMigrationStagingStoragePath({ vaultId, migrationId, targetDocumentId }) {
+  return `migrations/${vaultId}/${migrationId}/${targetDocumentId}.enc`;
+}
+
+export async function getVaultDocumentMigrationById(migrationId) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_DOCUMENT_MIGRATIONS_TABLE)
+    .select(
+      "id, vault_id, source_document_id, target_document_id, source_vault_device_id, target_vault_device_id, state, failure_reason, source_retirement_state, upload_started_at, completed_at, source_retired_at, created_at, updated_at, metadata"
+    )
+    .eq("id", migrationId)
+    .maybeSingle();
+
+  return {
+    migration: mapVaultDocumentMigrationRow(data),
+    error,
+  };
+}
+
 export async function createVaultDocumentMigrationRecord({
   vaultId,
   sourceDocumentId,
@@ -847,6 +881,144 @@ export async function createVaultDocumentMigrationRecord({
   return {
     migration: mapVaultDocumentMigrationRow(data),
     error,
+  };
+}
+
+export async function startVaultDocumentMigrationUpload({
+  migrationId,
+  targetDocumentId = crypto.randomUUID(),
+  expectedSourceCiphertextSha256,
+  aadVersion = VAULT_DOCUMENT_AAD_VERSION_VAULT_SCOPED,
+  metadata = {},
+  uploadStartedAt = new Date().toISOString(),
+}) {
+  const supabase = createVaultAdminClient();
+  const { migration, error: lookupError } = await getVaultDocumentMigrationById(migrationId);
+  if (lookupError) {
+    return { migration: null, error: lookupError };
+  }
+  if (!migration) {
+    return { migration: null, error: null, notFound: true };
+  }
+  if (migration.state !== "pending") {
+    return { migration, error: null, invalidState: true };
+  }
+
+  const stagingStoragePath = buildVaultMigrationStagingStoragePath({
+    vaultId: migration.vault_id,
+    migrationId,
+    targetDocumentId,
+  });
+  const nextMetadata = mergeMigrationMetadata(migration.metadata, {
+    ...metadata,
+    staging_storage_path: stagingStoragePath,
+    expected_source_ciphertext_sha256: String(expectedSourceCiphertextSha256 || "").toLowerCase(),
+    staging_verified: false,
+    staging_verified_at: null,
+    staging_ciphertext_sha256: null,
+    staging_ciphertext_bytes: null,
+    staging_content_type: null,
+    staging_aad_version: aadVersion,
+  });
+
+  const { data, error } = await supabase
+    .from(VAULT_DOCUMENT_MIGRATIONS_TABLE)
+    .update({
+      target_document_id: targetDocumentId,
+      state: "uploading",
+      upload_started_at: uploadStartedAt,
+      updated_at: uploadStartedAt,
+      metadata: nextMetadata,
+    })
+    .eq("id", migrationId)
+    .eq("state", "pending")
+    .is("target_document_id", null)
+    .select(
+      "id, vault_id, source_document_id, target_document_id, source_vault_device_id, target_vault_device_id, state, failure_reason, source_retirement_state, upload_started_at, completed_at, source_retired_at, created_at, updated_at, metadata"
+    )
+    .maybeSingle();
+
+  return {
+    migration: mapVaultDocumentMigrationRow(data),
+    stagingStoragePath,
+    error,
+  };
+}
+
+export async function markVaultDocumentMigrationStagingVerified({
+  migrationId,
+  targetDocumentId,
+  stagingCiphertextSha256,
+  stagingCiphertextBytes,
+  stagingContentType,
+  aadVersion = VAULT_DOCUMENT_AAD_VERSION_VAULT_SCOPED,
+  verifiedAt = new Date().toISOString(),
+}) {
+  const supabase = createVaultAdminClient();
+  const { migration, error: lookupError } = await getVaultDocumentMigrationById(migrationId);
+  if (lookupError) {
+    return { migration: null, error: lookupError };
+  }
+  if (!migration) {
+    return { migration: null, error: null, notFound: true };
+  }
+  if (migration.state !== "uploading") {
+    return { migration, error: null, invalidState: true };
+  }
+  if (migration.target_document_id !== targetDocumentId) {
+    return { migration, error: null, targetMismatch: true };
+  }
+
+  const nextMetadata = mergeMigrationMetadata(migration.metadata, {
+    staging_verified: true,
+    staging_verified_at: verifiedAt,
+    staging_ciphertext_sha256: String(stagingCiphertextSha256 || "").toLowerCase(),
+    staging_ciphertext_bytes: Number(stagingCiphertextBytes),
+    staging_content_type: stagingContentType,
+    staging_aad_version: aadVersion,
+  });
+
+  const { data, error } = await supabase
+    .from(VAULT_DOCUMENT_MIGRATIONS_TABLE)
+    .update({
+      updated_at: verifiedAt,
+      metadata: nextMetadata,
+    })
+    .eq("id", migrationId)
+    .eq("state", "uploading")
+    .eq("target_document_id", targetDocumentId)
+    .select(
+      "id, vault_id, source_document_id, target_document_id, source_vault_device_id, target_vault_device_id, state, failure_reason, source_retirement_state, upload_started_at, completed_at, source_retired_at, created_at, updated_at, metadata"
+    )
+    .maybeSingle();
+
+  return {
+    migration: mapVaultDocumentMigrationRow(data),
+    error,
+  };
+}
+
+export async function createVaultSignedUploadUrlForStoragePath(storagePath) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase.storage
+    .from(VAULT_STORAGE_BUCKET)
+    .createSignedUploadUrl(storagePath);
+
+  if (error || !data?.signedUrl) {
+    return {
+      storage_path: storagePath,
+      signedUrl: null,
+      token: null,
+      error: error || new Error("Unable to create vault upload URL."),
+    };
+  }
+
+  return {
+    storage_path: storagePath,
+    signedUrl: data.signedUrl,
+    token: data.token || null,
+    expiresIn: VAULT_SIGNED_URL_TTL_SECONDS,
+    error: null,
   };
 }
 
