@@ -6,16 +6,16 @@ import { useCallback, useEffect, useId, useState } from "react";
 const LINKS = [
   { href: "/identity-card", label: "Trust Pass" },
   { href: "/vault", label: "Vault" },
+  { href: "/custody-map", label: "Custody" },
+  { href: "/#sentinel", label: "Sentinel" },
+  { href: "/#disclosure", label: "Disclosure" },
   { href: "/use-cases", label: "Use Cases" },
-  { href: "/voice-anchor", label: "Voice Anchor" },
-  { href: "/labs", label: "Labs" },
-  { href: "/dashboard", label: "Records" },
 ];
 
 const MOBILE_LINKS = [
   { href: "/", label: "Home" },
   ...LINKS,
-  { href: "/identity-card", label: "Create Trust Pass", cta: true },
+  { href: "/vault", label: "Open Vault", cta: true },
 ];
 
 export default function SiteNav() {
@@ -68,8 +68,8 @@ export default function SiteNav() {
           ))}
         </div>
 
-        <Link href="/identity-card" className="site-nav__cta">
-          Create Trust Pass
+        <Link href="/vault" className="site-nav__cta">
+          Open Vault
         </Link>
 
         <button
