@@ -6060,6 +6060,11 @@ p {
   background: linear-gradient(180deg, rgba(76, 217, 130, 0.1), rgba(255, 255, 255, 0.05));
 }
 
+.custody-trust-hero--neutral {
+  border-color: rgba(120, 180, 255, 0.26);
+  background: linear-gradient(180deg, rgba(120, 180, 255, 0.1), rgba(255, 255, 255, 0.05));
+}
+
 .custody-trust-hero--warning {
   border-color: rgba(255, 184, 77, 0.34);
   background: linear-gradient(180deg, rgba(255, 184, 77, 0.12), rgba(255, 255, 255, 0.05));

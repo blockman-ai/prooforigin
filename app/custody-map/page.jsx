@@ -145,17 +145,20 @@ function humanizeIssueLabel(label) {
   return ANOMALY_LABELS[label] || label;
 }
 
-function trustHeroVariantFromAttention({ hasCriticalAnomaly, needsAttention }) {
+function trustHeroVariantFromAttention({ hasCriticalAnomaly, needsAttention, checksUnavailable }) {
   if (hasCriticalAnomaly) {
     return { band: "critical", variant: "critical" };
   }
   if (needsAttention) {
     return { band: "attention", variant: "warning" };
   }
+  if (checksUnavailable) {
+    return { band: "watch", variant: "neutral" };
+  }
   return { band: "clear", variant: "success" };
 }
 
-function buildTrustHero(intelligence, pendingActions) {
+function buildTrustHero(intelligence, pendingActions, { checksUnavailable = false } = {}) {
   const anomalies = intelligence?.anomalies || [];
   const pending = pendingActions || [];
   const actionItemCount = pending.reduce((sum, action) => sum + (action.count || 0), 0);
@@ -164,19 +167,22 @@ function buildTrustHero(intelligence, pendingActions) {
 
   let headline = "Your vault is protected.";
   if (needsAttention) {
-    const count =
-      actionItemCount > 0 ? actionItemCount : anomalies.length > 0 ? anomalies.length : 1;
+    const count = actionItemCount + anomalies.length || 1;
     headline = `${count} item${count === 1 ? "" : "s"} require${count === 1 ? "s" : ""} attention.`;
+  } else if (checksUnavailable) {
+    headline = "Protection checks need a refresh.";
   }
 
   const topIssue =
     (pending[0] ? humanizePendingAction(pending[0]) : null) ||
     humanizeIssueLabel(anomalies[0]?.label) ||
+    (checksUnavailable ? "Some custody details are unavailable right now." : null) ||
     null;
 
   const { band, variant } = trustHeroVariantFromAttention({
     hasCriticalAnomaly,
     needsAttention,
+    checksUnavailable,
   });
 
   return {
@@ -184,7 +190,7 @@ function buildTrustHero(intelligence, pendingActions) {
     bandLabel: humanizeBandLabel(band),
     headline,
     topIssue,
-    score: intelligence?.health?.score ?? null,
+    score: checksUnavailable ? null : intelligence?.health?.score ?? null,
     variant,
   };
 }
@@ -269,57 +275,101 @@ export default function CustodyMapPage() {
   const [timeline, setTimeline] = useState(null);
   const [intelligence, setIntelligence] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({
+    summary: "",
+    timeline: "",
+    intelligence: "",
+  });
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadCustodyMap() {
       setLoading(true);
-      setError("");
-      try {
-        const [summaryResponse, timelineResponse, intelligenceResponse] = await Promise.all([
-          fetchVaultCustodyMapSummary(),
-          fetchVaultCustodyTimeline(50),
-          fetchVaultCustodyIntelligence(),
-        ]);
-        if (!summaryResponse.ok) {
-          throw new Error(summaryResponse.data?.error || "Unable to load custody map.");
+      setErrors({ summary: "", timeline: "", intelligence: "" });
+      const [summaryResult, timelineResult, intelligenceResult] = await Promise.allSettled([
+        fetchVaultCustodyMapSummary(),
+        fetchVaultCustodyTimeline(50),
+        fetchVaultCustodyIntelligence(),
+      ]);
+
+      if (!cancelled) {
+        const nextErrors = { summary: "", timeline: "", intelligence: "" };
+        let nextSummary = null;
+        let nextTimeline = null;
+        let nextIntelligence = null;
+
+        if (summaryResult.status === "fulfilled" && summaryResult.value.ok) {
+          nextSummary = summaryResult.value.data;
+        } else {
+          nextErrors.summary =
+            summaryResult.status === "fulfilled"
+              ? summaryResult.value.data?.error || "Unable to load vault details."
+              : summaryResult.reason?.message || "Unable to load vault details.";
         }
-        if (!timelineResponse.ok) {
-          throw new Error(timelineResponse.data?.error || "Unable to load custody timeline.");
+
+        if (timelineResult.status === "fulfilled" && timelineResult.value.ok) {
+          nextTimeline = timelineResult.value.data?.timeline || null;
+        } else {
+          nextErrors.timeline =
+            timelineResult.status === "fulfilled"
+              ? timelineResult.value.data?.error || "Unable to load recent activity."
+              : timelineResult.reason?.message || "Unable to load recent activity.";
         }
-        if (!intelligenceResponse.ok) {
-          throw new Error(intelligenceResponse.data?.error || "Unable to load custody intelligence.");
+
+        if (intelligenceResult.status === "fulfilled" && intelligenceResult.value.ok) {
+          nextIntelligence = intelligenceResult.value.data || null;
+        } else {
+          nextErrors.intelligence =
+            intelligenceResult.status === "fulfilled"
+              ? intelligenceResult.value.data?.error || "Unable to load protection checks."
+              : intelligenceResult.reason?.message || "Unable to load protection checks.";
         }
-        if (!cancelled) {
-          setSummary(summaryResponse.data);
-          setTimeline(timelineResponse.data?.timeline || null);
-          setIntelligence(intelligenceResponse.data || null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err.message || "Unable to load custody map.");
-          setSummary(null);
-          setTimeline(null);
-          setIntelligence(null);
-        }
-      } finally {
+
+        setSummary(nextSummary);
+        setTimeline(nextTimeline);
+        setIntelligence(nextIntelligence);
+        setErrors(nextErrors);
+      }
+
+      if (!cancelled) {
+        setLoading(false);
+      }
+    }
+
+    loadCustodyMap().catch((err) => {
+      if (!cancelled) {
+        setErrors({
+          summary: err.message || "Unable to load vault details.",
+          timeline: "Unable to load recent activity.",
+          intelligence: "Unable to load protection checks.",
+        });
+        setSummary(null);
+        setTimeline(null);
+        setIntelligence(null);
         if (!cancelled) {
           setLoading(false);
         }
       }
-    }
-
-    loadCustodyMap();
+    });
     return () => {
       cancelled = true;
     };
   }, []);
 
+  const checksUnavailable = Boolean(errors.summary || errors.intelligence);
+  const hasCustodyData = Boolean(summary || timeline || intelligence);
+  const hasPartialErrors = Boolean(errors.summary || errors.timeline || errors.intelligence);
+  const pendingActions = summary?.pending_actions || [];
+  const devices = summary?.devices || [];
+  const documents = summary?.documents || [];
+
   const trustHero = useMemo(
-    () => buildTrustHero(intelligence, summary?.pending_actions),
-    [intelligence, summary?.pending_actions]
+    () =>
+      buildTrustHero(intelligence, pendingActions, {
+        checksUnavailable,
+      }),
+    [checksUnavailable, intelligence, pendingActions]
   );
 
   const activeTrustSignals = useMemo(() => {
@@ -342,15 +392,22 @@ export default function CustodyMapPage() {
     >
       {loading && <p className="custody-map__status">Loading your vault...</p>}
 
-      {error && !loading && (
+      {!loading && !hasCustodyData && hasPartialErrors && (
         <div className="alert-banner alert-banner--error" role="alert">
           <strong>Custody map unavailable</strong>
-          {error}
+          {errors.summary || errors.timeline || errors.intelligence}
         </div>
       )}
 
-      {!loading && !error && summary && (
+      {!loading && hasCustodyData && (
         <div className="custody-map">
+          {hasPartialErrors && (
+            <div className="alert-banner alert-banner--warning" role="status">
+              <strong>Some vault details need a refresh</strong>
+              Available sections are shown below.
+            </div>
+          )}
+
           <section
             className={`custody-trust-hero custody-trust-hero--${trustHero.variant}`}
             aria-label="Vault protection status"
@@ -365,7 +422,7 @@ export default function CustodyMapPage() {
                 <p className="custody-trust-hero__issue">Everything looks protected.</p>
               )}
             </div>
-            {intelligence && (
+            {(intelligence || checksUnavailable) && (
               <div className="custody-trust-hero__meta">
                 <StatusPill variant={trustHero.variant}>{trustHero.bandLabel}</StatusPill>
                 {trustHero.score != null && (
@@ -391,15 +448,21 @@ export default function CustodyMapPage() {
           <section className="custody-panel custody-panel--primary" aria-label="What needs your attention">
             <div className="custody-panel__header">
               <h2>What needs your attention</h2>
-              <StatusPill variant={summary.pending_actions.length > 0 ? "warning" : "success"}>
-                {summary.pending_actions.length > 0 ? "Review needed" : "Protected"}
+              <StatusPill
+                variant={
+                  errors.summary ? "neutral" : pendingActions.length > 0 ? "warning" : "success"
+                }
+              >
+                {errors.summary ? "Refresh needed" : pendingActions.length > 0 ? "Review needed" : "Protected"}
               </StatusPill>
             </div>
-            {summary.pending_actions.length === 0 ? (
+            {errors.summary ? (
+              <EmptyNote>Attention details are unavailable right now.</EmptyNote>
+            ) : pendingActions.length === 0 ? (
               <EmptyNote>Nothing needs your attention right now.</EmptyNote>
             ) : (
               <ul className="custody-action-list">
-                {summary.pending_actions.map((action) => (
+                {pendingActions.map((action) => (
                   <li key={action.type} className={`custody-action-list__item custody-action-list__item--${action.severity}`}>
                     <strong>{humanizePendingAction(action)}</strong>
                     <span>
@@ -415,13 +478,15 @@ export default function CustodyMapPage() {
             <section className="custody-panel" aria-label="Your devices">
               <div className="custody-panel__header">
                 <h2>Your devices</h2>
-                <StatusPill>{summary.devices.length}</StatusPill>
+                <StatusPill>{devices.length}</StatusPill>
               </div>
-              {summary.devices.length === 0 ? (
+              {errors.summary ? (
+                <EmptyNote>Device details are unavailable right now.</EmptyNote>
+              ) : devices.length === 0 ? (
                 <EmptyNote>No devices linked yet.</EmptyNote>
               ) : (
                 <ul className="custody-list">
-                  {summary.devices.map((device, index) => (
+                  {devices.map((device, index) => (
                     <li key={`${device.device_public_id || "device"}-${index}`}>
                       <strong>{formatDeviceName(device.device_public_id)}</strong>
                       <span>
@@ -441,13 +506,15 @@ export default function CustodyMapPage() {
             <section className="custody-panel" aria-label="Your documents">
               <div className="custody-panel__header">
                 <h2>Your documents</h2>
-                <StatusPill>{summary.documents.length}</StatusPill>
+                <StatusPill>{documents.length}</StatusPill>
               </div>
-              {summary.documents.length === 0 ? (
+              {errors.summary ? (
+                <EmptyNote>Document details are unavailable right now.</EmptyNote>
+              ) : documents.length === 0 ? (
                 <EmptyNote>No documents in your vault yet.</EmptyNote>
               ) : (
                 <ul className="custody-list">
-                  {summary.documents.map((document) => (
+                  {documents.map((document) => (
                     <li key={document.document_ref}>
                       <strong>{formatDocumentLabel(document.content_type_hint)}</strong>
                       <span>
@@ -469,7 +536,9 @@ export default function CustodyMapPage() {
               <h2>Recent activity</h2>
               <StatusPill>{timeline?.entries?.length || 0}</StatusPill>
             </div>
-            {timelineBlocks.length === 0 ? (
+            {errors.timeline ? (
+              <EmptyNote>Recent activity is unavailable right now.</EmptyNote>
+            ) : timelineBlocks.length === 0 ? (
               <EmptyNote>No recent activity yet.</EmptyNote>
             ) : (
               <div className="custody-timeline-flow">
