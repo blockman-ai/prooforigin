@@ -220,10 +220,10 @@ export async function revokeVaultDevice(vaultDeviceId) {
   };
 }
 
-function mapVaultDocumentRow(row) {
+function mapVaultDocumentRow(row, { includeLabelEnvelope = false } = {}) {
   if (!row) return null;
 
-  return {
+  const document = {
     id: row.id,
     vault_device_id: row.vault_device_id,
     vault_id: row.vault_id || null,
@@ -239,6 +239,13 @@ function mapVaultDocumentRow(row) {
     updated_at: row.updated_at,
     deleted_at: row.deleted_at,
   };
+
+  if (includeLabelEnvelope) {
+    document.label_ciphertext = row.label_ciphertext || null;
+    document.label_iv = row.label_iv || null;
+  }
+
+  return document;
 }
 
 function mapVaultDiscoveryDocumentRow(row) {
@@ -272,18 +279,19 @@ export async function getVaultDocumentByDevice(vaultDeviceId) {
   };
 }
 
-export async function getVaultDocumentById(documentId) {
+export async function getVaultDocumentById(documentId, { includeLabelEnvelope = false } = {}) {
   const supabase = createVaultAdminClient();
+  const labelFields = includeLabelEnvelope ? ", label_iv" : "";
   const { data, error } = await supabase
     .from(VAULT_DOCUMENTS_TABLE)
     .select(
-      "id, vault_device_id, vault_id, aad_version, storage_path, ciphertext_sha256, ciphertext_bytes, content_type_hint, label_ciphertext, encryption_version, compromised_at, created_at, updated_at, deleted_at"
+      `id, vault_device_id, vault_id, aad_version, storage_path, ciphertext_sha256, ciphertext_bytes, content_type_hint, label_ciphertext${labelFields}, encryption_version, compromised_at, created_at, updated_at, deleted_at`
     )
     .eq("id", documentId)
     .maybeSingle();
 
   return {
-    document: mapVaultDocumentRow(data),
+    document: mapVaultDocumentRow(data, { includeLabelEnvelope }),
     error,
   };
 }
@@ -952,6 +960,9 @@ export async function markVaultDocumentMigrationStagingVerified({
   stagingCiphertextBytes,
   stagingContentType,
   aadVersion = VAULT_DOCUMENT_AAD_VERSION_VAULT_SCOPED,
+  targetLabelCiphertext = null,
+  targetLabelIv = null,
+  sourceLabelPresent = false,
   verifiedAt = new Date().toISOString(),
 }) {
   const supabase = createVaultAdminClient();
@@ -976,6 +987,10 @@ export async function markVaultDocumentMigrationStagingVerified({
     staging_ciphertext_bytes: Number(stagingCiphertextBytes),
     staging_content_type: stagingContentType,
     staging_aad_version: aadVersion,
+    source_label_present: Boolean(sourceLabelPresent),
+    target_label_ciphertext: targetLabelCiphertext || null,
+    target_label_iv: targetLabelIv || null,
+    target_label_preserved: Boolean(targetLabelCiphertext && targetLabelIv),
   });
 
   const { data, error } = await supabase

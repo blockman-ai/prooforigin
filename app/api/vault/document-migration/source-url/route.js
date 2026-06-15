@@ -212,7 +212,8 @@ export async function POST(req) {
     }
 
     const { document: sourceDocument, error: sourceError } = await getVaultDocumentById(
-      sourceDocumentId
+      sourceDocumentId,
+      { includeLabelEnvelope: true }
     );
     if (sourceError) {
       recordVaultMigrationExecutionSentinelCounter(
@@ -290,6 +291,14 @@ export async function POST(req) {
         content_type: sourceDocument.content_type_hint,
         ciphertext_sha256: sourceDocument.ciphertext_sha256,
         ciphertext_bytes: sourceDocument.ciphertext_bytes,
+        label_present: sourceDocument.label_present,
+        label:
+          sourceDocument.label_ciphertext && sourceDocument.label_iv
+            ? {
+                label_ciphertext: sourceDocument.label_ciphertext,
+                label_iv: sourceDocument.label_iv,
+              }
+            : null,
       },
       signedUrl: download.signedUrl,
       expiresIn: download.expiresIn,

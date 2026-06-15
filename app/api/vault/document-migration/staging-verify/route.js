@@ -59,6 +59,26 @@ function normalizePositiveInt(value, name) {
   return numeric;
 }
 
+function normalizeOptionalLabelEnvelope(body) {
+  const labelCiphertext =
+    body.target_label_ciphertext === undefined || body.target_label_ciphertext === null
+      ? null
+      : String(body.target_label_ciphertext).trim();
+  const labelIv =
+    body.target_label_iv === undefined || body.target_label_iv === null
+      ? null
+      : String(body.target_label_iv).trim();
+
+  if (!labelCiphertext && !labelIv) {
+    return { targetLabelCiphertext: null, targetLabelIv: null };
+  }
+  if (!labelCiphertext || !labelIv) {
+    throw new Error("target label envelope must include ciphertext and iv.");
+  }
+
+  return { targetLabelCiphertext: labelCiphertext, targetLabelIv: labelIv };
+}
+
 function parseVerifyRequest(bodyText) {
   const body = bodyText ? JSON.parse(bodyText) : {};
   if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -76,6 +96,7 @@ function parseVerifyRequest(bodyText) {
     ciphertextBytes: normalizePositiveInt(body.ciphertext_bytes, "ciphertext_bytes"),
     contentType: normalizeContentType(body.content_type),
     aadVersion,
+    ...normalizeOptionalLabelEnvelope(body),
   };
 }
 
@@ -239,7 +260,8 @@ export async function POST(req) {
     }
 
     const { document: sourceDocument, error: sourceError } = await getVaultDocumentById(
-      parsed.sourceDocumentId
+      parsed.sourceDocumentId,
+      { includeLabelEnvelope: true }
     );
     if (sourceError) {
       recordVaultMigrationExecutionSentinelCounter(
@@ -289,6 +311,36 @@ export async function POST(req) {
         { status: 423 }
       );
     }
+    if (sourceDocument.label_present && (!parsed.targetLabelCiphertext || !parsed.targetLabelIv)) {
+      recordVaultMigrationExecutionSentinelCounter(
+        VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.STAGING_VERIFY_FAILED_TOTAL
+      );
+      return NextResponse.json(
+        {
+          success: false,
+          code: "SOURCE_LABEL_REENCRYPTION_REQUIRED",
+          error: "Source label must be re-encrypted for the target document before verification.",
+        },
+        { status: 409 }
+      );
+    }
+    if (
+      parsed.targetLabelCiphertext &&
+      (parsed.targetLabelCiphertext === sourceDocument.label_ciphertext ||
+        parsed.targetLabelIv === sourceDocument.label_iv)
+    ) {
+      recordVaultMigrationExecutionSentinelCounter(
+        VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.STAGING_VERIFY_FAILED_TOTAL
+      );
+      return NextResponse.json(
+        {
+          success: false,
+          code: "SOURCE_LABEL_REUSE_REJECTED",
+          error: "Target label envelope must be re-encrypted and must not reuse source label ciphertext.",
+        },
+        { status: 409 }
+      );
+    }
 
     const stagingStoragePath = migration.metadata?.staging_storage_path;
     if (!stagingStoragePath) {
@@ -332,6 +384,9 @@ export async function POST(req) {
         stagingCiphertextBytes: parsed.ciphertextBytes,
         stagingContentType: parsed.contentType,
         aadVersion: parsed.aadVersion,
+        targetLabelCiphertext: parsed.targetLabelCiphertext,
+        targetLabelIv: parsed.targetLabelIv,
+        sourceLabelPresent: sourceDocument.label_present,
       });
     if (markError || !verifiedMigration) {
       recordVaultMigrationExecutionSentinelCounter(
@@ -357,6 +412,7 @@ export async function POST(req) {
       target_document_id: verifiedMigration.target_document_id,
       staging_verified: Boolean(verifiedMigration.metadata?.staging_verified),
       staging_verified_at: verifiedMigration.metadata?.staging_verified_at || null,
+      target_label_preserved: Boolean(verifiedMigration.metadata?.target_label_preserved),
     });
   } catch {
     recordVaultMigrationExecutionSentinelCounter(

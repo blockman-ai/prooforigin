@@ -10,9 +10,13 @@ const VAULT_ID = "44444444-4444-4444-8444-444444444444";
 const SOURCE_DOCUMENT_ID = "11111111-1111-4111-9111-111111111111";
 const MIGRATION_ID = "99999999-9999-4999-8999-999999999999";
 const TARGET_DOC_ID = "22222222-2222-4222-8222-222222222222";
+const SOURCE_LABEL_CIPHERTEXT = "source-label-ciphertext";
+const SOURCE_LABEL_IV = "source-label-iv";
+const TARGET_LABEL_CIPHERTEXT = "target-label-ciphertext";
+const TARGET_LABEL_IV = "target-label-iv";
 
-test("staging-verify stores staging verification metadata only", async (t) => {
-  let markCalled = false;
+test("staging-verify stores target label envelope without reusing source label ciphertext", async (t) => {
+  let markPayload = null;
   let completeCalled = false;
 
   mock.module("../../app/lib/vaultAuth.js", {
@@ -51,6 +55,9 @@ test("staging-verify stores staging verification metadata only", async (t) => {
           id: SOURCE_DOCUMENT_ID,
           vault_id: VAULT_ID,
           vault_device_id: SOURCE_DEVICE_ID,
+          label_present: true,
+          label_ciphertext: SOURCE_LABEL_CIPHERTEXT,
+          label_iv: SOURCE_LABEL_IV,
           deleted_at: null,
           compromised_at: null,
         },
@@ -61,8 +68,8 @@ test("staging-verify stores staging verification metadata only", async (t) => {
         actualBytes: 2048,
         actualSha256: "b".repeat(64),
       }),
-      markVaultDocumentMigrationStagingVerified: async () => {
-        markCalled = true;
+      markVaultDocumentMigrationStagingVerified: async (payload) => {
+        markPayload = payload;
         return {
           migration: {
             id: MIGRATION_ID,
@@ -71,6 +78,7 @@ test("staging-verify stores staging verification metadata only", async (t) => {
             metadata: {
               staging_verified: true,
               staging_verified_at: "2026-06-14T19:00:00.000Z",
+              target_label_preserved: true,
             },
           },
           error: null,
@@ -113,6 +121,8 @@ test("staging-verify stores staging verification metadata only", async (t) => {
         ciphertext_bytes: 2048,
         content_type: "application/pdf",
         aad_version: 3,
+        target_label_ciphertext: TARGET_LABEL_CIPHERTEXT,
+        target_label_iv: TARGET_LABEL_IV,
       }),
     })
   );
@@ -122,7 +132,11 @@ test("staging-verify stores staging verification metadata only", async (t) => {
   assert.equal(json.success, true);
   assert.equal(json.state, "uploading");
   assert.equal(json.staging_verified, true);
-  assert.equal(markCalled, true);
+  assert.equal(json.target_label_preserved, true);
+  assert.equal(markPayload.targetLabelCiphertext, TARGET_LABEL_CIPHERTEXT);
+  assert.equal(markPayload.targetLabelIv, TARGET_LABEL_IV);
+  assert.equal(markPayload.targetLabelCiphertext === SOURCE_LABEL_CIPHERTEXT, false);
+  assert.equal(markPayload.sourceLabelPresent, true);
   assert.equal(completeCalled, false);
 
   t.mock.restoreAll();

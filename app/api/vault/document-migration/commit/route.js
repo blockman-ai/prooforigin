@@ -153,6 +153,71 @@ async function markCommitFailed(migrationId, failureReason, metadata = {}) {
   return result;
 }
 
+function migrationScopeMatches({ migration, registration, auth, parsed }) {
+  return (
+    migration.vault_id === registration.vault_id &&
+    migration.target_vault_device_id === auth.vault_device_id &&
+    migration.source_document_id === parsed.sourceDocumentId &&
+    migration.target_document_id === parsed.targetDocumentId
+  );
+}
+
+function targetMatchesCompletedMigration(document, migration) {
+  const metadata = migration.metadata || {};
+  const expectedLiveStoragePath =
+    metadata.live_storage_path ||
+    buildVaultDocumentStoragePath(migration.target_vault_device_id, migration.target_document_id);
+
+  return (
+    document &&
+    document.id === migration.target_document_id &&
+    document.vault_id === migration.vault_id &&
+    document.vault_device_id === migration.target_vault_device_id &&
+    document.aad_version === VAULT_DOCUMENT_AAD_VERSION_VAULT_SCOPED &&
+    document.storage_path === expectedLiveStoragePath &&
+    String(document.ciphertext_sha256 || "").toLowerCase() ===
+      String(metadata.staging_ciphertext_sha256 || "").toLowerCase() &&
+    Number(document.ciphertext_bytes) === Number(metadata.staging_ciphertext_bytes) &&
+    document.content_type_hint === metadata.staging_content_type &&
+    !document.deleted_at &&
+    (!metadata.target_label_preserved || document.label_present)
+  );
+}
+
+function buildCommitSuccessResponse({ migration, document, idempotent = false }) {
+  const metadata = migration.metadata || {};
+  return NextResponse.json({
+    success: true,
+    migration_id: migration.id,
+    state: migration.state,
+    target_document_id: document.id,
+    document,
+    source_retirement_eligible: true,
+    source_retirement_not_before: metadata.source_retirement_not_before || null,
+    source_retirement_state: migration.source_retirement_state,
+    staging_cleanup_pending: Boolean(metadata.staging_cleanup_pending),
+    idempotent,
+  });
+}
+
+function targetLabelEnvelopeFailure(sourceDocument, migration) {
+  const metadata = migration.metadata || {};
+  const targetLabelCiphertext = metadata.target_label_ciphertext || null;
+  const targetLabelIv = metadata.target_label_iv || null;
+
+  if (sourceDocument.label_present && (!targetLabelCiphertext || !targetLabelIv)) {
+    return { code: "SOURCE_LABEL_REENCRYPTION_REQUIRED" };
+  }
+  if (
+    targetLabelCiphertext &&
+    (targetLabelCiphertext === sourceDocument.label_ciphertext ||
+      targetLabelIv === sourceDocument.label_iv)
+  ) {
+    return { code: "SOURCE_LABEL_REUSE_REJECTED" };
+  }
+  return null;
+}
+
 export async function POST(req) {
   recordVaultMigrationExecutionSentinelCounter(
     VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.COMMIT_REQUEST_TOTAL
@@ -260,6 +325,42 @@ export async function POST(req) {
         { status: 404 }
       );
     }
+    if (!migrationScopeMatches({ migration, registration, auth, parsed })) {
+      recordVaultMigrationExecutionSentinelCounter(
+        VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.COMMIT_REJECTED_TOTAL
+      );
+      return NextResponse.json(
+        { success: false, code: "MIGRATION_SCOPE_MISMATCH", error: "Migration scope mismatch." },
+        { status: 403 }
+      );
+    }
+    if (migration.state === VAULT_DOCUMENT_MIGRATION_STATES.COMPLETED) {
+      const { document: completedTarget, error: completedTargetError } =
+        await getVaultDocumentByDevice(auth.vault_device_id);
+      if (completedTargetError) {
+        recordVaultMigrationExecutionSentinelCounter(
+          VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.ERROR_TOTAL
+        );
+        return NextResponse.json(
+          {
+            success: false,
+            code: "TARGET_SLOT_LOOKUP_FAILED",
+            error: completedTargetError.message || "Unable to check completed migration target.",
+          },
+          { status: 502 }
+        );
+      }
+      if (targetMatchesCompletedMigration(completedTarget, migration)) {
+        recordVaultMigrationExecutionSentinelCounter(
+          VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.COMMIT_SUCCESS_TOTAL
+        );
+        return buildCommitSuccessResponse({
+          migration,
+          document: completedTarget,
+          idempotent: true,
+        });
+      }
+    }
     if (migration.state !== VAULT_DOCUMENT_MIGRATION_STATES.UPLOADING) {
       recordVaultMigrationExecutionSentinelCounter(
         VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.COMMIT_REJECTED_TOTAL
@@ -269,23 +370,10 @@ export async function POST(req) {
         { status: 409 }
       );
     }
-    if (
-      migration.vault_id !== registration.vault_id ||
-      migration.target_vault_device_id !== auth.vault_device_id ||
-      migration.source_document_id !== parsed.sourceDocumentId ||
-      migration.target_document_id !== parsed.targetDocumentId
-    ) {
-      recordVaultMigrationExecutionSentinelCounter(
-        VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.COMMIT_REJECTED_TOTAL
-      );
-      return NextResponse.json(
-        { success: false, code: "MIGRATION_SCOPE_MISMATCH", error: "Migration scope mismatch." },
-        { status: 403 }
-      );
-    }
 
     const { document: sourceDocument, error: sourceError } = await getVaultDocumentById(
-      parsed.sourceDocumentId
+      parsed.sourceDocumentId,
+      { includeLabelEnvelope: true }
     );
     if (sourceError) {
       recordVaultMigrationExecutionSentinelCounter(
@@ -328,6 +416,23 @@ export async function POST(req) {
           success: false,
           code: stagingFailure.code,
           error: "Migration staging metadata is not ready for commit.",
+        },
+        { status: 409 }
+      );
+    }
+    const targetLabelFailure = targetLabelEnvelopeFailure(sourceDocument, migration);
+    if (targetLabelFailure) {
+      recordVaultMigrationExecutionSentinelCounter(
+        VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.COMMIT_REJECTED_TOTAL
+      );
+      await markCommitFailed(migration.id, VAULT_DOCUMENT_MIGRATION_FAILURE_REASONS.VERIFY_FAILED, {
+        commit_failure_code: targetLabelFailure.code,
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          code: targetLabelFailure.code,
+          error: "Target label envelope is not ready for migration commit.",
         },
         { status: 409 }
       );
@@ -483,6 +588,7 @@ export async function POST(req) {
       target_document_committed_at: completedAt,
       target_storage_path: liveStoragePath,
       target_aad_version: VAULT_DOCUMENT_AAD_VERSION_VAULT_SCOPED,
+      target_label_preserved: Boolean(migration.metadata.target_label_preserved),
       staging_cleanup_pending: true,
       source_retirement_state_at_commit:
         VAULT_DOCUMENT_MIGRATION_SOURCE_RETIREMENT_STATES.ACTIVE,
@@ -500,6 +606,8 @@ export async function POST(req) {
       ciphertextSha256: stagingSha,
       ciphertextBytes: stagingBytes,
       contentTypeHint: migration.metadata.staging_content_type,
+      labelCiphertext: migration.metadata.target_label_ciphertext || null,
+      labelIv: migration.metadata.target_label_iv || null,
       encryptionVersion: VAULT_ENCRYPTION_VERSION_MVK,
       aadVersion: VAULT_DOCUMENT_AAD_VERSION_VAULT_SCOPED,
       completedAt,
@@ -549,16 +657,10 @@ export async function POST(req) {
     recordVaultMigrationExecutionSentinelCounter(
       VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.RETIREMENT_ELIGIBLE_TOTAL
     );
-    return NextResponse.json({
-      success: true,
-      migration_id: commitResult.migration.id,
-      state: commitResult.migration.state,
-      target_document_id: commitResult.document.id,
+    return buildCommitSuccessResponse({
+      migration: commitResult.migration,
       document: commitResult.document,
-      source_retirement_eligible: true,
-      source_retirement_not_before: retentionNotBefore,
-      source_retirement_state: commitResult.migration.source_retirement_state,
-      staging_cleanup_pending: true,
+      idempotent: false,
     });
   } catch {
     recordVaultMigrationExecutionSentinelCounter(

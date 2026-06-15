@@ -91,6 +91,24 @@ begin
       using errcode = 'P0001';
   end if;
 
+  if (p_label_ciphertext is null) <> (p_label_iv is null) then
+    raise exception 'TARGET_LABEL_ENVELOPE_INCOMPLETE'
+      using errcode = 'P0001';
+  end if;
+
+  if v_source.label_ciphertext is not null and (p_label_ciphertext is null or p_label_iv is null) then
+    raise exception 'SOURCE_LABEL_REENCRYPTION_REQUIRED'
+      using errcode = 'P0001';
+  end if;
+
+  if p_label_ciphertext is not null and (
+    p_label_ciphertext = v_source.label_ciphertext or
+    p_label_iv = v_source.label_iv
+  ) then
+    raise exception 'SOURCE_LABEL_REUSE_REJECTED'
+      using errcode = 'P0001';
+  end if;
+
   if exists (
     select 1
     from public.vault_documents

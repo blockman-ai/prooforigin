@@ -10,17 +10,13 @@ const VAULT_ID = "44444444-4444-4444-8444-444444444444";
 const SOURCE_DOCUMENT_ID = "11111111-1111-4111-9111-111111111111";
 const MIGRATION_ID = "99999999-9999-4999-8999-999999999999";
 const TARGET_DOC_ID = "22222222-2222-4222-8222-222222222222";
-const STAGING_PATH = `migrations/${VAULT_ID}/${MIGRATION_ID}/${TARGET_DOC_ID}.enc`;
 const LIVE_PATH = `${DEVICE_ID}/${TARGET_DOC_ID}.enc`;
 const SHA256 = "b".repeat(64);
-const SOURCE_LABEL_CIPHERTEXT = "source-label-ciphertext";
-const SOURCE_LABEL_IV = "source-label-iv";
-const TARGET_LABEL_CIPHERTEXT = "target-label-ciphertext";
-const TARGET_LABEL_IV = "target-label-iv";
 
-test("migration commit copies staging object and promotes live metadata atomically", async (t) => {
-  const calls = [];
-  let commitPayload = null;
+test("completed migration commit returns idempotent success without duplicate promotion", async (t) => {
+  let duplicateDocumentCreation = false;
+  let duplicateEventCreation = false;
+  let duplicateCopy = false;
 
   mock.module("../../app/lib/vaultAuth.js", {
     exports: {
@@ -53,80 +49,53 @@ test("migration commit copies staging object and promotes live metadata atomical
           target_document_id: TARGET_DOC_ID,
           source_vault_device_id: SOURCE_DEVICE_ID,
           target_vault_device_id: DEVICE_ID,
-          state: "uploading",
+          state: "completed",
           source_retirement_state: "active",
           metadata: {
-            staging_storage_path: STAGING_PATH,
-            expected_source_ciphertext_sha256: SHA256,
-            staging_verified: true,
+            live_storage_path: LIVE_PATH,
             staging_ciphertext_sha256: SHA256,
             staging_ciphertext_bytes: 2048,
             staging_content_type: "application/pdf",
-            staging_aad_version: 3,
-            source_label_present: true,
-            target_label_ciphertext: TARGET_LABEL_CIPHERTEXT,
-            target_label_iv: TARGET_LABEL_IV,
+            source_retirement_eligible: true,
+            source_retirement_not_before: "2026-06-22T11:00:00.000Z",
+            staging_cleanup_pending: true,
             target_label_preserved: true,
           },
         },
         error: null,
       }),
-      getVaultDocumentById: async () => ({
+      getVaultDocumentByDevice: async () => ({
         document: {
-          id: SOURCE_DOCUMENT_ID,
+          id: TARGET_DOC_ID,
+          vault_device_id: DEVICE_ID,
           vault_id: VAULT_ID,
-          vault_device_id: SOURCE_DEVICE_ID,
+          aad_version: 3,
+          storage_path: LIVE_PATH,
           ciphertext_sha256: SHA256,
-          aad_version: 1,
-          encryption_version: 2,
+          ciphertext_bytes: 2048,
+          content_type_hint: "application/pdf",
           label_present: true,
-          label_ciphertext: SOURCE_LABEL_CIPHERTEXT,
-          label_iv: SOURCE_LABEL_IV,
           deleted_at: null,
-          compromised_at: null,
         },
         error: null,
       }),
-      getVaultDocumentByDevice: async () => ({ document: null, error: null }),
-      verifyVaultCiphertextObject: async ({ storagePath }) => {
-        calls.push(["verify", storagePath]);
-        return { ok: true, actualBytes: 2048, actualSha256: SHA256 };
+      getVaultDocumentById: async () => {
+        throw new Error("source lookup should not run for completed idempotent commit");
       },
-      copyVaultStorageObject: async ({ fromPath, toPath }) => {
-        calls.push(["copy", fromPath, toPath]);
+      verifyVaultCiphertextObject: async () => {
+        throw new Error("storage verification should not run for completed idempotent commit");
+      },
+      copyVaultStorageObject: async () => {
+        duplicateCopy = true;
         return { error: null };
       },
-      deleteVaultStorageObject: async () => {
-        throw new Error("rollback should not run");
-      },
+      deleteVaultStorageObject: async () => ({ error: null }),
       markVaultDocumentMigrationFailed: async () => {
-        throw new Error("failure marker should not run");
+        throw new Error("failure marker should not run for completed idempotent commit");
       },
-      commitVaultDocumentMigrationAtomic: async (payload) => {
-        commitPayload = payload;
-        return {
-          document: {
-            id: TARGET_DOC_ID,
-            vault_device_id: DEVICE_ID,
-            vault_id: VAULT_ID,
-            aad_version: 3,
-            storage_path: LIVE_PATH,
-            ciphertext_sha256: SHA256,
-            ciphertext_bytes: 2048,
-            content_type_hint: "application/pdf",
-            encryption_version: 2,
-            label_present: Boolean(payload.labelCiphertext),
-            compromised_at: null,
-            deleted_at: null,
-          },
-          migration: {
-            id: MIGRATION_ID,
-            state: "completed",
-            source_retirement_state: "active",
-            metadata: payload.migrationMetadata,
-          },
-          error: null,
-        };
+      commitVaultDocumentMigrationAtomic: async () => {
+        duplicateDocumentCreation = true;
+        return { error: null };
       },
     },
   });
@@ -134,7 +103,10 @@ test("migration commit copies staging object and promotes live metadata atomical
     exports: {
       VAULT_DOCUMENT_EVENT_TYPES: { CREATED: "created" },
       VAULT_DOCUMENT_GENESIS_STATE_HASH: "0".repeat(64),
-      computeVaultDocumentStateHash: () => "1".repeat(64),
+      computeVaultDocumentStateHash: () => {
+        duplicateEventCreation = true;
+        return "1".repeat(64);
+      },
     },
   });
   mock.module("../../app/lib/vaultMigrationExecutionSentinelCounters.js", {
@@ -169,24 +141,11 @@ test("migration commit copies staging object and promotes live metadata atomical
 
   assert.equal(response.status, 200);
   assert.equal(json.success, true);
-  assert.equal(json.state, "completed");
-  assert.equal(json.document.storage_path, LIVE_PATH);
-  assert.equal(json.source_retirement_eligible, true);
-  assert.equal(json.source_retirement_state, "active");
-  assert.equal(calls[0][0], "verify");
-  assert.equal(calls[0][1], STAGING_PATH);
-  assert.deepEqual(calls[1], ["copy", STAGING_PATH, LIVE_PATH]);
-  assert.equal(calls[2][0], "verify");
-  assert.equal(calls[2][1], LIVE_PATH);
-  assert.equal(commitPayload.liveStoragePath, LIVE_PATH);
-  assert.equal(commitPayload.aadVersion, 3);
-  assert.equal(commitPayload.labelCiphertext, TARGET_LABEL_CIPHERTEXT);
-  assert.equal(commitPayload.labelIv, TARGET_LABEL_IV);
-  assert.equal(commitPayload.labelCiphertext === SOURCE_LABEL_CIPHERTEXT, false);
-  assert.equal(commitPayload.migrationMetadata.source_retirement_eligible, true);
-  assert.equal(commitPayload.migrationMetadata.target_label_preserved, true);
-  assert.equal(commitPayload.migrationMetadata.retention_window_days, 7);
-  assert.match(commitPayload.migrationMetadata.source_retirement_not_before, /^20/);
+  assert.equal(json.idempotent, true);
+  assert.equal(json.document.id, TARGET_DOC_ID);
+  assert.equal(duplicateCopy, false);
+  assert.equal(duplicateDocumentCreation, false);
+  assert.equal(duplicateEventCreation, false);
 
   t.mock.restoreAll();
 });
