@@ -150,6 +150,14 @@ export async function fetchVaultCustodyMapSummary() {
   });
 }
 
+export async function fetchVaultCustodyTimeline(limit = 50) {
+  const query = Number.isFinite(Number(limit)) ? `?limit=${encodeURIComponent(String(limit))}` : "";
+  return vaultSignedFetch({
+    method: "GET",
+    path: `/api/vault/custody-timeline${query}`,
+  });
+}
+
 export async function deleteVaultDocumentRemote() {
   return vaultSignedFetch({
     method: "DELETE",

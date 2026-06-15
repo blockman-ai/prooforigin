@@ -320,7 +320,9 @@ export async function listVaultCustodyDevices(vaultId) {
   const [devicesResult, verificationsResult] = await Promise.all([
     supabase
       .from(VAULT_DEVICE_REGISTRATIONS_TABLE)
-      .select("vault_device_id, device_public_id, vault_id, created_at, last_seen_at, revoked_at")
+      .select(
+        "vault_device_id, device_public_id, vault_id, vault_id_bound_at, created_at, last_seen_at, revoked_at"
+      )
       .eq("vault_id", vaultId)
       .order("created_at", { ascending: true }),
     supabase
@@ -345,12 +347,92 @@ export async function listVaultCustodyDevices(vaultId) {
       vault_device_id: row.vault_device_id,
       device_public_id: row.device_public_id,
       vault_id: row.vault_id,
+      vault_id_bound_at: row.vault_id_bound_at || null,
       created_at: row.created_at,
       last_seen_at: row.last_seen_at,
       revoked_at: row.revoked_at,
       verified: verifiedDeviceIds.has(row.vault_device_id),
     })),
     error: null,
+  };
+}
+
+export async function listVaultCustodyDocumentsForTimeline(vaultId) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_DOCUMENTS_TABLE)
+    .select(
+      "id, vault_device_id, vault_id, content_type_hint, label_ciphertext, compromised_at, source_retired_at, created_at, updated_at, deleted_at"
+    )
+    .eq("vault_id", vaultId)
+    .order("created_at", { ascending: true });
+
+  return {
+    documents: (data || []).map((row) => ({
+      id: row.id,
+      vault_device_id: row.vault_device_id,
+      vault_id: row.vault_id,
+      content_type_hint: row.content_type_hint,
+      label_present: Boolean(row.label_ciphertext),
+      compromised_at: row.compromised_at,
+      source_retired_at: row.source_retired_at || null,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      deleted_at: row.deleted_at,
+    })),
+    error,
+  };
+}
+
+export async function listVaultCustodyDocumentStateEvents(vaultId) {
+  const supabase = createVaultAdminClient();
+  const { data: documents, error: documentsError } = await supabase
+    .from(VAULT_DOCUMENTS_TABLE)
+    .select("id")
+    .eq("vault_id", vaultId);
+
+  if (documentsError) {
+    return { events: [], error: documentsError };
+  }
+
+  const documentIds = (documents || []).map((row) => row.id).filter(Boolean);
+  if (documentIds.length === 0) {
+    return { events: [], error: null };
+  }
+
+  const { data, error } = await supabase
+    .from("vault_document_state_events")
+    .select("document_id, event_type, created_at")
+    .in("document_id", documentIds)
+    .order("created_at", { ascending: false });
+
+  return {
+    events: (data || []).map((row) => ({
+      document_id: row.document_id,
+      event_type: row.event_type,
+      created_at: row.created_at,
+    })),
+    error,
+  };
+}
+
+export async function listVaultCustodyOwnershipVerifications(vaultId) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_OWNERSHIP_VERIFICATIONS_TABLE)
+    .select("vault_device_id, vault_id, verified_at, status")
+    .eq("vault_id", vaultId)
+    .eq("status", VAULT_OWNERSHIP_VERIFICATION_STATUS_VERIFIED)
+    .not("verified_at", "is", null)
+    .order("verified_at", { ascending: false });
+
+  return {
+    verifications: (data || []).map((row) => ({
+      vault_device_id: row.vault_device_id,
+      vault_id: row.vault_id,
+      verified_at: row.verified_at,
+    })),
+    error,
   };
 }
 

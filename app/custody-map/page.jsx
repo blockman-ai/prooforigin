@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import PageShell from "../../components/protocol/PageShell";
-import { fetchVaultCustodyMapSummary } from "../lib/vaultDocumentClient";
+import { fetchVaultCustodyMapSummary, fetchVaultCustodyTimeline } from "../lib/vaultDocumentClient";
 
 function formatTimestamp(value) {
   if (!value) return "—";
@@ -38,6 +38,7 @@ function StatusPill({ children, variant = "neutral" }) {
 
 export default function CustodyMapPage() {
   const [summary, setSummary] = useState(null);
+  const [timeline, setTimeline] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -48,17 +49,25 @@ export default function CustodyMapPage() {
       setLoading(true);
       setError("");
       try {
-        const response = await fetchVaultCustodyMapSummary();
-        if (!response.ok) {
-          throw new Error(response.data?.error || "Unable to load custody map.");
+        const [summaryResponse, timelineResponse] = await Promise.all([
+          fetchVaultCustodyMapSummary(),
+          fetchVaultCustodyTimeline(50),
+        ]);
+        if (!summaryResponse.ok) {
+          throw new Error(summaryResponse.data?.error || "Unable to load custody map.");
+        }
+        if (!timelineResponse.ok) {
+          throw new Error(timelineResponse.data?.error || "Unable to load custody timeline.");
         }
         if (!cancelled) {
-          setSummary(response.data);
+          setSummary(summaryResponse.data);
+          setTimeline(timelineResponse.data?.timeline || null);
         }
       } catch (err) {
         if (!cancelled) {
           setError(err.message || "Unable to load custody map.");
           setSummary(null);
+          setTimeline(null);
         }
       } finally {
         if (!cancelled) {
@@ -206,6 +215,35 @@ export default function CustodyMapPage() {
                       {migration.retirement_eligible ? " - retirement eligible" : ""}
                     </small>
                   </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="custody-panel" aria-label="Custody Timeline">
+            <div className="custody-panel__header">
+              <h2>Custody Timeline</h2>
+              <StatusPill>{timeline?.entries?.length || 0}</StatusPill>
+            </div>
+            {!timeline || timeline.entries.length === 0 ? (
+              <EmptyNote>No custody timeline events yet.</EmptyNote>
+            ) : (
+              <ol className="custody-timeline">
+                {timeline.entries.map((entry) => (
+                  <li key={entry.entry_ref} className={`custody-timeline__item custody-timeline__item--${entry.severity}`}>
+                    <div className="custody-timeline__date">{entry.display_date || "—"}</div>
+                    <div className="custody-timeline__content">
+                      <strong>{entry.title}</strong>
+                      {entry.subtitle && <span>{entry.subtitle}</span>}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+            {timeline?.health_markers?.length > 0 && (
+              <ul className="custody-timeline-markers">
+                {timeline.health_markers.map((marker) => (
+                  <li key={marker.kind}>{marker.label}</li>
                 ))}
               </ul>
             )}
