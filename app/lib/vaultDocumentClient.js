@@ -143,6 +143,13 @@ export async function fetchVaultDocumentHistory() {
   });
 }
 
+export async function fetchVaultCustodyMapSummary() {
+  return vaultSignedFetch({
+    method: "GET",
+    path: "/api/vault/custody-map",
+  });
+}
+
 export async function deleteVaultDocumentRemote() {
   return vaultSignedFetch({
     method: "DELETE",

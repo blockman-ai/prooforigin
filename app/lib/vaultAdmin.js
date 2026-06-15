@@ -315,6 +315,89 @@ export async function getBoundVaultDeviceRegistration(vaultDeviceId) {
   };
 }
 
+export async function listVaultCustodyDevices(vaultId) {
+  const supabase = createVaultAdminClient();
+  const [devicesResult, verificationsResult] = await Promise.all([
+    supabase
+      .from(VAULT_DEVICE_REGISTRATIONS_TABLE)
+      .select("vault_device_id, device_public_id, vault_id, created_at, last_seen_at, revoked_at")
+      .eq("vault_id", vaultId)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from(VAULT_OWNERSHIP_VERIFICATIONS_TABLE)
+      .select("vault_device_id")
+      .eq("vault_id", vaultId)
+      .eq("status", VAULT_OWNERSHIP_VERIFICATION_STATUS_VERIFIED)
+      .not("verified_at", "is", null),
+  ]);
+
+  const error = devicesResult.error || verificationsResult.error;
+  if (error) {
+    return { devices: [], error };
+  }
+
+  const verifiedDeviceIds = new Set(
+    (verificationsResult.data || []).map((row) => row.vault_device_id).filter(Boolean)
+  );
+
+  return {
+    devices: (devicesResult.data || []).map((row) => ({
+      vault_device_id: row.vault_device_id,
+      device_public_id: row.device_public_id,
+      vault_id: row.vault_id,
+      created_at: row.created_at,
+      last_seen_at: row.last_seen_at,
+      revoked_at: row.revoked_at,
+      verified: verifiedDeviceIds.has(row.vault_device_id),
+    })),
+    error: null,
+  };
+}
+
+export async function listVaultCustodyDocuments(vaultId) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_DOCUMENTS_TABLE)
+    .select(
+      "id, vault_device_id, vault_id, content_type_hint, label_ciphertext, compromised_at, source_retired_at, created_at, updated_at, deleted_at"
+    )
+    .eq("vault_id", vaultId)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: true });
+
+  return {
+    documents: (data || []).map((row) => ({
+      id: row.id,
+      vault_device_id: row.vault_device_id,
+      vault_id: row.vault_id,
+      content_type_hint: row.content_type_hint,
+      label_present: Boolean(row.label_ciphertext),
+      compromised_at: row.compromised_at,
+      source_retired_at: row.source_retired_at || null,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      deleted_at: row.deleted_at,
+    })),
+    error,
+  };
+}
+
+export async function listVaultCustodyMigrations(vaultId) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase
+    .from(VAULT_DOCUMENT_MIGRATIONS_TABLE)
+    .select(
+      "id, vault_id, source_document_id, target_document_id, source_vault_device_id, target_vault_device_id, state, failure_reason, source_retirement_state, upload_started_at, completed_at, source_retired_at, created_at, updated_at, metadata"
+    )
+    .eq("vault_id", vaultId)
+    .order("created_at", { ascending: false });
+
+  return {
+    migrations: (data || []).map(mapVaultDocumentMigrationRow),
+    error,
+  };
+}
+
 export async function listVaultDiscoveryDocuments(vaultId) {
   const supabase = createVaultAdminClient();
   const { data, error } = await supabase
