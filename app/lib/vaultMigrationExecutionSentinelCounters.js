@@ -16,6 +16,11 @@ export const VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS = Object.freeze({
   COMMIT_SLOT_OCCUPIED_TOTAL: "vault.migration.execution.commit.slot_occupied_total",
   COMMIT_ROLLBACK_TOTAL: "vault.migration.execution.commit.rollback_total",
   COMMIT_FAILED_TOTAL: "vault.migration.execution.commit.failed_total",
+  CLEANUP_REQUEST_TOTAL: "vault.migration.execution.cleanup.request_total",
+  CLEANUP_STAGING_DELETED_TOTAL: "vault.migration.execution.cleanup.staging.deleted_total",
+  CLEANUP_STAGING_MISSING_TOTAL: "vault.migration.execution.cleanup.staging.missing_total",
+  CLEANUP_STAGING_FAILED_TOTAL: "vault.migration.execution.cleanup.staging.failed_total",
+  CLEANUP_REJECTED_TOTAL: "vault.migration.execution.cleanup.rejected_total",
   RETIREMENT_ELIGIBLE_TOTAL: "vault.migration.execution.retirement_eligible.total",
   ERROR_TOTAL: "vault.migration.execution.error_total",
 });

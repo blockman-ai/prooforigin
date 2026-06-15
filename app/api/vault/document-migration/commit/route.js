@@ -590,6 +590,11 @@ export async function POST(req) {
       target_aad_version: VAULT_DOCUMENT_AAD_VERSION_VAULT_SCOPED,
       target_label_preserved: Boolean(migration.metadata.target_label_preserved),
       staging_cleanup_pending: true,
+      staging_cleanup_state: "pending",
+      staging_cleanup_requested_at: null,
+      staging_cleanup_completed_at: null,
+      staging_cleanup_attempts: 0,
+      cleanup_version: 1,
       source_retirement_state_at_commit:
         VAULT_DOCUMENT_MIGRATION_SOURCE_RETIREMENT_STATES.ACTIVE,
     };

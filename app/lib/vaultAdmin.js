@@ -1057,6 +1057,39 @@ export async function markVaultDocumentMigrationFailed({
   };
 }
 
+export async function updateVaultDocumentMigrationMetadata({
+  migrationId,
+  metadata = {},
+  updatedAt = new Date().toISOString(),
+}) {
+  const supabase = createVaultAdminClient();
+  const { migration, error: lookupError } = await getVaultDocumentMigrationById(migrationId);
+  if (lookupError) {
+    return { migration: null, error: lookupError };
+  }
+  if (!migration) {
+    return { migration: null, error: null, notFound: true };
+  }
+
+  const nextMetadata = mergeMigrationMetadata(migration.metadata, metadata);
+  const { data, error } = await supabase
+    .from(VAULT_DOCUMENT_MIGRATIONS_TABLE)
+    .update({
+      updated_at: updatedAt,
+      metadata: nextMetadata,
+    })
+    .eq("id", migrationId)
+    .select(
+      "id, vault_id, source_document_id, target_document_id, source_vault_device_id, target_vault_device_id, state, failure_reason, source_retirement_state, upload_started_at, completed_at, source_retired_at, created_at, updated_at, metadata"
+    )
+    .maybeSingle();
+
+  return {
+    migration: mapVaultDocumentMigrationRow(data),
+    error,
+  };
+}
+
 export async function createVaultSignedUploadUrlForStoragePath(storagePath) {
   const supabase = createVaultAdminClient();
   const { data, error } = await supabase.storage
