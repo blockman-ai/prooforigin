@@ -10,6 +10,13 @@ export const VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS = Object.freeze({
   STAGING_VERIFY_REQUEST_TOTAL: "vault.migration.execution.staging_verify.request_total",
   STAGING_VERIFY_SUCCESS_TOTAL: "vault.migration.execution.staging_verify.success_total",
   STAGING_VERIFY_FAILED_TOTAL: "vault.migration.execution.staging_verify.failed_total",
+  COMMIT_REQUEST_TOTAL: "vault.migration.execution.commit.request_total",
+  COMMIT_SUCCESS_TOTAL: "vault.migration.execution.commit.success_total",
+  COMMIT_REJECTED_TOTAL: "vault.migration.execution.commit.rejected_total",
+  COMMIT_SLOT_OCCUPIED_TOTAL: "vault.migration.execution.commit.slot_occupied_total",
+  COMMIT_ROLLBACK_TOTAL: "vault.migration.execution.commit.rollback_total",
+  COMMIT_FAILED_TOTAL: "vault.migration.execution.commit.failed_total",
+  RETIREMENT_ELIGIBLE_TOTAL: "vault.migration.execution.retirement_eligible.total",
   ERROR_TOTAL: "vault.migration.execution.error_total",
 });
 

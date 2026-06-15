@@ -818,7 +818,7 @@ function mergeMigrationMetadata(existingMetadata, patchMetadata) {
   };
 }
 
-function buildVaultMigrationStagingStoragePath({ vaultId, migrationId, targetDocumentId }) {
+export function buildVaultMigrationStagingStoragePath({ vaultId, migrationId, targetDocumentId }) {
   return `migrations/${vaultId}/${migrationId}/${targetDocumentId}.enc`;
 }
 
@@ -998,6 +998,50 @@ export async function markVaultDocumentMigrationStagingVerified({
   };
 }
 
+export async function markVaultDocumentMigrationFailed({
+  migrationId,
+  failureReason,
+  metadata = {},
+  failedAt = new Date().toISOString(),
+}) {
+  const supabase = createVaultAdminClient();
+  const { migration, error: lookupError } = await getVaultDocumentMigrationById(migrationId);
+  if (lookupError) {
+    return { migration: null, error: lookupError };
+  }
+  if (!migration) {
+    return { migration: null, error: null, notFound: true };
+  }
+  if (migration.state !== "uploading") {
+    return { migration, error: null, invalidState: true };
+  }
+
+  const nextMetadata = mergeMigrationMetadata(migration.metadata, {
+    ...metadata,
+    failed_at: failedAt,
+  });
+
+  const { data, error } = await supabase
+    .from(VAULT_DOCUMENT_MIGRATIONS_TABLE)
+    .update({
+      state: "failed",
+      failure_reason: failureReason,
+      updated_at: failedAt,
+      metadata: nextMetadata,
+    })
+    .eq("id", migrationId)
+    .eq("state", "uploading")
+    .select(
+      "id, vault_id, source_document_id, target_document_id, source_vault_device_id, target_vault_device_id, state, failure_reason, source_retirement_state, upload_started_at, completed_at, source_retired_at, created_at, updated_at, metadata"
+    )
+    .maybeSingle();
+
+  return {
+    migration: mapVaultDocumentMigrationRow(data),
+    error,
+  };
+}
+
 export async function createVaultSignedUploadUrlForStoragePath(storagePath) {
   const supabase = createVaultAdminClient();
   const { data, error } = await supabase.storage
@@ -1019,6 +1063,88 @@ export async function createVaultSignedUploadUrlForStoragePath(storagePath) {
     token: data.token || null,
     expiresIn: VAULT_SIGNED_URL_TTL_SECONDS,
     error: null,
+  };
+}
+
+export async function copyVaultStorageObject({ fromPath, toPath }) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase.storage.from(VAULT_STORAGE_BUCKET).copy(fromPath, toPath);
+
+  return {
+    fromPath,
+    toPath,
+    data,
+    error,
+  };
+}
+
+export async function deleteVaultStorageObject(storagePath) {
+  const supabase = createVaultAdminClient();
+  const { data, error } = await supabase.storage.from(VAULT_STORAGE_BUCKET).remove([storagePath]);
+
+  return {
+    storagePath,
+    data,
+    error,
+  };
+}
+
+export async function commitVaultDocumentMigrationAtomic({
+  migrationId,
+  vaultId,
+  sourceDocumentId,
+  sourceVaultDeviceId,
+  targetVaultDeviceId,
+  targetDocumentId,
+  expectedSourceCiphertextSha256,
+  liveStoragePath,
+  ciphertextSha256,
+  ciphertextBytes,
+  contentTypeHint,
+  labelCiphertext = null,
+  labelIv = null,
+  encryptionVersion = VAULT_ENCRYPTION_VERSION_MVK,
+  aadVersion = VAULT_DOCUMENT_AAD_VERSION_VAULT_SCOPED,
+  completedAt,
+  eventPreviousStateHash,
+  eventStateHash,
+  eventMetadata = {},
+  migrationMetadata = {},
+}) {
+  const supabase = createVaultAdminClient();
+
+  const { data, error } = await supabase.rpc("vault_commit_document_migration_atomic", {
+    p_migration_id: migrationId,
+    p_vault_id: vaultId,
+    p_source_document_id: sourceDocumentId,
+    p_source_vault_device_id: sourceVaultDeviceId,
+    p_target_vault_device_id: targetVaultDeviceId,
+    p_target_document_id: targetDocumentId,
+    p_expected_source_ciphertext_sha256: expectedSourceCiphertextSha256,
+    p_live_storage_path: liveStoragePath,
+    p_ciphertext_sha256: ciphertextSha256,
+    p_ciphertext_bytes: ciphertextBytes,
+    p_content_type_hint: contentTypeHint,
+    p_label_ciphertext: labelCiphertext,
+    p_label_iv: labelIv,
+    p_encryption_version: encryptionVersion,
+    p_aad_version: aadVersion,
+    p_completed_at: completedAt,
+    p_event_previous_state_hash: eventPreviousStateHash,
+    p_event_state_hash: eventStateHash,
+    p_event_metadata: eventMetadata,
+    p_migration_metadata: migrationMetadata,
+  });
+
+  if (error) {
+    return { document: null, migration: null, error, usedRpc: true };
+  }
+
+  return {
+    document: mapVaultDocumentRow(data?.document),
+    migration: mapVaultDocumentMigrationRow(data?.migration),
+    error: null,
+    usedRpc: true,
   };
 }
 

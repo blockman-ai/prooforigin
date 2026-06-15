@@ -22,6 +22,12 @@ test("migration execution sentinel counters record only allowed keys", async () 
   recordVaultMigrationExecutionSentinelCounter(
     VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.STAGING_VERIFY_SUCCESS_TOTAL
   );
+  recordVaultMigrationExecutionSentinelCounter(
+    VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.COMMIT_SUCCESS_TOTAL
+  );
+  recordVaultMigrationExecutionSentinelCounter(
+    VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.RETIREMENT_ELIGIBLE_TOTAL
+  );
 
   await Promise.resolve();
   await Promise.resolve();
@@ -30,6 +36,8 @@ test("migration execution sentinel counters record only allowed keys", async () 
   assert.deepEqual(recorded, [
     VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.SOURCE_URL_REQUEST_TOTAL,
     VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.STAGING_VERIFY_SUCCESS_TOTAL,
+    VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.COMMIT_SUCCESS_TOTAL,
+    VAULT_MIGRATION_EXECUTION_SENTINEL_COUNTERS.RETIREMENT_ELIGIBLE_TOTAL,
   ]);
   assert.deepEqual(writes, recorded);
 
