@@ -2,10 +2,112 @@
 
 import { useEffect, useMemo, useState } from "react";
 import PageShell from "../../components/protocol/PageShell";
-import { fetchVaultCustodyMapSummary, fetchVaultCustodyTimeline, fetchVaultCustodyIntelligence } from "../lib/vaultDocumentClient";
+import {
+  fetchVaultCustodyMapSummary,
+  fetchVaultCustodyTimeline,
+  fetchVaultCustodyIntelligence,
+} from "../lib/vaultDocumentClient";
+
+const ACTIVE_TRUST_SIGNALS = [
+  ["Ownership", "ownership_confidence"],
+  ["Devices", "device_stability"],
+  ["Transfers", "migration_reliability"],
+  ["Cleanup", "cleanup_hygiene"],
+  ["Old copies", "retirement_hygiene"],
+];
+
+const PENDING_ACTION_LABELS = {
+  ownership_verification_required: "Verify device ownership",
+  cleanup_pending: "Finish cleanup after a transfer",
+  retirement_eligible: "Remove an old copy",
+  compromised_document_review: "Review a document that needs attention",
+};
+
+const ANOMALY_LABELS = {
+  "Unusual document custody activity in the last hour": "Unusual document activity in the last hour",
+  "Unusual device registration or revocation activity": "Unusual device activity recently",
+  "One or more active devices require ownership verification": "One or more devices need ownership verification",
+  "Migration failures elevated in the last 7 days": "More transfer failures than usual this week",
+  "Repeated migration failures on the same device route": "Transfer failed more than once between the same devices",
+  "A migration appears stalled in progress": "A device transfer seems stuck",
+  "Migration staging cleanup is still pending": "Cleanup still needed after a transfer",
+  "Source retirement has been eligible for an extended period": "An old copy has been waiting to be removed",
+  "Compromised document requires review": "A document needs your review",
+};
+
+const BAND_DISPLAY_LABELS = {
+  clear: "Protected",
+  watch: "Watch",
+  attention: "Needs attention",
+  critical: "Urgent",
+};
+
+const TIMELINE_TITLE_LABELS = {
+  "Document created": "Document added to your vault",
+  "Document marked compromised": "Document marked for review",
+  "Document deleted": "Document removed",
+  "Device registered": "New device added",
+  "Device bound to vault": "Device linked to your vault",
+  "Device revoked": "Device access removed",
+  "Ownership key registered": "Vault ownership key created",
+  "Ownership verified": "Device verified",
+  "Migration planned": "Device transfer planned",
+  "Migration upload started": "Transfer started",
+  "Staging verified": "Transfer verified",
+  "Migrated to new device": "Moved to a new device",
+  "Staging cleanup pending": "Cleanup still needed",
+  "Cleanup completed": "Cleanup finished",
+  "Cleanup failed": "Cleanup could not finish",
+  "Source retirement available": "Old copy can be removed",
+  "Source retired": "Old copy removed",
+};
+
+const CONTENT_TYPE_LABELS = {
+  "application/pdf": "PDF",
+  "image/jpeg": "Photo",
+  "image/png": "Photo",
+  "image/webp": "Photo",
+  "image/heic": "Photo",
+  "text/plain": "Text file",
+};
+
+const CUSTODY_STATE_LABELS = {
+  active: "Protected",
+  compromised: "Review needed",
+  retired: "Removed",
+};
+
+const EMPTY_VALUE = "Not available";
+
+function looksLikeTechnicalId(value) {
+  if (!value || typeof value !== "string") {
+    return true;
+  }
+  const trimmed = value.trim();
+  return /^vdp[_-]/i.test(trimmed) || /^[a-f0-9-]{20,}$/i.test(trimmed);
+}
+
+function formatDeviceName(devicePublicId, fallback = "Your device") {
+  if (!devicePublicId || looksLikeTechnicalId(devicePublicId)) {
+    return fallback;
+  }
+  return devicePublicId;
+}
+
+function formatDocumentLabel(contentTypeHint) {
+  if (!contentTypeHint) {
+    return "Protected document";
+  }
+  const normalized = contentTypeHint.trim().toLowerCase();
+  return CONTENT_TYPE_LABELS[normalized] || "Protected document";
+}
+
+function humanizeBandLabel(band) {
+  return BAND_DISPLAY_LABELS[band] || band;
+}
 
 function formatTimestamp(value) {
-  if (!value) return "—";
+  if (!value) return EMPTY_VALUE;
   try {
     return new Intl.DateTimeFormat(undefined, {
       month: "short",
@@ -15,17 +117,127 @@ function formatTimestamp(value) {
       minute: "2-digit",
     }).format(new Date(value));
   } catch {
-    return "—";
+    return EMPTY_VALUE;
   }
 }
 
-function SummaryCard({ label, value }) {
-  return (
-    <article className="custody-summary-card">
-      <span>{label}</span>
-      <strong>{value ?? 0}</strong>
-    </article>
-  );
+function humanizeTimelineTitle(title) {
+  return TIMELINE_TITLE_LABELS[title] || title.replace(/^Migration to /, "Moved to ");
+}
+
+function humanizePendingAction(action) {
+  if (PENDING_ACTION_LABELS[action.type]) {
+    return PENDING_ACTION_LABELS[action.type];
+  }
+  const backendLabelMap = {
+    "Ownership verification required": PENDING_ACTION_LABELS.ownership_verification_required,
+    "Migration cleanup pending": PENDING_ACTION_LABELS.cleanup_pending,
+    "Source retirement eligible": PENDING_ACTION_LABELS.retirement_eligible,
+    "Compromised document review required": PENDING_ACTION_LABELS.compromised_document_review,
+  };
+  return backendLabelMap[action.label] || action.label;
+}
+
+function humanizeIssueLabel(label) {
+  if (!label) {
+    return null;
+  }
+  return ANOMALY_LABELS[label] || label;
+}
+
+function trustHeroVariantFromAttention({ hasCriticalAnomaly, needsAttention }) {
+  if (hasCriticalAnomaly) {
+    return { band: "critical", variant: "critical" };
+  }
+  if (needsAttention) {
+    return { band: "attention", variant: "warning" };
+  }
+  return { band: "clear", variant: "success" };
+}
+
+function buildTrustHero(intelligence, pendingActions) {
+  const anomalies = intelligence?.anomalies || [];
+  const pending = pendingActions || [];
+  const actionItemCount = pending.reduce((sum, action) => sum + (action.count || 0), 0);
+  const hasCriticalAnomaly = anomalies.some((anomaly) => anomaly.severity === "critical");
+  const needsAttention = actionItemCount > 0 || anomalies.length > 0;
+
+  let headline = "Your vault is protected.";
+  if (needsAttention) {
+    const count =
+      actionItemCount > 0 ? actionItemCount : anomalies.length > 0 ? anomalies.length : 1;
+    headline = `${count} item${count === 1 ? "" : "s"} require${count === 1 ? "s" : ""} attention.`;
+  }
+
+  const topIssue =
+    (pending[0] ? humanizePendingAction(pending[0]) : null) ||
+    humanizeIssueLabel(anomalies[0]?.label) ||
+    null;
+
+  const { band, variant } = trustHeroVariantFromAttention({
+    hasCriticalAnomaly,
+    needsAttention,
+  });
+
+  return {
+    band,
+    bandLabel: humanizeBandLabel(band),
+    headline,
+    topIssue,
+    score: intelligence?.health?.score ?? null,
+    variant,
+  };
+}
+
+function buildTimelineBlocks(timeline) {
+  if (!timeline?.entries?.length) {
+    return [];
+  }
+
+  const groupsMeta = new Map((timeline.groups || []).map((group) => [group.group_id, group]));
+  const byGroup = new Map();
+  const standalone = [];
+
+  for (const entry of timeline.entries) {
+    if (entry.group_id && groupsMeta.has(entry.group_id)) {
+      if (!byGroup.has(entry.group_id)) {
+        byGroup.set(entry.group_id, []);
+      }
+      byGroup.get(entry.group_id).push(entry);
+    } else {
+      standalone.push(entry);
+    }
+  }
+
+  const blocks = [];
+
+  for (const [groupId, entries] of byGroup) {
+    const meta = groupsMeta.get(groupId);
+    const sortKey =
+      entries.reduce((latest, entry) => {
+        const time = new Date(entry.occurred_at).getTime();
+        return time > latest ? time : latest;
+      }, 0) || 0;
+
+    blocks.push({
+      type: "migration",
+      key: groupId,
+      title: humanizeTimelineTitle(meta?.title || "Device transfer"),
+      entries,
+      sortKey,
+    });
+  }
+
+  for (const entry of standalone) {
+    blocks.push({
+      type: "entry",
+      key: entry.entry_ref,
+      entry,
+      sortKey: new Date(entry.occurred_at).getTime() || 0,
+    });
+  }
+
+  return blocks.sort((left, right) => right.sortKey - left.sortKey);
 }
 
 function EmptyNote({ children }) {
@@ -34,6 +246,22 @@ function EmptyNote({ children }) {
 
 function StatusPill({ children, variant = "neutral" }) {
   return <span className={`custody-pill custody-pill--${variant}`.trim()}>{children}</span>;
+}
+
+function TimelineEntry({ entry }) {
+  return (
+    <li
+      className={`custody-timeline__item custody-timeline__item--${entry.severity}`}
+    >
+      <div className="custody-timeline__date">{entry.display_date || EMPTY_VALUE}</div>
+      <div className="custody-timeline__content">
+        <strong>{humanizeTimelineTitle(entry.title)}</strong>
+        {entry.subtitle && !looksLikeTechnicalId(entry.subtitle) && (
+          <span>{entry.subtitle}</span>
+        )}
+      </div>
+    </li>
+  );
 }
 
 export default function CustodyMapPage() {
@@ -89,41 +317,30 @@ export default function CustodyMapPage() {
     };
   }, []);
 
-  const vaultSummary = summary?.vault?.summary || {};
-  const healthItems = useMemo(() => {
-    const sentinel = summary?.sentinel_summary || {};
-    return [
-      ["Migration success", sentinel.migration_success_count],
-      ["Migration failure", sentinel.migration_failure_count],
-      ["Cleanup pending", sentinel.cleanup_pending_count],
-      ["Retirement pending", sentinel.retirement_pending_count],
-      ["Compromised documents", sentinel.compromised_document_count],
-    ];
-  }, [summary]);
+  const trustHero = useMemo(
+    () => buildTrustHero(intelligence, summary?.pending_actions),
+    [intelligence, summary?.pending_actions]
+  );
 
-  const trustSignalItems = useMemo(() => {
+  const activeTrustSignals = useMemo(() => {
     const signals = intelligence?.signals || {};
-    return [
-      ["Ownership confidence", signals.ownership_confidence],
-      ["Device stability", signals.device_stability],
-      ["Migration reliability", signals.migration_reliability],
-      ["Cleanup hygiene", signals.cleanup_hygiene],
-      ["Retirement hygiene", signals.retirement_hygiene],
-      ["Storage integrity", signals.storage_integrity],
-      ["Auth integrity", signals.auth_integrity],
-      ["Identity trust", signals.identity_trust],
-    ].filter(([, signal]) => signal);
+    return ACTIVE_TRUST_SIGNALS.map(([label, key]) => ({
+      label,
+      signal: signals[key],
+    })).filter(({ signal }) => signal);
   }, [intelligence]);
+
+  const timelineBlocks = useMemo(() => buildTimelineBlocks(timeline), [timeline]);
 
   return (
     <PageShell
       badge="Custody Map"
-      title="See your vault custody at a glance."
-      subtitle="A read-only dashboard for what you own, which devices can access it, what moved, and what needs attention."
+      title="Your vault, at a glance."
+      subtitle="See what you own, which devices can access it, and what needs your attention."
       className="custody-map-page"
       heroAlign="left"
     >
-      {loading && <p className="custody-map__status">Loading custody map...</p>}
+      {loading && <p className="custody-map__status">Loading your vault...</p>}
 
       {error && !loading && (
         <div className="alert-banner alert-banner--error" role="alert">
@@ -134,33 +351,60 @@ export default function CustodyMapPage() {
 
       {!loading && !error && summary && (
         <div className="custody-map">
-          <section className="custody-summary-grid" aria-label="Custody Summary">
-            <SummaryCard label="Active documents" value={vaultSummary.active_documents} />
-            <SummaryCard label="Retired sources" value={vaultSummary.retired_documents} />
-            <SummaryCard label="Compromised" value={vaultSummary.compromised_documents} />
-            <SummaryCard label="Verified devices" value={vaultSummary.verified_devices} />
-            <SummaryCard label="Revoked devices" value={vaultSummary.revoked_devices} />
-            <SummaryCard label="Completed migrations" value={vaultSummary.completed_migrations} />
-            <SummaryCard label="Failed migrations" value={vaultSummary.failed_migrations} />
-            <SummaryCard label="Cleanup pending" value={vaultSummary.cleanup_pending} />
-            <SummaryCard label="Retirement eligible" value={vaultSummary.retirement_eligible} />
+          <section
+            className={`custody-trust-hero custody-trust-hero--${trustHero.variant}`}
+            aria-label="Vault protection status"
+          >
+            <div className="custody-trust-hero__content">
+              <p className="custody-trust-hero__eyebrow">Vault protection</p>
+              <h2 className="custody-trust-hero__headline">{trustHero.headline}</h2>
+              {trustHero.topIssue && (
+                <p className="custody-trust-hero__issue">{trustHero.topIssue}</p>
+              )}
+              {!trustHero.topIssue && trustHero.band === "clear" && (
+                <p className="custody-trust-hero__issue">Everything looks protected.</p>
+              )}
+            </div>
+            {intelligence && (
+              <div className="custody-trust-hero__meta">
+                <StatusPill variant={trustHero.variant}>{trustHero.bandLabel}</StatusPill>
+                {trustHero.score != null && (
+                  <span className="custody-trust-hero__score">Trust score {trustHero.score}/100</span>
+                )}
+              </div>
+            )}
+            {activeTrustSignals.length > 0 && (
+              <div className="custody-trust-signals" aria-label="Protection checks">
+                {activeTrustSignals.map(({ label, signal }) => (
+                  <div
+                    key={label}
+                    className={`custody-trust-signal custody-trust-signal--${signal.band}`}
+                  >
+                    <span>{label}</span>
+                    <strong>{humanizeBandLabel(signal.band)}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
-          <section className="custody-panel" aria-label="Pending Actions">
+          <section className="custody-panel custody-panel--primary" aria-label="What needs your attention">
             <div className="custody-panel__header">
-              <h2>Pending Actions</h2>
+              <h2>What needs your attention</h2>
               <StatusPill variant={summary.pending_actions.length > 0 ? "warning" : "success"}>
-                {summary.pending_actions.length > 0 ? "Needs attention" : "Clear"}
+                {summary.pending_actions.length > 0 ? "Review needed" : "Protected"}
               </StatusPill>
             </div>
             {summary.pending_actions.length === 0 ? (
-              <EmptyNote>No custody actions are pending.</EmptyNote>
+              <EmptyNote>Nothing needs your attention right now.</EmptyNote>
             ) : (
-              <ul className="custody-list">
+              <ul className="custody-action-list">
                 {summary.pending_actions.map((action) => (
-                  <li key={action.type}>
-                    <strong>{action.label}</strong>
-                    <span>{action.count} item{action.count === 1 ? "" : "s"}</span>
+                  <li key={action.type} className={`custody-action-list__item custody-action-list__item--${action.severity}`}>
+                    <strong>{humanizePendingAction(action)}</strong>
+                    <span>
+                      {action.count} item{action.count === 1 ? "" : "s"}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -168,20 +412,24 @@ export default function CustodyMapPage() {
           </section>
 
           <div className="custody-map__columns">
-            <section className="custody-panel" aria-label="Devices">
+            <section className="custody-panel" aria-label="Your devices">
               <div className="custody-panel__header">
-                <h2>Devices</h2>
+                <h2>Your devices</h2>
                 <StatusPill>{summary.devices.length}</StatusPill>
               </div>
               {summary.devices.length === 0 ? (
-                <EmptyNote>No devices found.</EmptyNote>
+                <EmptyNote>No devices linked yet.</EmptyNote>
               ) : (
                 <ul className="custody-list">
                   {summary.devices.map((device, index) => (
                     <li key={`${device.device_public_id || "device"}-${index}`}>
-                      <strong>{device.device_public_id || "Vault device"}</strong>
+                      <strong>{formatDeviceName(device.device_public_id)}</strong>
                       <span>
-                        {device.revoked ? "Revoked" : device.verified ? "Verified" : "Verification required"}
+                        {device.revoked
+                          ? "Access removed"
+                          : device.verified
+                            ? "Device verified"
+                            : "Verification needed"}
                       </span>
                       <small>Last seen {formatTimestamp(device.last_seen_at)}</small>
                     </li>
@@ -190,21 +438,23 @@ export default function CustodyMapPage() {
               )}
             </section>
 
-            <section className="custody-panel" aria-label="Documents">
+            <section className="custody-panel" aria-label="Your documents">
               <div className="custody-panel__header">
-                <h2>Documents</h2>
+                <h2>Your documents</h2>
                 <StatusPill>{summary.documents.length}</StatusPill>
               </div>
               {summary.documents.length === 0 ? (
-                <EmptyNote>No active custody documents found.</EmptyNote>
+                <EmptyNote>No documents in your vault yet.</EmptyNote>
               ) : (
                 <ul className="custody-list">
                   {summary.documents.map((document) => (
                     <li key={document.document_ref}>
-                      <strong>{document.content_type_hint || "Encrypted document"}</strong>
-                      <span>{document.custody_state}</span>
+                      <strong>{formatDocumentLabel(document.content_type_hint)}</strong>
+                      <span>
+                        {CUSTODY_STATE_LABELS[document.custody_state] || "Protected"}
+                      </span>
                       <small>
-                        {document.device_public_id || "Vault device"} -{" "}
+                        {formatDeviceName(document.device_public_id)} ·{" "}
                         {formatTimestamp(document.created_at)}
                       </small>
                     </li>
@@ -214,127 +464,36 @@ export default function CustodyMapPage() {
             </section>
           </div>
 
-          <section className="custody-panel" aria-label="Migrations">
+          <section className="custody-panel" aria-label="Recent activity">
             <div className="custody-panel__header">
-              <h2>Migrations</h2>
-              <StatusPill>{summary.migrations.length}</StatusPill>
-            </div>
-            {summary.migrations.length === 0 ? (
-              <EmptyNote>No migration lifecycle records yet.</EmptyNote>
-            ) : (
-              <ul className="custody-list custody-list--timeline">
-                {summary.migrations.map((migration) => (
-                  <li key={migration.migration_ref}>
-                    <strong>{migration.status_label}</strong>
-                    <span>
-                      {migration.source_device_public_id || "Source device"} to{" "}
-                      {migration.target_device_public_id || "Target device"}
-                    </span>
-                    <small>
-                      {migration.state}
-                      {migration.cleanup_pending ? " - cleanup pending" : ""}
-                      {migration.retirement_eligible ? " - retirement eligible" : ""}
-                    </small>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className="custody-panel" aria-label="Sentinel Intelligence">
-            <div className="custody-panel__header">
-              <h2>Sentinel Intelligence</h2>
-              <StatusPill
-                variant={
-                  intelligence?.health?.band === "critical"
-                    ? "critical"
-                    : intelligence?.health?.band === "attention"
-                      ? "warning"
-                      : intelligence?.health?.band === "watch"
-                        ? "neutral"
-                        : "success"
-                }
-              >
-                {intelligence?.health?.band || "—"}
-              </StatusPill>
-            </div>
-            {!intelligence ? (
-              <EmptyNote>Sentinel intelligence is unavailable.</EmptyNote>
-            ) : (
-              <>
-                <div className="sentinel-health-summary">
-                  <span>Overall custody health</span>
-                  <strong>{intelligence.health?.score ?? "—"}</strong>
-                </div>
-                {intelligence.anomalies?.length > 0 ? (
-                  <ul className="sentinel-anomaly-list">
-                    {intelligence.anomalies.slice(0, 3).map((anomaly) => (
-                      <li key={anomaly.kind}>
-                        <strong>{anomaly.label}</strong>
-                        <span>{anomaly.severity}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <EmptyNote>No active custody anomalies detected.</EmptyNote>
-                )}
-                {trustSignalItems.length > 0 && (
-                  <div className="sentinel-signal-grid">
-                    {trustSignalItems.map(([label, signal]) => (
-                      <div key={label} className={`sentinel-signal sentinel-signal--${signal.band}`}>
-                        <span>{label}</span>
-                        <strong>{signal.score}</strong>
-                        <small>{signal.band}</small>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </section>
-
-          <section className="custody-panel" aria-label="Custody Timeline">
-            <div className="custody-panel__header">
-              <h2>Custody Timeline</h2>
+              <h2>Recent activity</h2>
               <StatusPill>{timeline?.entries?.length || 0}</StatusPill>
             </div>
-            {!timeline || timeline.entries.length === 0 ? (
-              <EmptyNote>No custody timeline events yet.</EmptyNote>
+            {timelineBlocks.length === 0 ? (
+              <EmptyNote>No recent activity yet.</EmptyNote>
             ) : (
-              <ol className="custody-timeline">
-                {timeline.entries.map((entry) => (
-                  <li key={entry.entry_ref} className={`custody-timeline__item custody-timeline__item--${entry.severity}`}>
-                    <div className="custody-timeline__date">{entry.display_date || "—"}</div>
-                    <div className="custody-timeline__content">
-                      <strong>{entry.title}</strong>
-                      {entry.subtitle && <span>{entry.subtitle}</span>}
-                    </div>
-                  </li>
-                ))}
-              </ol>
+              <div className="custody-timeline-flow">
+                {timelineBlocks.map((block) =>
+                  block.type === "migration" ? (
+                    <article key={block.key} className="custody-timeline-group">
+                      <header className="custody-timeline-group__header">
+                        <strong>{block.title}</strong>
+                        <span>{block.entries.length} updates</span>
+                      </header>
+                      <ol className="custody-timeline custody-timeline--nested">
+                        {block.entries.map((entry) => (
+                          <TimelineEntry key={entry.entry_ref} entry={entry} />
+                        ))}
+                      </ol>
+                    </article>
+                  ) : (
+                    <ol key={block.key} className="custody-timeline">
+                      <TimelineEntry entry={block.entry} />
+                    </ol>
+                  )
+                )}
+              </div>
             )}
-            {timeline?.health_markers?.length > 0 && (
-              <ul className="custody-timeline-markers">
-                {timeline.health_markers.map((marker) => (
-                  <li key={marker.kind}>{marker.label}</li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className="custody-panel" aria-label="Custody Health">
-            <div className="custody-panel__header">
-              <h2>Custody Health</h2>
-              <StatusPill>Aggregate</StatusPill>
-            </div>
-            <div className="custody-health-grid">
-              {healthItems.map(([label, value]) => (
-                <div key={label}>
-                  <span>{label}</span>
-                  <strong>{value ?? 0}</strong>
-                </div>
-              ))}
-            </div>
           </section>
         </div>
       )}
