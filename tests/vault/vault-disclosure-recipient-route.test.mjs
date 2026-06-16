@@ -84,6 +84,25 @@ mock.module("../../app/lib/vaultDisclosureGrantStore.js", {
       error: null,
     }),
     incrementDisclosureSessionAccessCount: async () => ({ session: {}, error: null }),
+    completeDisclosureVerifyAtomic: async (event) => {
+      state.grant = buildGrant({
+        access_count: Math.min(state.grant.access_count + 1, state.grant.max_access_count),
+      });
+      state.events.push({
+        ...event,
+        eventType: event.eventType || "grant.verified",
+      });
+      return {
+        event: {
+          event_type: "grant.verified",
+          event_hash: "a".repeat(64),
+          previous_event_hash: "b".repeat(64),
+        },
+        grant: state.grant,
+        session: state.session,
+        error: null,
+      };
+    },
   },
 });
 

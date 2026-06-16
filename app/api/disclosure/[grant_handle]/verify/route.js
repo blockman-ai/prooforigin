@@ -13,13 +13,14 @@ import {
   DISCLOSURE_SESSION_HEADER,
   isDisclosureGrantExpired,
   isDisclosureSessionExpired,
+  isDisclosureAccessCapError,
+  isDisclosureEventChainDesyncError,
 } from "../../../../lib/vaultDisclosureGrant";
 import {
   appendDisclosureGrantEvent,
+  completeDisclosureVerifyAtomic,
   getDisclosureAccessSessionByTokenHash,
   getDisclosureGrantRecordByHandleHash,
-  incrementDisclosureGrantAccessCount,
-  incrementDisclosureSessionAccessCount,
   markDisclosureGrantExpiredRecord,
 } from "../../../../lib/vaultDisclosureGrantStore";
 import {
@@ -34,6 +35,10 @@ import {
 export const dynamic = "force-dynamic";
 
 function denied(status = 404) {
+  return NextResponse.json(buildUniformDisclosureDeniedResponse(), { status });
+}
+
+function unavailable(status = 502) {
   return NextResponse.json(buildUniformDisclosureDeniedResponse(), { status });
 }
 
@@ -59,6 +64,33 @@ async function expireGrantIfNeeded(grant) {
       reasonCode: "grant_expired",
     });
   }
+}
+
+async function persistVerifiedDisclosureAccess({ grant, session }) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const result = await completeDisclosureVerifyAtomic({
+      grantRef: grant.grant_id,
+      sessionRef: session.session_id,
+      eventType: DISCLOSURE_GRANT_EVENT_TYPES.VERIFIED,
+      actorType: DISCLOSURE_ACTOR_TYPES.RECIPIENT,
+      result: DISCLOSURE_EVENT_RESULTS.SUCCESS,
+    });
+
+    if (!result.error) {
+      return result;
+    }
+
+    if (!isDisclosureEventChainDesyncError(result.error) || attempt === 1) {
+      return result;
+    }
+  }
+
+  return {
+    event: null,
+    grant: null,
+    session: null,
+    error: { message: "event_chain_desync" },
+  };
 }
 
 export async function GET(req, { params }) {
@@ -164,23 +196,31 @@ export async function GET(req, { params }) {
     );
   }
 
-  const [grantAccessResult, sessionAccessResult] = await Promise.all([
-    incrementDisclosureGrantAccessCount(grant.grant_id),
-    incrementDisclosureSessionAccessCount(session.session_id),
-  ]);
+  const verifyResult = await persistVerifiedDisclosureAccess({ grant, session });
 
-  if (grantAccessResult.error || sessionAccessResult.error) {
-    return NextResponse.json(buildUniformDisclosureDeniedResponse(), { status: 502 });
+  if (verifyResult.error) {
+    if (isDisclosureAccessCapError(verifyResult.error)) {
+      recordVaultDisclosureSentinelCounter(
+        VAULT_DISCLOSURE_SENTINEL_COUNTERS.FAILED_VERIFY_TOTAL
+      );
+      await appendDeniedEvent(grant, {
+        result: DISCLOSURE_EVENT_RESULTS.DENIED,
+        reasonCode: "access_cap_reached",
+      });
+      return denied();
+    }
+
+    return unavailable();
+  }
+
+  if (
+    !verifyResult.event ||
+    verifyResult.event.event_type !== DISCLOSURE_GRANT_EVENT_TYPES.VERIFIED
+  ) {
+    return unavailable();
   }
 
   const now = new Date();
-  await appendDisclosureGrantEvent({
-    grantRef: grant.grant_id,
-    eventType: DISCLOSURE_GRANT_EVENT_TYPES.VERIFIED,
-    actorType: DISCLOSURE_ACTOR_TYPES.RECIPIENT,
-    result: DISCLOSURE_EVENT_RESULTS.SUCCESS,
-  });
-
   return NextResponse.json(
     buildVerifyOnlyDisclosureResponse({
       purposeLabel: grant.purpose_label,

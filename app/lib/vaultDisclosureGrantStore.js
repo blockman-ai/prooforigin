@@ -158,12 +158,19 @@ export async function markDisclosureGrantExpiredRecord(grantId, { supabase = nul
   return { grant: mapGrant(data), error };
 }
 
+function isDisclosureEventChainForkError(error) {
+  if (!error) return false;
+  if (error.code === "23505") return true;
+  const message = String(error.message || error.details || "").toLowerCase();
+  return message.includes("disclosure_grant_events_grant_prev_hash");
+}
+
 export async function incrementDisclosureGrantAccessCount(grantId, { supabase = null } = {}) {
   const client = supabase ?? createVaultAdminClient();
   const now = new Date().toISOString();
   const { data: current, error: lookupError } = await client
     .from(DISCLOSURE_GRANTS_TABLE)
-    .select("access_count")
+    .select("access_count, max_access_count")
     .eq("grant_id", grantId)
     .maybeSingle();
 
@@ -171,19 +178,39 @@ export async function incrementDisclosureGrantAccessCount(grantId, { supabase = 
     return { grant: null, error: lookupError };
   }
 
+  const nextCount = Number(current?.access_count || 0) + 1;
+  if (nextCount > Number(current?.max_access_count || 0)) {
+    return {
+      grant: null,
+      error: { message: "access_cap_reached" },
+    };
+  }
+
   const { data, error } = await client
     .from(DISCLOSURE_GRANTS_TABLE)
     .update({
-      access_count: Number(current?.access_count || 0) + 1,
+      access_count: nextCount,
       updated_at: now,
     })
     .eq("grant_id", grantId)
+    .eq("access_count", Number(current?.access_count || 0))
     .select(
       "grant_id, public_handle_hash, vault_ref_hash, scope_ref_hash, grant_type, status, purpose_label, recipient_binding_hash, expires_at, access_count, max_access_count, created_by_device_ref, created_at, updated_at, revoked_at"
     )
-    .single();
+    .maybeSingle();
 
-  return { grant: mapGrant(data), error };
+  if (error) {
+    return { grant: null, error };
+  }
+
+  if (!data) {
+    return {
+      grant: null,
+      error: { message: "access_cap_reached" },
+    };
+  }
+
+  return { grant: mapGrant(data), error: null };
 }
 
 export async function getLatestDisclosureGrantEventHash(grantRef, { supabase = null } = {}) {
@@ -213,7 +240,55 @@ export async function appendDisclosureGrantEvent({
   supabase = null,
 }) {
   const client = supabase ?? createVaultAdminClient();
-  const previousEventHash = await getLatestDisclosureGrantEventHash(grantRef, { supabase: client });
+  const maxAttempts = 3;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const previousEventHash = await getLatestDisclosureGrantEventHash(grantRef, {
+      supabase: client,
+    });
+    const eventRecord = buildDisclosureGrantEventRecord({
+      grantRef,
+      eventType,
+      actorType,
+      result,
+      reasonCode,
+      previousEventHash,
+      metadata,
+    });
+    const { data, error } = await client
+      .from(DISCLOSURE_GRANT_EVENTS_TABLE)
+      .insert(eventRecord)
+      .select(
+        "event_id, grant_ref, event_type, actor_type, result, reason_code, timestamp, previous_event_hash, event_hash, metadata"
+      )
+      .single();
+
+    if (!error) {
+      return { event: mapEvent(data), error: null };
+    }
+
+    if (!isDisclosureEventChainForkError(error) || attempt === maxAttempts - 1) {
+      return { event: null, error };
+    }
+  }
+
+  return { event: null, error: { message: "event_chain_desync" } };
+}
+
+export async function completeDisclosureVerifyAtomic({
+  grantRef,
+  sessionRef,
+  eventType,
+  actorType,
+  result,
+  reasonCode = "",
+  metadata = {},
+  supabase = null,
+}) {
+  const client = supabase ?? createVaultAdminClient();
+  const previousEventHash = await getLatestDisclosureGrantEventHash(grantRef, {
+    supabase: client,
+  });
   const eventRecord = buildDisclosureGrantEventRecord({
     grantRef,
     eventType,
@@ -223,15 +298,30 @@ export async function appendDisclosureGrantEvent({
     previousEventHash,
     metadata,
   });
-  const { data, error } = await client
-    .from(DISCLOSURE_GRANT_EVENTS_TABLE)
-    .insert(eventRecord)
-    .select(
-      "event_id, grant_ref, event_type, actor_type, result, reason_code, timestamp, previous_event_hash, event_hash, metadata"
-    )
-    .single();
 
-  return { event: mapEvent(data), error };
+  const { data, error } = await client.rpc("disclosure_verify_grant_atomic", {
+    p_grant_id: grantRef,
+    p_session_id: sessionRef,
+    p_event_type: eventRecord.event_type,
+    p_actor_type: eventRecord.actor_type,
+    p_result: eventRecord.result,
+    p_reason_code: eventRecord.reason_code,
+    p_timestamp: eventRecord.timestamp,
+    p_previous_event_hash: eventRecord.previous_event_hash,
+    p_event_hash: eventRecord.event_hash,
+    p_metadata: eventRecord.metadata,
+  });
+
+  if (error) {
+    return { event: null, grant: null, session: null, error };
+  }
+
+  return {
+    event: mapEvent(data?.event),
+    grant: data?.grant ? mapGrant(data.grant) : null,
+    session: data?.session ? mapSession(data.session) : null,
+    error: null,
+  };
 }
 
 export async function listDisclosureGrantEvents(grantRef, { supabase = null } = {}) {

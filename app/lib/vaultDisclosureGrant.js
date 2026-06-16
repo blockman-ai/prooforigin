@@ -403,6 +403,14 @@ export function buildUniformDisclosureDeniedResponse() {
   };
 }
 
+export function isDisclosureAccessCapError(error) {
+  return String(error?.message || error?.details || "").includes("access_cap_reached");
+}
+
+export function isDisclosureEventChainDesyncError(error) {
+  return String(error?.message || error?.details || "").includes("event_chain_desync");
+}
+
 export function validateGrantId(value) {
   const normalized = normalizeRequiredString(value, "grant_id").toLowerCase();
   if (!UUID_PATTERN.test(normalized)) {
