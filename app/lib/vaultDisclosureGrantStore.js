@@ -5,7 +5,28 @@ import {
   DISCLOSURE_EVENT_GENESIS_HASH,
   DISCLOSURE_GRANT_STATUS_EXPIRED,
   DISCLOSURE_GRANT_STATUS_REVOKED,
+  isDisclosureEventChainRetryableError,
 } from "./vaultDisclosureGrant.js";
+
+const DISCLOSURE_VERIFY_ATOMIC_MAX_ATTEMPTS = 3;
+const DISCLOSURE_CHAIN_RETRY_DELAY_MS = 15;
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function normalizeDisclosureChainRetryError(error) {
+  if (!isDisclosureEventChainRetryableError(error)) {
+    return error;
+  }
+
+  return {
+    ...error,
+    message: "event_chain_desync",
+  };
+}
 
 export const DISCLOSURE_GRANTS_TABLE = "disclosure_grants";
 export const DISCLOSURE_GRANT_EVENTS_TABLE = "disclosure_grant_events";
@@ -158,13 +179,6 @@ export async function markDisclosureGrantExpiredRecord(grantId, { supabase = nul
   return { grant: mapGrant(data), error };
 }
 
-function isDisclosureEventChainForkError(error) {
-  if (!error) return false;
-  if (error.code === "23505") return true;
-  const message = String(error.message || error.details || "").toLowerCase();
-  return message.includes("disclosure_grant_events_grant_prev_hash");
-}
-
 export async function incrementDisclosureGrantAccessCount(grantId, { supabase = null } = {}) {
   const client = supabase ?? createVaultAdminClient();
   const now = new Date().toISOString();
@@ -217,9 +231,10 @@ export async function getLatestDisclosureGrantEventHash(grantRef, { supabase = n
   const client = supabase ?? createVaultAdminClient();
   const { data, error } = await client
     .from(DISCLOSURE_GRANT_EVENTS_TABLE)
-    .select("event_hash")
+    .select("event_id, event_hash")
     .eq("grant_ref", grantRef)
     .order("timestamp", { ascending: false })
+    .order("event_id", { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -267,8 +282,8 @@ export async function appendDisclosureGrantEvent({
       return { event: mapEvent(data), error: null };
     }
 
-    if (!isDisclosureEventChainForkError(error) || attempt === maxAttempts - 1) {
-      return { event: null, error };
+    if (!isDisclosureEventChainRetryableError(error) || attempt === maxAttempts - 1) {
+      return { event: null, error: normalizeDisclosureChainRetryError(error) };
     }
   }
 
@@ -286,41 +301,60 @@ export async function completeDisclosureVerifyAtomic({
   supabase = null,
 }) {
   const client = supabase ?? createVaultAdminClient();
-  const previousEventHash = await getLatestDisclosureGrantEventHash(grantRef, {
-    supabase: client,
-  });
-  const eventRecord = buildDisclosureGrantEventRecord({
-    grantRef,
-    eventType,
-    actorType,
-    result,
-    reasonCode,
-    previousEventHash,
-    metadata,
-  });
 
-  const { data, error } = await client.rpc("disclosure_verify_grant_atomic", {
-    p_grant_id: grantRef,
-    p_session_id: sessionRef,
-    p_event_type: eventRecord.event_type,
-    p_actor_type: eventRecord.actor_type,
-    p_result: eventRecord.result,
-    p_reason_code: eventRecord.reason_code,
-    p_timestamp: eventRecord.timestamp,
-    p_previous_event_hash: eventRecord.previous_event_hash,
-    p_event_hash: eventRecord.event_hash,
-    p_metadata: eventRecord.metadata,
-  });
+  for (let attempt = 0; attempt < DISCLOSURE_VERIFY_ATOMIC_MAX_ATTEMPTS; attempt += 1) {
+    const previousEventHash = await getLatestDisclosureGrantEventHash(grantRef, {
+      supabase: client,
+    });
+    const eventRecord = buildDisclosureGrantEventRecord({
+      grantRef,
+      eventType,
+      actorType,
+      result,
+      reasonCode,
+      previousEventHash,
+      metadata,
+    });
 
-  if (error) {
-    return { event: null, grant: null, session: null, error };
+    const { data, error } = await client.rpc("disclosure_verify_grant_atomic", {
+      p_grant_id: grantRef,
+      p_session_id: sessionRef,
+      p_event_type: eventRecord.event_type,
+      p_actor_type: eventRecord.actor_type,
+      p_result: eventRecord.result,
+      p_reason_code: eventRecord.reason_code,
+      p_timestamp: eventRecord.timestamp,
+      p_previous_event_hash: eventRecord.previous_event_hash,
+      p_event_hash: eventRecord.event_hash,
+      p_metadata: eventRecord.metadata,
+    });
+
+    if (!error) {
+      return {
+        event: mapEvent(data?.event),
+        grant: data?.grant ? mapGrant(data.grant) : null,
+        session: data?.session ? mapSession(data.session) : null,
+        error: null,
+      };
+    }
+
+    if (!isDisclosureEventChainRetryableError(error) || attempt === DISCLOSURE_VERIFY_ATOMIC_MAX_ATTEMPTS - 1) {
+      return {
+        event: null,
+        grant: null,
+        session: null,
+        error: normalizeDisclosureChainRetryError(error),
+      };
+    }
+
+    await delay(DISCLOSURE_CHAIN_RETRY_DELAY_MS);
   }
 
   return {
-    event: mapEvent(data?.event),
-    grant: data?.grant ? mapGrant(data.grant) : null,
-    session: data?.session ? mapSession(data.session) : null,
-    error: null,
+    event: null,
+    grant: null,
+    session: null,
+    error: { message: "event_chain_desync" },
   };
 }
 
@@ -332,7 +366,8 @@ export async function listDisclosureGrantEvents(grantRef, { supabase = null } = 
       "event_id, grant_ref, event_type, actor_type, result, reason_code, timestamp, previous_event_hash, event_hash, metadata"
     )
     .eq("grant_ref", grantRef)
-    .order("timestamp", { ascending: true });
+    .order("timestamp", { ascending: true })
+    .order("event_id", { ascending: true });
 
   return { events: (data || []).map(mapEvent), error };
 }

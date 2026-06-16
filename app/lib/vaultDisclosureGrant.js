@@ -299,10 +299,43 @@ export function buildDisclosureGrantEventRecord({
   };
 }
 
+function disclosureEventChainSortKey(event) {
+  return {
+    timestamp: String(event?.timestamp || ""),
+    eventId: String(event?.event_id || event?.id || ""),
+  };
+}
+
+export function compareDisclosureGrantEventsForChain(a, b) {
+  const left = disclosureEventChainSortKey(a);
+  const right = disclosureEventChainSortKey(b);
+  const timestampCompare = left.timestamp.localeCompare(right.timestamp);
+  if (timestampCompare !== 0) {
+    return timestampCompare;
+  }
+  return left.eventId.localeCompare(right.eventId);
+}
+
+export function sortDisclosureGrantEventsForChain(events = []) {
+  return [...events].sort(compareDisclosureGrantEventsForChain);
+}
+
+export function isDisclosureEventChainRetryableError(error) {
+  if (!error) return false;
+  if (error.code === "23505") return true;
+  const message = String(error.message || error.details || "").toLowerCase();
+  return (
+    message.includes("event_chain_desync") ||
+    message.includes("unique_violation") ||
+    message.includes("disclosure_grant_events_grant_prev_hash")
+  );
+}
+
 export function verifyDisclosureGrantEventChainRecords({ grantRef, events = [] }) {
   let previousEventHash = DISCLOSURE_EVENT_GENESIS_HASH;
+  const orderedEvents = sortDisclosureGrantEventsForChain(events);
 
-  for (const event of events) {
+  for (const event of orderedEvents) {
     if (event.grant_ref !== grantRef) {
       return {
         verified: false,
@@ -408,7 +441,7 @@ export function isDisclosureAccessCapError(error) {
 }
 
 export function isDisclosureEventChainDesyncError(error) {
-  return String(error?.message || error?.details || "").includes("event_chain_desync");
+  return isDisclosureEventChainRetryableError(error);
 }
 
 export function validateGrantId(value) {

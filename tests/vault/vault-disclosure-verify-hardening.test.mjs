@@ -41,6 +41,7 @@ const state = {
   events: [],
   verifyCalls: 0,
   verifyMode: "success",
+  throwOnLookup: false,
 };
 
 function resetState() {
@@ -58,11 +59,17 @@ function resetState() {
   state.events = [];
   state.verifyCalls = 0;
   state.verifyMode = "success";
+  state.throwOnLookup = false;
 }
 
 mock.module("../../app/lib/vaultDisclosureGrantStore.js", {
   exports: {
-    getDisclosureGrantRecordByHandleHash: async () => ({ grant: state.grant, error: null }),
+    getDisclosureGrantRecordByHandleHash: async () => {
+      if (state.throwOnLookup) {
+        throw new Error("simulated disclosure verify failure");
+      }
+      return { grant: state.grant, error: null };
+    },
     markDisclosureGrantExpiredRecord: async () => ({ grant: null, error: null }),
     appendDisclosureGrantEvent: async (event) => {
       state.events.push(event);
@@ -256,5 +263,18 @@ test("verify failure responses do not leak privacy fields", async () => {
   const json = await response.json();
 
   assert.equal(response.status, 404);
+  assertNoPrivacyLeaks(json);
+});
+
+test("verify route unexpected throw returns uniform denied response", async () => {
+  resetState();
+  state.throwOnLookup = true;
+
+  const response = await verifyRequest();
+  const json = await response.json();
+
+  assert.equal(response.status, 404);
+  assert.equal(json.ok, false);
+  assert.equal(json.status, "unavailable");
   assertNoPrivacyLeaks(json);
 });

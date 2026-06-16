@@ -14,7 +14,6 @@ import {
   isDisclosureGrantExpired,
   isDisclosureSessionExpired,
   isDisclosureAccessCapError,
-  isDisclosureEventChainDesyncError,
 } from "../../../../lib/vaultDisclosureGrant";
 import {
   appendDisclosureGrantEvent,
@@ -67,35 +66,19 @@ async function expireGrantIfNeeded(grant) {
 }
 
 async function persistVerifiedDisclosureAccess({ grant, session }) {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const result = await completeDisclosureVerifyAtomic({
-      grantRef: grant.grant_id,
-      sessionRef: session.session_id,
-      eventType: DISCLOSURE_GRANT_EVENT_TYPES.VERIFIED,
-      actorType: DISCLOSURE_ACTOR_TYPES.RECIPIENT,
-      result: DISCLOSURE_EVENT_RESULTS.SUCCESS,
-    });
-
-    if (!result.error) {
-      return result;
-    }
-
-    if (!isDisclosureEventChainDesyncError(result.error) || attempt === 1) {
-      return result;
-    }
-  }
-
-  return {
-    event: null,
-    grant: null,
-    session: null,
-    error: { message: "event_chain_desync" },
-  };
+  return completeDisclosureVerifyAtomic({
+    grantRef: grant.grant_id,
+    sessionRef: session.session_id,
+    eventType: DISCLOSURE_GRANT_EVENT_TYPES.VERIFIED,
+    actorType: DISCLOSURE_ACTOR_TYPES.RECIPIENT,
+    result: DISCLOSURE_EVENT_RESULTS.SUCCESS,
+  });
 }
 
 export async function GET(req, { params }) {
-  const grantHandle = String(params?.grant_handle || "").trim();
-  const publicHandleHash = buildPublicHandleHash(grantHandle);
+  try {
+    const grantHandle = String(params?.grant_handle || "").trim();
+    const publicHandleHash = buildPublicHandleHash(grantHandle);
   const rateLimit = checkDisclosureVerifyRateLimit(req, publicHandleHash);
   if (!rateLimit.allowed) {
     recordVaultDisclosureSentinelCounter(
@@ -228,4 +211,16 @@ export async function GET(req, { params }) {
       now,
     })
   );
+  } catch {
+    recordVaultDisclosureSentinelCounter(
+      VAULT_DISCLOSURE_SENTINEL_COUNTERS.FAILED_VERIFY_TOTAL
+    );
+    if (params?.grant_handle) {
+      recordDisclosureRecipientFailure(
+        req,
+        buildPublicHandleHash(String(params.grant_handle).trim())
+      );
+    }
+    return denied();
+  }
 }
