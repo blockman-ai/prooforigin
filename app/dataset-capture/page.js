@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import DatasetCaptureAuthGate from "../../components/dataset/DatasetCaptureAuthGate";
+import DatasetProgressDashboard from "../../components/dataset/DatasetProgressDashboard";
 import GlassPanel from "../../components/protocol/GlassPanel";
 import PageShell from "../../components/protocol/PageShell";
 import ProtocolBadge from "../../components/protocol/ProtocolBadge";
@@ -42,6 +43,7 @@ function DatasetCaptureUploadPanel({ accessToken, email, onSignOut }) {
   const [uploading, setUploading] = useState(false);
   const [batchError, setBatchError] = useState("");
   const [batchSummary, setBatchSummary] = useState("");
+  const [progressRefreshSignal, setProgressRefreshSignal] = useState(0);
   const queueRef = useRef(queue);
   queueRef.current = queue;
 
@@ -239,6 +241,9 @@ function DatasetCaptureUploadPanel({ accessToken, email, onSignOut }) {
     setBatchSummary(
       `Batch complete: ${uploaded} uploaded, ${duplicates} duplicate${duplicates === 1 ? "" : "s"} skipped, ${failed} failed, ${queue.length} total.`
     );
+    if (uploaded > 0) {
+      setProgressRefreshSignal((value) => value + 1);
+    }
   }
 
   const previewItems = useMemo(
@@ -257,6 +262,11 @@ function DatasetCaptureUploadPanel({ accessToken, email, onSignOut }) {
       title="Dataset capture"
       subtitle="Upload up to 10 private calibration images in one batch."
     >
+      <DatasetProgressDashboard
+        accessToken={accessToken}
+        refreshSignal={progressRefreshSignal}
+      />
+
       <GlassPanel
         title="Private batch upload"
         subtitle={`Signed in as ${email}. Images stay in a private Supabase bucket.`}

@@ -50,6 +50,9 @@ test("resolveGuideTopic matches legacy guide topic routing", () => {
   assert.equal(resolveGuideTopic("Why doesn't passkey work?"), "passkey");
   assert.equal(resolveGuideTopic("What is a Recovery Kit?"), "recovery-kit");
   assert.equal(resolveGuideTopic("How do I restore on a new device?"), "restore-vault");
+  assert.equal(resolveGuideTopic("How do I restore my vault?"), "restore-vault");
+  assert.equal(resolveGuideTopic("How do I recover my vault?"), "restore-vault");
+  assert.equal(resolveGuideTopic("new device restore"), "restore-vault");
   assert.equal(resolveGuideTopic("What does Voice documented mean?"), "trust-pass-voice");
   assert.equal(resolveGuideTopic("What is Protected View?"), "vault-overview");
 });

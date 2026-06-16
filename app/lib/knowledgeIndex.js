@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { validateCorpusVersion, validateKnowledgeDrift } from "./knowledgeDrift.js";
 
 export const KNOWLEDGE_DIR = path.join(process.cwd(), "docs", "knowledge");
 export const KNOWLEDGE_MANIFEST_PATH = path.join(KNOWLEDGE_DIR, "manifest.json");
@@ -79,6 +80,7 @@ export function validateKnowledgeManifest(manifest) {
   }
 
   assertString(manifest.corpus_version, "corpus_version");
+  validateCorpusVersion(manifest.corpus_version);
 
   if (!Array.isArray(manifest.articles) || manifest.articles.length === 0) {
     throw new Error("Knowledge manifest must include at least one article.");
@@ -150,6 +152,7 @@ export function validateKnowledgeManifest(manifest) {
   }
 
   validateSentinelRuleMap(manifest, seenIds);
+  validateKnowledgeDrift(manifest);
 
   return manifest;
 }

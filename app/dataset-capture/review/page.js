@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import DatasetCaptureAuthGate from "../../../components/dataset/DatasetCaptureAuthGate";
+import DatasetProgressDashboard from "../../../components/dataset/DatasetProgressDashboard";
 import GlassPanel from "../../../components/protocol/GlassPanel";
 import LoadingState from "../../../components/protocol/LoadingState";
 import PageShell from "../../../components/protocol/PageShell";
@@ -391,17 +392,10 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
   const [captures, setCaptures] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [gateLoading, setGateLoading] = useState(true);
-  const [gateError, setGateError] = useState("");
-  const [gateOpen, setGateOpen] = useState(false);
-  const [gateBuckets, setGateBuckets] = useState([]);
-  const [showTrainModal, setShowTrainModal] = useState(false);
-  const [trainSubmitting, setTrainSubmitting] = useState(false);
-  const [trainMessage, setTrainMessage] = useState("");
-  const [trainError, setTrainError] = useState("");
   const [feedbackBanner, setFeedbackBanner] = useState(null);
   const [approvedSessionCount, setApprovedSessionCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
+  const [progressRefreshSignal, setProgressRefreshSignal] = useState(0);
   const feedbackRef = useRef(null);
 
   const showFeedback = useCallback((variant, message, title) => {
@@ -410,39 +404,6 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
       feedbackRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   }, []);
-
-  const loadGateStatus = useCallback(async () => {
-    setGateLoading(true);
-    setGateError("");
-
-    try {
-      const res = await fetch("/api/dataset-capture/gate-status", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getDatasetCaptureAuthHeaders(accessToken),
-        },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        setGateError(data.error || "Unable to load training gate status.");
-        setGateOpen(false);
-        setGateBuckets([]);
-        return;
-      }
-
-      setGateOpen(Boolean(data.gateOpen));
-      setGateBuckets(data.buckets || []);
-    } catch {
-      setGateError("Unable to reach the training gate API.");
-      setGateOpen(false);
-      setGateBuckets([]);
-    } finally {
-      setGateLoading(false);
-    }
-  }, [accessToken]);
 
   const loadCaptures = useCallback(async ({ silent = false } = {}) => {
     if (!silent) {
@@ -484,41 +445,10 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
 
   useEffect(() => {
     loadCaptures();
-    loadGateStatus();
-  }, [loadCaptures, loadGateStatus]);
+  }, [loadCaptures]);
 
-  async function requestTrainCandidate() {
-    setTrainSubmitting(true);
-    setTrainError("");
-    setTrainMessage("");
-
-    try {
-      const res = await fetch("/api/dataset-capture/train-candidate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getDatasetCaptureAuthHeaders(accessToken),
-        },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        setTrainError(data.error || "Candidate training request failed.");
-        if (data.buckets) {
-          setGateBuckets(data.buckets);
-          setGateOpen(Boolean(data.gateOpen));
-        }
-        return;
-      }
-
-      setTrainMessage(data.message || "Candidate training job created.");
-      setShowTrainModal(false);
-    } catch {
-      setTrainError("Unable to reach the train candidate API.");
-    } finally {
-      setTrainSubmitting(false);
-    }
+  function refreshProgress() {
+    setProgressRefreshSignal((value) => value + 1);
   }
 
   function handleReviewSuccess({ captureId, action, message, filename }) {
@@ -534,7 +464,7 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
         setPendingCount(next.length);
         return next;
       });
-      loadGateStatus();
+      refreshProgress();
       loadCaptures({ silent: true });
       return;
     }
@@ -563,6 +493,7 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
         setPendingCount(next.length);
         return next;
       });
+      refreshProgress();
       loadCaptures({ silent: true });
       return;
     }
@@ -573,6 +504,7 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
         message,
         successTitles[action] || "Review saved"
       );
+      refreshProgress();
     }
   }
 
@@ -604,6 +536,11 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
       title="Dataset capture review"
       subtitle="Approve or reject pending captures before any training use."
     >
+      <DatasetProgressDashboard
+        accessToken={accessToken}
+        refreshSignal={progressRefreshSignal}
+      />
+
       <GlassPanel
         title="Pending captures"
         subtitle={`Signed in as ${email}. ${pendingCount} pending · Approved this session: ${approvedSessionCount}`}
@@ -620,79 +557,6 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
         </div>
 
         <p className="dataset-notice">{REVIEW_NOTICE}</p>
-
-        <GlassPanel
-          className="dataset-training-panel"
-          title="Safe train candidate gate (v0.2)"
-          subtitle="Only v0.2 correction buckets count toward this gate. Candidate training runs on the ProofOrigin AI backend only."
-        >
-          {gateLoading && <LoadingState message="Loading correction gate status..." />}
-
-          {!gateLoading && gateError && (
-            <StatusCard variant="error" body={gateError} className="dataset-status" />
-          )}
-
-          {!gateLoading && !gateError && (
-            <>
-              <ul className="dataset-training-gate-list">
-                {gateBuckets.map((bucket) => (
-                  <li
-                    key={bucket.bucket}
-                    className={`dataset-training-gate-item ${
-                      bucket.met ? "dataset-training-gate-item--met" : ""
-                    }`.trim()}
-                  >
-                    <span>{bucket.label || bucket.bucket}</span>
-                    <span className="dataset-training-gate-item__counts">
-                      {bucket.current}/{bucket.target}
-                    </span>
-                    {!bucket.met && (
-                      <span className="dataset-training-gate-item__remaining">
-                        {bucket.remaining} remaining
-                      </span>
-                    )}
-                    {bucket.met && <ProtocolBadge variant="success">Met</ProtocolBadge>}
-                  </li>
-                ))}
-              </ul>
-
-              <p className="dataset-notice">{DATASET_CAPTURE_EXPANSION_NOTICE}</p>
-
-              <p className="dataset-notice">
-                {gateOpen
-                  ? "Correction gate open. You may request a candidate training job."
-                  : "Correction gate closed. Approve more import-ready images in each bucket before requesting training."}
-              </p>
-
-              {trainMessage && (
-                <StatusCard variant="success" body={trainMessage} className="dataset-status" />
-              )}
-
-              {trainError && (
-                <StatusCard variant="error" body={trainError} className="dataset-status" />
-              )}
-
-              <div className="protocol-actions">
-                <button
-                  type="button"
-                  className="primary"
-                  disabled={!gateOpen || trainSubmitting}
-                  onClick={() => setShowTrainModal(true)}
-                >
-                  Train Candidate Model
-                </button>
-                <button
-                  type="button"
-                  className="secondary"
-                  disabled={gateLoading}
-                  onClick={loadGateStatus}
-                >
-                  Refresh gate
-                </button>
-              </div>
-            </>
-          )}
-        </GlassPanel>
 
         <div className="protocol-actions dataset-review-toolbar">
           <button
@@ -740,43 +604,6 @@ function DatasetCaptureReviewPanel({ accessToken, email, onSignOut }) {
           ))}
         </div>
       </GlassPanel>
-
-      {showTrainModal && (
-        <div className="dataset-training-modal-backdrop" role="presentation">
-          <div
-            className="dataset-training-modal glass-panel"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="train-candidate-title"
-          >
-            <h3 id="train-candidate-title" className="dataset-training-modal__title">
-              Request candidate training
-            </h3>
-            <p className="dataset-training-modal__body">
-              This creates a candidate training job only. It will not replace production.
-              ProofOrigin AI backend will pull the job and run safe_auto_train.py when ready.
-            </p>
-            <div className="protocol-actions">
-              <button
-                type="button"
-                className="primary"
-                disabled={trainSubmitting}
-                onClick={requestTrainCandidate}
-              >
-                {trainSubmitting ? "Creating job..." : "Create training job"}
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                disabled={trainSubmitting}
-                onClick={() => setShowTrainModal(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </PageShell>
   );
 }
