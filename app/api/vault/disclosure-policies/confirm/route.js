@@ -9,7 +9,7 @@ export async function POST(req) {
     const bodyText = await req.text();
     const authority = await authorizeDisclosureOwnerRequest(req, {
       method: "POST",
-      path: "/api/vault/disclosure-grants/confirm",
+      path: "/api/vault/disclosure-policies/confirm",
       bodyText,
     });
 
@@ -20,7 +20,7 @@ export async function POST(req) {
     const confirmation = await issueDisclosureConfirmationNonce({
       vaultRefHash: authority.vaultRefHash,
       deviceRefHash: authority.deviceRefHash,
-      purpose: "disclosure",
+      purpose: "disclosure_policy",
     });
 
     return NextResponse.json({
@@ -32,8 +32,8 @@ export async function POST(req) {
     return NextResponse.json(
       {
         success: false,
-        code: "DISCLOSURE_CONFIRMATION_FAILED",
-        error: error.message || "Unable to issue disclosure confirmation.",
+        code: "DISCLOSURE_POLICY_CONFIRMATION_FAILED",
+        error: error.message || "Unable to issue disclosure policy confirmation.",
       },
       { status: 400 }
     );

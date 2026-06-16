@@ -38,6 +38,8 @@ function mapGrant(row) {
     grant_id: row.grant_id || row.id,
     public_handle_hash: row.public_handle_hash,
     vault_ref_hash: row.vault_ref_hash,
+    policy_ref: row.policy_ref || null,
+    scope_type: row.scope_type || null,
     scope_ref_hash: row.scope_ref_hash || null,
     grant_type: row.grant_type,
     status: row.status,
@@ -91,7 +93,7 @@ export async function createDisclosureGrantRecord(record, { supabase = null } = 
     .from(DISCLOSURE_GRANTS_TABLE)
     .insert(record)
     .select(
-      "grant_id, public_handle_hash, vault_ref_hash, scope_ref_hash, grant_type, status, purpose_label, recipient_binding_hash, expires_at, access_count, max_access_count, created_by_device_ref, created_at, updated_at, revoked_at"
+      "grant_id, public_handle_hash, vault_ref_hash, policy_ref, scope_type, scope_ref_hash, grant_type, status, purpose_label, recipient_binding_hash, expires_at, access_count, max_access_count, created_by_device_ref, created_at, updated_at, revoked_at"
     )
     .single();
 
@@ -103,7 +105,7 @@ export async function listDisclosureGrantRecordsByVaultRef(vaultRefHash, { supab
   const { data, error } = await client
     .from(DISCLOSURE_GRANTS_TABLE)
     .select(
-      "grant_id, public_handle_hash, vault_ref_hash, scope_ref_hash, grant_type, status, purpose_label, recipient_binding_hash, expires_at, access_count, max_access_count, created_by_device_ref, created_at, updated_at, revoked_at"
+      "grant_id, public_handle_hash, vault_ref_hash, policy_ref, scope_type, scope_ref_hash, grant_type, status, purpose_label, recipient_binding_hash, expires_at, access_count, max_access_count, created_by_device_ref, created_at, updated_at, revoked_at"
     )
     .eq("vault_ref_hash", vaultRefHash)
     .order("created_at", { ascending: false });
@@ -120,7 +122,7 @@ export async function getDisclosureGrantRecordByIdForVault({
   const { data, error } = await client
     .from(DISCLOSURE_GRANTS_TABLE)
     .select(
-      "grant_id, public_handle_hash, vault_ref_hash, scope_ref_hash, grant_type, status, purpose_label, recipient_binding_hash, expires_at, access_count, max_access_count, created_by_device_ref, created_at, updated_at, revoked_at"
+      "grant_id, public_handle_hash, vault_ref_hash, policy_ref, scope_type, scope_ref_hash, grant_type, status, purpose_label, recipient_binding_hash, expires_at, access_count, max_access_count, created_by_device_ref, created_at, updated_at, revoked_at"
     )
     .eq("grant_id", grantId)
     .eq("vault_ref_hash", vaultRefHash)
@@ -134,7 +136,7 @@ export async function getDisclosureGrantRecordByHandleHash(publicHandleHash, { s
   const { data, error } = await client
     .from(DISCLOSURE_GRANTS_TABLE)
     .select(
-      "grant_id, public_handle_hash, vault_ref_hash, scope_ref_hash, grant_type, status, purpose_label, recipient_binding_hash, expires_at, access_count, max_access_count, created_by_device_ref, created_at, updated_at, revoked_at"
+      "grant_id, public_handle_hash, vault_ref_hash, policy_ref, scope_type, scope_ref_hash, grant_type, status, purpose_label, recipient_binding_hash, expires_at, access_count, max_access_count, created_by_device_ref, created_at, updated_at, revoked_at"
     )
     .eq("public_handle_hash", publicHandleHash)
     .maybeSingle();
@@ -154,7 +156,7 @@ export async function revokeDisclosureGrantRecord(grantId, { supabase = null } =
     })
     .eq("grant_id", grantId)
     .select(
-      "grant_id, public_handle_hash, vault_ref_hash, scope_ref_hash, grant_type, status, purpose_label, recipient_binding_hash, expires_at, access_count, max_access_count, created_by_device_ref, created_at, updated_at, revoked_at"
+      "grant_id, public_handle_hash, vault_ref_hash, policy_ref, scope_type, scope_ref_hash, grant_type, status, purpose_label, recipient_binding_hash, expires_at, access_count, max_access_count, created_by_device_ref, created_at, updated_at, revoked_at"
     )
     .single();
 
@@ -172,7 +174,7 @@ export async function markDisclosureGrantExpiredRecord(grantId, { supabase = nul
     })
     .eq("grant_id", grantId)
     .select(
-      "grant_id, public_handle_hash, vault_ref_hash, scope_ref_hash, grant_type, status, purpose_label, recipient_binding_hash, expires_at, access_count, max_access_count, created_by_device_ref, created_at, updated_at, revoked_at"
+      "grant_id, public_handle_hash, vault_ref_hash, policy_ref, scope_type, scope_ref_hash, grant_type, status, purpose_label, recipient_binding_hash, expires_at, access_count, max_access_count, created_by_device_ref, created_at, updated_at, revoked_at"
     )
     .single();
 
@@ -209,7 +211,7 @@ export async function incrementDisclosureGrantAccessCount(grantId, { supabase = 
     .eq("grant_id", grantId)
     .eq("access_count", Number(current?.access_count || 0))
     .select(
-      "grant_id, public_handle_hash, vault_ref_hash, scope_ref_hash, grant_type, status, purpose_label, recipient_binding_hash, expires_at, access_count, max_access_count, created_by_device_ref, created_at, updated_at, revoked_at"
+      "grant_id, public_handle_hash, vault_ref_hash, policy_ref, scope_type, scope_ref_hash, grant_type, status, purpose_label, recipient_binding_hash, expires_at, access_count, max_access_count, created_by_device_ref, created_at, updated_at, revoked_at"
     )
     .maybeSingle();
 
@@ -354,6 +356,105 @@ export async function completeDisclosureVerifyAtomic({
     event: null,
     grant: null,
     session: null,
+    error: { message: "event_chain_desync" },
+  };
+}
+
+export async function completeDisclosureAccessAtomic({
+  grantRef,
+  sessionRef,
+  eventType,
+  actorType,
+  result,
+  reasonCode = "",
+  metadata = {},
+  receiptRecord,
+  supabase = null,
+}) {
+  const client = supabase ?? createVaultAdminClient();
+
+  for (let attempt = 0; attempt < DISCLOSURE_VERIFY_ATOMIC_MAX_ATTEMPTS; attempt += 1) {
+    const previousEventHash = await getLatestDisclosureGrantEventHash(grantRef, {
+      supabase: client,
+    });
+    const eventRecord = buildDisclosureGrantEventRecord({
+      grantRef,
+      eventType,
+      actorType,
+      result,
+      reasonCode,
+      previousEventHash,
+      metadata,
+    });
+
+    const { data, error } = await client.rpc("disclosure_access_grant_atomic", {
+      p_grant_id: grantRef,
+      p_session_id: sessionRef,
+      p_event_type: eventRecord.event_type,
+      p_actor_type: eventRecord.actor_type,
+      p_result: eventRecord.result,
+      p_reason_code: eventRecord.reason_code,
+      p_timestamp: eventRecord.timestamp,
+      p_previous_event_hash: eventRecord.previous_event_hash,
+      p_event_hash: eventRecord.event_hash,
+      p_metadata: eventRecord.metadata,
+      p_policy_ref: receiptRecord.policy_ref,
+      p_scope_type: receiptRecord.scope_type,
+      p_scope_ref_hash: receiptRecord.scope_ref_hash,
+      p_recipient_binding_hash: receiptRecord.recipient_binding_hash,
+      p_policy_snapshot_hash: receiptRecord.policy_snapshot_hash,
+      p_condition_profile_hash: receiptRecord.condition_profile_hash,
+      p_custody_snapshot_hash: receiptRecord.custody_snapshot_hash,
+      p_disclosure_digest: receiptRecord.disclosure_digest,
+      p_receipt_id: receiptRecord.receipt_id,
+    });
+
+    if (!error) {
+      return {
+        event: mapEvent(data?.event),
+        grant: data?.grant ? mapGrant(data.grant) : null,
+        session: data?.session ? mapSession(data.session) : null,
+        receipt: data?.receipt
+          ? {
+              receipt_id: data.receipt.receipt_id,
+              grant_ref: data.receipt.grant_ref,
+              policy_ref: data.receipt.policy_ref,
+              session_ref: data.receipt.session_ref,
+              event_ref: data.receipt.event_ref,
+              scope_type: data.receipt.scope_type,
+              scope_ref_hash: data.receipt.scope_ref_hash,
+              recipient_binding_hash: data.receipt.recipient_binding_hash,
+              policy_snapshot_hash: data.receipt.policy_snapshot_hash,
+              condition_profile_hash: data.receipt.condition_profile_hash,
+              custody_snapshot_hash: data.receipt.custody_snapshot_hash,
+              disclosure_digest: data.receipt.disclosure_digest,
+              result: data.receipt.result,
+              receipt_hash: data.receipt.receipt_hash,
+              created_at: data.receipt.created_at,
+            }
+          : null,
+        error: null,
+      };
+    }
+
+    if (!isDisclosureEventChainRetryableError(error) || attempt === DISCLOSURE_VERIFY_ATOMIC_MAX_ATTEMPTS - 1) {
+      return {
+        event: null,
+        grant: null,
+        session: null,
+        receipt: null,
+        error: normalizeDisclosureChainRetryError(error),
+      };
+    }
+
+    await delay(DISCLOSURE_CHAIN_RETRY_DELAY_MS);
+  }
+
+  return {
+    event: null,
+    grant: null,
+    session: null,
+    receipt: null,
     error: { message: "event_chain_desync" },
   };
 }

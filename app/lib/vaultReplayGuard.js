@@ -19,10 +19,20 @@ function pruneReplayCache(now = Date.now()) {
 
 function shouldUseMemoryReplayGuard() {
   if (process.env.VAULT_REPLAY_GUARD_MEMORY === "1") {
-    return true;
+    return process.env.NODE_ENV !== "production";
   }
 
-  return !isVaultAdminConfigured();
+  return !isVaultAdminConfigured() && process.env.NODE_ENV !== "production";
+}
+
+function replayGuardUnavailableResult(error) {
+  return {
+    ok: false,
+    replay: false,
+    expired: false,
+    mode: "database",
+    error: error || { message: "replay_guard_store_unavailable" },
+  };
 }
 
 function reserveVaultRequestNonceMemory({ vaultDeviceId, nonce, now = Date.now() }) {
@@ -83,9 +93,15 @@ export async function reserveVaultRequestNonce({
 
     if (lookupError) {
       if (lookupError.code === "42P01") {
+        if (process.env.NODE_ENV !== "production") {
+          return reserveVaultRequestNonceMemory({ vaultDeviceId, nonce, now });
+        }
+        return replayGuardUnavailableResult(lookupError);
+      }
+      if (process.env.NODE_ENV !== "production") {
         return reserveVaultRequestNonceMemory({ vaultDeviceId, nonce, now });
       }
-      return reserveVaultRequestNonceMemory({ vaultDeviceId, nonce, now });
+      return replayGuardUnavailableResult(lookupError);
     }
 
     if (existing) {
@@ -105,15 +121,24 @@ export async function reserveVaultRequestNonce({
       }
 
       if (insertError.code === "42P01") {
-        return reserveVaultRequestNonceMemory({ vaultDeviceId, nonce, now });
+        if (process.env.NODE_ENV !== "production") {
+          return reserveVaultRequestNonceMemory({ vaultDeviceId, nonce, now });
+        }
+        return replayGuardUnavailableResult(insertError);
       }
 
-      return reserveVaultRequestNonceMemory({ vaultDeviceId, nonce, now });
+      if (process.env.NODE_ENV !== "production") {
+        return reserveVaultRequestNonceMemory({ vaultDeviceId, nonce, now });
+      }
+      return replayGuardUnavailableResult(insertError);
     }
 
     return { ok: true, replay: false, expired: false, mode: "database" };
-  } catch {
-    return reserveVaultRequestNonceMemory({ vaultDeviceId, nonce, now });
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      return reserveVaultRequestNonceMemory({ vaultDeviceId, nonce, now });
+    }
+    return replayGuardUnavailableResult(error);
   }
 }
 

@@ -32,7 +32,7 @@ export async function POST(request) {
     return guideJsonResponse({ error: "Guide requests must use application/json." }, 415);
   }
 
-  const rateLimit = checkGuideRateLimit(request);
+  const rateLimit = await checkGuideRateLimit(request);
   if (!rateLimit.allowed) {
     recordGuideSentinelCounter(GUIDE_SENTINEL_COUNTERS.RATE_LIMITED);
     const retryAfterSeconds = Math.max(1, Math.ceil(rateLimit.retryAfterMs / 1000));

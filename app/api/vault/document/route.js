@@ -5,11 +5,9 @@ import {
   vaultAuthFailureResponse,
 } from "../../../lib/vaultAuth";
 import {
-  appendVaultDocumentEvent,
-  VAULT_DOCUMENT_EVENT_TYPES,
+  markVaultDocumentDeletedWithState,
 } from "../../../lib/vaultDocumentState";
 import {
-  deleteVaultDocument,
   getVaultDocumentByDevice,
   isVaultAdminConfigured,
 } from "../../../lib/vaultAdmin";
@@ -99,20 +97,20 @@ export async function DELETE(req) {
       return storageNotConfiguredResponse();
     }
 
-    const result = await deleteVaultDocument(auth.vault_device_id);
+    const { document, error: lookupError } = await getVaultDocumentByDevice(auth.vault_device_id);
 
-    if (result.error) {
+    if (lookupError) {
       return NextResponse.json(
         {
           success: false,
-          code: "DOCUMENT_DELETE_FAILED",
-          error: result.error.message || "Unable to delete vault document.",
+          code: "DOCUMENT_LOOKUP_FAILED",
+          error: lookupError.message || "Unable to load vault document.",
         },
         { status: 502 }
       );
     }
 
-    if (result.notFound) {
+    if (!document) {
       return NextResponse.json(
         {
           success: false,
@@ -123,26 +121,21 @@ export async function DELETE(req) {
       );
     }
 
-    const deletedAt = new Date().toISOString();
-    const { error: stateError } = await appendVaultDocumentEvent({
-      documentId: result.document.id,
-      eventType: VAULT_DOCUMENT_EVENT_TYPES.DELETED,
-      document: {
-        ...result.document,
-        deleted_at: deletedAt,
-      },
+    const stateResult = await markVaultDocumentDeletedWithState({
+      documentId: document.id,
+      document,
       metadata: {
         source: "vault-document-delete-v0.2.5",
         vault_device_id: auth.vault_device_id,
       },
     });
 
-    if (stateError) {
+    if (stateResult.error) {
       return NextResponse.json(
         {
           success: false,
           code: "DOCUMENT_STATE_EVENT_FAILED",
-          error: stateError.message || "Unable to record vault document deleted event.",
+          error: stateResult.error.message || "Unable to record vault document deleted event.",
         },
         { status: 502 }
       );
@@ -151,7 +144,7 @@ export async function DELETE(req) {
     return NextResponse.json({
       success: true,
       deleted: true,
-      id: result.document?.id || null,
+      id: document?.id || null,
     });
   } catch {
     return NextResponse.json(

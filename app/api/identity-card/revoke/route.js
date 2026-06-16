@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { decryptSecretSeed, hashSecretSeed } from "../../../lib/identityCard";
+import {
+  checkRateLimit,
+  getClientRateLimitKey,
+} from "../../../lib/identityCardRateLimit";
 import { appendStateEvent } from "../../../lib/identityCardState";
 import {
   getSupabaseAdmin,
@@ -12,6 +16,19 @@ const TABLE = "identity_cards";
 
 export async function POST(req) {
   try {
+    const rateKey = getClientRateLimitKey(req, "revoke");
+    const rate = await checkRateLimit(rateKey, 8, 60_000);
+    if (!rate.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Too many revoke attempts. Try again shortly.",
+          retry_after_ms: rate.retryAfterMs,
+        },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const cardId = String(body.card_id || "").trim();
     const secretSeed = String(body.secret_seed || body.secret_token || "").trim();
@@ -24,11 +41,13 @@ export async function POST(req) {
     }
 
     if (!isSupabaseAdminConfigured()) {
-      return NextResponse.json({
-        success: true,
-        stored: false,
-        message: "Revoke recorded locally only.",
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Trust pass revocation requires Supabase configuration.",
+        },
+        { status: 503 }
+      );
     }
 
     const supabase = getSupabaseAdmin();

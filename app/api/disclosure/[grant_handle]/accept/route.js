@@ -61,7 +61,7 @@ export async function POST(req, { params }) {
   try {
     const grantHandle = String(params?.grant_handle || "").trim();
     const publicHandleHash = buildPublicHandleHash(grantHandle);
-    const rateLimit = checkDisclosureAcceptRateLimit(req, publicHandleHash);
+    const rateLimit = await checkDisclosureAcceptRateLimit(req, publicHandleHash);
     if (!rateLimit.allowed) {
       recordVaultDisclosureSentinelCounter(
         VAULT_DISCLOSURE_SENTINEL_COUNTERS.RATE_LIMITED_TOTAL
@@ -74,7 +74,7 @@ export async function POST(req, { params }) {
     const { grant, error } = await getDisclosureGrantRecordByHandleHash(publicHandleHash);
 
     if (error || !grant) {
-      recordDisclosureRecipientFailure(req, publicHandleHash);
+      await recordDisclosureRecipientFailure(req, publicHandleHash);
       recordVaultDisclosureSentinelCounter(
         VAULT_DISCLOSURE_SENTINEL_COUNTERS.FAILED_ACCEPTANCE_TOTAL
       );
@@ -104,7 +104,7 @@ export async function POST(req, { params }) {
     }
 
     if (buildRecipientBindingHash(recipientChallenge) !== grant.recipient_binding_hash) {
-      recordDisclosureRecipientFailure(req, publicHandleHash);
+      await recordDisclosureRecipientFailure(req, publicHandleHash);
       recordVaultDisclosureSentinelCounter(
         VAULT_DISCLOSURE_SENTINEL_COUNTERS.FAILED_ACCEPTANCE_TOTAL
       );
@@ -152,7 +152,7 @@ export async function POST(req, { params }) {
       VAULT_DISCLOSURE_SENTINEL_COUNTERS.FAILED_ACCEPTANCE_TOTAL
     );
     if (params?.grant_handle) {
-      recordDisclosureRecipientFailure(req, buildPublicHandleHash(String(params.grant_handle).trim()));
+      await recordDisclosureRecipientFailure(req, buildPublicHandleHash(String(params.grant_handle).trim()));
     }
     return denied();
   }

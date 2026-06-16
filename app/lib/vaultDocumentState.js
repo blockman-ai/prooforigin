@@ -18,6 +18,15 @@ export const VAULT_DOCUMENT_GENESIS_STATE_HASH = crypto
   .update("prooforigin-vault-document-genesis-v1")
   .digest("hex");
 
+const VAULT_DOCUMENT_STATE_APPEND_MAX_ATTEMPTS = 3;
+const VAULT_DOCUMENT_STATE_RETRY_DELAY_MS = 15;
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function stableMetadataString(metadata) {
   if (!metadata || typeof metadata !== "object") {
     return "{}";
@@ -63,9 +72,10 @@ export async function getLatestDocumentStateHash(documentId) {
   const supabase = createVaultAdminClient();
   const { data, error } = await supabase
     .from(VAULT_DOCUMENT_STATE_EVENTS_TABLE)
-    .select("state_hash")
+    .select("id, state_hash")
     .eq("document_id", documentId)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -76,28 +86,36 @@ export async function getLatestDocumentStateHash(documentId) {
   return data?.state_hash || VAULT_DOCUMENT_GENESIS_STATE_HASH;
 }
 
-export async function appendVaultDocumentEvent({
+export function isVaultDocumentStateChainRetryableError(error) {
+  if (!error) return false;
+  if (error.code === "23505") return true;
+  const message = String(error.message || error.details || "").toLowerCase();
+  return (
+    message.includes("document_chain_desync") ||
+    message.includes("unique_violation") ||
+    message.includes("vault_document_state_events_document_prev_hash")
+  );
+}
+
+function normalizeDocumentStateChainError(error) {
+  if (!isVaultDocumentStateChainRetryableError(error)) {
+    return error;
+  }
+  return {
+    ...error,
+    message: "document_chain_desync",
+  };
+}
+
+async function appendVaultDocumentEventDirect({
+  supabase,
   documentId,
   eventType,
-  document,
-  metadata = {},
+  previousStateHash,
+  stateHash,
+  createdAt,
+  metadata,
 }) {
-  if (!Object.values(VAULT_DOCUMENT_EVENT_TYPES).includes(eventType)) {
-    throw new Error(`Unsupported vault document event type: ${eventType}`);
-  }
-
-  const supabase = createVaultAdminClient();
-  const previousStateHash = await getLatestDocumentStateHash(documentId);
-  const createdAt = new Date().toISOString();
-  const stateHash = computeVaultDocumentStateHash({
-    documentId,
-    eventType,
-    previousStateHash,
-    document,
-    metadata,
-    createdAt,
-  });
-
   const { data, error } = await supabase
     .from(VAULT_DOCUMENT_STATE_EVENTS_TABLE)
     .insert({
@@ -113,11 +131,165 @@ export async function appendVaultDocumentEvent({
     )
     .single();
 
-  if (error) {
-    return { event: null, error };
+  return { data, error };
+}
+
+export async function appendVaultDocumentEvent({
+  documentId,
+  eventType,
+  document,
+  metadata = {},
+}) {
+  if (!Object.values(VAULT_DOCUMENT_EVENT_TYPES).includes(eventType)) {
+    throw new Error(`Unsupported vault document event type: ${eventType}`);
   }
 
-  return { event: data, error: null };
+  const supabase = createVaultAdminClient();
+
+  for (let attempt = 0; attempt < VAULT_DOCUMENT_STATE_APPEND_MAX_ATTEMPTS; attempt += 1) {
+    const previousStateHash = await getLatestDocumentStateHash(documentId);
+    const createdAt = new Date().toISOString();
+    const documentSnapshot = {
+      ...document,
+      compromised_at: document?.compromised_at === "__created_at__" ? createdAt : document?.compromised_at,
+      deleted_at: document?.deleted_at === "__created_at__" ? createdAt : document?.deleted_at,
+    };
+    const stateHash = computeVaultDocumentStateHash({
+      documentId,
+      eventType,
+      previousStateHash,
+      document: documentSnapshot,
+      metadata,
+      createdAt,
+    });
+
+    const { data, error } =
+      typeof supabase.rpc === "function"
+        ? await supabase.rpc("vault_append_document_state_event_atomic", {
+            p_document_id: documentId,
+            p_event_type: eventType,
+            p_previous_state_hash: previousStateHash,
+            p_state_hash: stateHash,
+            p_created_at: createdAt,
+            p_metadata: metadata,
+          })
+        : await appendVaultDocumentEventDirect({
+            supabase,
+            documentId,
+            eventType,
+            previousStateHash,
+            stateHash,
+            createdAt,
+            metadata,
+          });
+
+    if (!error) {
+      return { event: data, error: null };
+    }
+
+    if (!isVaultDocumentStateChainRetryableError(error) || attempt === VAULT_DOCUMENT_STATE_APPEND_MAX_ATTEMPTS - 1) {
+      return { event: null, error: normalizeDocumentStateChainError(error) };
+    }
+
+    await delay(VAULT_DOCUMENT_STATE_RETRY_DELAY_MS);
+  }
+
+  return { event: null, error: { message: "document_chain_desync" } };
+}
+
+async function runDocumentMutationWithStateRetry({
+  documentId,
+  eventType,
+  document,
+  metadata = {},
+  rpcName,
+  rpcParams = {},
+}) {
+  const supabase = createVaultAdminClient();
+
+  for (let attempt = 0; attempt < VAULT_DOCUMENT_STATE_APPEND_MAX_ATTEMPTS; attempt += 1) {
+    const previousStateHash = await getLatestDocumentStateHash(documentId);
+    const createdAt = new Date().toISOString();
+    const stateHash = computeVaultDocumentStateHash({
+      documentId,
+      eventType,
+      previousStateHash,
+      document,
+      metadata,
+      createdAt,
+    });
+
+    const { data, error } = await supabase.rpc(rpcName, {
+      p_document_id: documentId,
+      p_previous_state_hash: previousStateHash,
+      p_state_hash: stateHash,
+      p_created_at: createdAt,
+      p_metadata: metadata,
+      ...rpcParams,
+    });
+
+    if (!error) {
+      return {
+        event: data,
+        mutationTimestamp: createdAt,
+        error: null,
+      };
+    }
+
+    if (!isVaultDocumentStateChainRetryableError(error) || attempt === VAULT_DOCUMENT_STATE_APPEND_MAX_ATTEMPTS - 1) {
+      return {
+        event: null,
+        mutationTimestamp: null,
+        error: normalizeDocumentStateChainError(error),
+      };
+    }
+
+    await delay(VAULT_DOCUMENT_STATE_RETRY_DELAY_MS);
+  }
+
+  return {
+    event: null,
+    mutationTimestamp: null,
+    error: { message: "document_chain_desync" },
+  };
+}
+
+export async function markVaultDocumentCompromisedWithState({
+  documentId,
+  document,
+  reason = "vault_compromised",
+  metadata = {},
+}) {
+  return runDocumentMutationWithStateRetry({
+    documentId,
+    eventType: VAULT_DOCUMENT_EVENT_TYPES.COMPROMISED,
+    document: {
+      ...document,
+      compromised_at: document?.compromised_at || "__created_at__",
+    },
+    metadata,
+    rpcName: "vault_mark_document_compromised_atomic",
+    rpcParams: {
+      p_reason: reason,
+    },
+  });
+}
+
+export async function markVaultDocumentDeletedWithState({
+  documentId,
+  document,
+  metadata = {},
+}) {
+  return runDocumentMutationWithStateRetry({
+    documentId,
+    eventType: VAULT_DOCUMENT_EVENT_TYPES.DELETED,
+    document: {
+      ...document,
+      deleted_at: document?.deleted_at || "__created_at__",
+    },
+    metadata,
+    rpcName: "vault_mark_document_deleted_atomic",
+  });
 }
 
 const VIEW_SESSION_DEDUP_EVENT_TYPES = new Set([
@@ -137,6 +309,7 @@ export async function findDocumentEventByViewSession({ documentId, viewSessionId
     .eq("event_type", eventType)
     .eq("metadata->>view_session_id", viewSessionId)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -198,6 +371,7 @@ export async function getVaultDocumentHistory(documentId, limit = 20) {
     )
     .eq("document_id", documentId)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(limit);
 
   if (error) {
@@ -216,6 +390,7 @@ export async function getVaultDocumentHistoryAscending(documentId, limit = 1000)
     )
     .eq("document_id", documentId)
     .order("created_at", { ascending: true })
+    .order("id", { ascending: true })
     .limit(limit);
 
   if (error) {

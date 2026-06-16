@@ -4,12 +4,11 @@ import {
   vaultAuthFailureResponse,
 } from "../../../lib/vaultAuth";
 import {
-  appendVaultDocumentEvent,
-  VAULT_DOCUMENT_EVENT_TYPES,
+  markVaultDocumentCompromisedWithState,
 } from "../../../lib/vaultDocumentState";
 import {
+  getVaultDocumentByDevice,
   isVaultAdminConfigured,
-  markVaultDocumentCompromised,
 } from "../../../lib/vaultAdmin";
 
 export const dynamic = "force-dynamic";
@@ -41,20 +40,20 @@ export async function POST(req) {
       return storageNotConfiguredResponse();
     }
 
-    const result = await markVaultDocumentCompromised(auth.vault_device_id);
+    const { document, error: lookupError } = await getVaultDocumentByDevice(auth.vault_device_id);
 
-    if (result.error) {
+    if (lookupError) {
       return NextResponse.json(
         {
           success: false,
-          code: "VAULT_COMPROMISE_FAILED",
-          error: result.error.message || "Unable to mark vault document compromised.",
+          code: "DOCUMENT_LOOKUP_FAILED",
+          error: lookupError.message || "Unable to load vault document.",
         },
         { status: 502 }
       );
     }
 
-    if (result.notFound) {
+    if (!document) {
       return NextResponse.json(
         {
           success: false,
@@ -65,22 +64,22 @@ export async function POST(req) {
       );
     }
 
-    const { error: stateError } = await appendVaultDocumentEvent({
-      documentId: result.document.id,
-      eventType: VAULT_DOCUMENT_EVENT_TYPES.COMPROMISED,
-      document: result.document,
+    const stateResult = await markVaultDocumentCompromisedWithState({
+      documentId: document.id,
+      document,
+      reason: "vault_compromised",
       metadata: {
         source: "vault-compromised-v0.2.5",
         vault_device_id: auth.vault_device_id,
       },
     });
 
-    if (stateError) {
+    if (stateResult.error) {
       return NextResponse.json(
         {
           success: false,
           code: "DOCUMENT_STATE_EVENT_FAILED",
-          error: stateError.message || "Unable to record vault document compromised event.",
+          error: stateResult.error.message || "Unable to record vault document compromised event.",
         },
         { status: 502 }
       );
@@ -89,8 +88,8 @@ export async function POST(req) {
     return NextResponse.json({
       success: true,
       compromised: true,
-      id: result.document?.id || null,
-      compromised_at: result.document?.compromised_at || null,
+      id: document?.id || null,
+      compromised_at: stateResult.mutationTimestamp || document?.compromised_at || null,
     });
   } catch {
     return NextResponse.json(

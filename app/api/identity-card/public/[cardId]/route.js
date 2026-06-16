@@ -6,6 +6,10 @@ import {
   getTrustHistory,
 } from "../../../../lib/identityCardState";
 import {
+  checkRateLimit,
+  getClientRateLimitKey,
+} from "../../../../lib/identityCardRateLimit";
+import {
   getSupabaseAdmin,
   isSupabaseAdminConfigured,
 } from "../../../../lib/supabaseAdmin";
@@ -24,14 +28,27 @@ export async function GET(_req, { params }) {
       );
     }
 
+    const rateKey = getClientRateLimitKey(_req, `public:${cardId}`);
+    const rate = await checkRateLimit(rateKey, 60, 60_000);
+    if (!rate.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Too many trust pass lookup attempts. Try again shortly.",
+          retry_after_ms: rate.retryAfterMs,
+        },
+        { status: 429 }
+      );
+    }
+
     if (!isSupabaseAdminConfigured()) {
-      return NextResponse.json({
-        success: true,
-        stored: false,
-        card: null,
-        trust_history: [],
-        message: "Public verification requires Supabase configuration.",
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Public trust pass verification requires Supabase configuration.",
+        },
+        { status: 503 }
+      );
     }
 
     const supabase = getSupabaseAdmin();

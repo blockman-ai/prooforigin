@@ -51,12 +51,12 @@ test("reserveVaultRequestNonce rejects replayed nonce for same device", async ()
   assert.equal(second.replay, true);
 });
 
-test("checkRateLimit blocks registration attempts after limit", () => {
+test("checkRateLimit blocks registration attempts after limit", async () => {
   resetVaultRateLimitsForTests();
 
   let lastResult = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    lastResult = checkRateLimit({
+    lastResult = await checkRateLimit({
       key: "vault-register:test-ip",
       limit: 2,
       windowMs: 60_000,

@@ -1,3 +1,4 @@
+import { createVaultAdminClient, isVaultAdminConfigured } from "./vaultAdmin.js";
 import { checkRateLimit, getVaultRequestClientIp, resetVaultRateLimitsForTests } from "./vaultRateLimit.js";
 
 export const DISCLOSURE_ACCEPT_IP_BURST_LIMIT = 5;
@@ -34,7 +35,17 @@ function recipientKey(req, publicHandleHash) {
   return `${handleScope(publicHandleHash)}:${getVaultRequestClientIp(req)}`;
 }
 
-export function checkDisclosureRecipientLockout(req, publicHandleHash, now = Date.now()) {
+function shouldUseMemoryDisclosureLockout() {
+  if (process.env.PROOFORIGIN_RATE_LIMIT_MEMORY === "1") {
+    return process.env.NODE_ENV !== "production";
+  }
+  if (process.env.NODE_ENV === "test") {
+    return true;
+  }
+  return !isVaultAdminConfigured() && process.env.NODE_ENV !== "production";
+}
+
+function checkDisclosureRecipientLockoutMemory(req, publicHandleHash, now = Date.now()) {
   const key = recipientKey(req, publicHandleHash);
   const lockedUntil = lockoutUntil.get(key);
   if (lockedUntil && lockedUntil > now) {
@@ -46,7 +57,46 @@ export function checkDisclosureRecipientLockout(req, publicHandleHash, now = Dat
   return { locked: false, retryAfterMs: 0 };
 }
 
-export function recordDisclosureRecipientFailure(req, publicHandleHash, now = Date.now()) {
+export async function checkDisclosureRecipientLockout(req, publicHandleHash, now = Date.now()) {
+  if (shouldUseMemoryDisclosureLockout()) {
+    return checkDisclosureRecipientLockoutMemory(req, publicHandleHash, now);
+  }
+
+  try {
+    const supabase = createVaultAdminClient();
+    const { data, error } = await supabase.rpc("prooforigin_get_lockout_state", {
+      p_lockout_key: recipientKey(req, publicHandleHash),
+      p_now: new Date(now).toISOString(),
+    });
+
+    if (error) {
+      if (process.env.NODE_ENV !== "production") {
+        return checkDisclosureRecipientLockoutMemory(req, publicHandleHash, now);
+      }
+      return {
+        locked: true,
+        retryAfterMs: DISCLOSURE_LOCKOUT_DURATION_MS,
+        error,
+      };
+    }
+
+    return {
+      locked: Boolean(data?.locked),
+      retryAfterMs: Number(data?.retry_after_ms || data?.retryAfterMs || 0),
+    };
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      return checkDisclosureRecipientLockoutMemory(req, publicHandleHash, now);
+    }
+    return {
+      locked: true,
+      retryAfterMs: DISCLOSURE_LOCKOUT_DURATION_MS,
+      error,
+    };
+  }
+}
+
+function recordDisclosureRecipientFailureMemory(req, publicHandleHash, now = Date.now()) {
   const key = recipientKey(req, publicHandleHash);
   const active = pruneFailureEntries(
     failureBuckets.get(key) || [],
@@ -62,21 +112,50 @@ export function recordDisclosureRecipientFailure(req, publicHandleHash, now = Da
   }
 }
 
-function checkBurstAndHourly({ burstKey, burstLimit, burstWindowMs, hourlyKey, hourlyLimit, hourlyWindowMs, now }) {
-  const burst = checkRateLimit({
+export async function recordDisclosureRecipientFailure(req, publicHandleHash, now = Date.now()) {
+  if (shouldUseMemoryDisclosureLockout()) {
+    recordDisclosureRecipientFailureMemory(req, publicHandleHash, now);
+    return;
+  }
+
+  try {
+    const supabase = createVaultAdminClient();
+    const { error } = await supabase.rpc("prooforigin_record_lockout_failure_atomic", {
+      p_lockout_key: recipientKey(req, publicHandleHash),
+      p_reason: "disclosure_recipient_failure",
+      p_threshold: DISCLOSURE_FAILURE_LOCKOUT_THRESHOLD,
+      p_window_ms: DISCLOSURE_FAILURE_LOCKOUT_WINDOW_MS,
+      p_lockout_ms: DISCLOSURE_LOCKOUT_DURATION_MS,
+      p_now: new Date(now).toISOString(),
+    });
+
+    if (error && process.env.NODE_ENV !== "production") {
+      recordDisclosureRecipientFailureMemory(req, publicHandleHash, now);
+    }
+  } catch {
+    if (process.env.NODE_ENV !== "production") {
+      recordDisclosureRecipientFailureMemory(req, publicHandleHash, now);
+    }
+  }
+}
+
+async function checkBurstAndHourly({ burstKey, burstLimit, burstWindowMs, hourlyKey, hourlyLimit, hourlyWindowMs, now }) {
+  const burst = await checkRateLimit({
     key: burstKey,
     limit: burstLimit,
     windowMs: burstWindowMs,
+    scope: "disclosure",
     now,
   });
   if (!burst.allowed) {
     return { allowed: false, retryAfterMs: burst.retryAfterMs };
   }
 
-  const hourly = checkRateLimit({
+  const hourly = await checkRateLimit({
     key: hourlyKey,
     limit: hourlyLimit,
     windowMs: hourlyWindowMs,
+    scope: "disclosure",
     now,
   });
   if (!hourly.allowed) {
@@ -86,8 +165,8 @@ function checkBurstAndHourly({ burstKey, burstLimit, burstWindowMs, hourlyKey, h
   return { allowed: true, retryAfterMs: 0 };
 }
 
-export function checkDisclosureAcceptRateLimit(req, publicHandleHash, now = Date.now()) {
-  const lockout = checkDisclosureRecipientLockout(req, publicHandleHash, now);
+export async function checkDisclosureAcceptRateLimit(req, publicHandleHash, now = Date.now()) {
+  const lockout = await checkDisclosureRecipientLockout(req, publicHandleHash, now);
   if (lockout.locked) {
     return { allowed: false, retryAfterMs: lockout.retryAfterMs, reason: "lockout" };
   }
@@ -95,7 +174,7 @@ export function checkDisclosureAcceptRateLimit(req, publicHandleHash, now = Date
   const ip = getVaultRequestClientIp(req);
   const handle = handleScope(publicHandleHash);
 
-  const ipLimits = checkBurstAndHourly({
+  const ipLimits = await checkBurstAndHourly({
     burstKey: `disclosure:accept:ip:${ip}:burst`,
     burstLimit: DISCLOSURE_ACCEPT_IP_BURST_LIMIT,
     burstWindowMs: DISCLOSURE_ACCEPT_IP_BURST_WINDOW_MS,
@@ -108,10 +187,11 @@ export function checkDisclosureAcceptRateLimit(req, publicHandleHash, now = Date
     return { ...ipLimits, reason: "rate_limited" };
   }
 
-  const handleBurst = checkRateLimit({
+  const handleBurst = await checkRateLimit({
     key: `disclosure:accept:handle:${handle}:burst`,
     limit: DISCLOSURE_ACCEPT_HANDLE_BURST_LIMIT,
     windowMs: DISCLOSURE_ACCEPT_HANDLE_BURST_WINDOW_MS,
+    scope: "disclosure",
     now,
   });
   if (!handleBurst.allowed) {
@@ -121,8 +201,8 @@ export function checkDisclosureAcceptRateLimit(req, publicHandleHash, now = Date
   return { allowed: true, retryAfterMs: 0, reason: null };
 }
 
-export function checkDisclosureVerifyRateLimit(req, publicHandleHash, now = Date.now()) {
-  const lockout = checkDisclosureRecipientLockout(req, publicHandleHash, now);
+export async function checkDisclosureVerifyRateLimit(req, publicHandleHash, now = Date.now()) {
+  const lockout = await checkDisclosureRecipientLockout(req, publicHandleHash, now);
   if (lockout.locked) {
     return { allowed: false, retryAfterMs: lockout.retryAfterMs, reason: "lockout" };
   }
@@ -130,7 +210,7 @@ export function checkDisclosureVerifyRateLimit(req, publicHandleHash, now = Date
   const ip = getVaultRequestClientIp(req);
   const handle = handleScope(publicHandleHash);
 
-  const ipLimits = checkBurstAndHourly({
+  const ipLimits = await checkBurstAndHourly({
     burstKey: `disclosure:verify:ip:${ip}:burst`,
     burstLimit: DISCLOSURE_VERIFY_IP_BURST_LIMIT,
     burstWindowMs: DISCLOSURE_VERIFY_IP_BURST_WINDOW_MS,
@@ -143,10 +223,11 @@ export function checkDisclosureVerifyRateLimit(req, publicHandleHash, now = Date
     return { ...ipLimits, reason: "rate_limited" };
   }
 
-  const handleBurst = checkRateLimit({
+  const handleBurst = await checkRateLimit({
     key: `disclosure:verify:handle:${handle}:burst`,
     limit: DISCLOSURE_VERIFY_HANDLE_BURST_LIMIT,
     windowMs: DISCLOSURE_VERIFY_HANDLE_BURST_WINDOW_MS,
+    scope: "disclosure",
     now,
   });
   if (!handleBurst.allowed) {

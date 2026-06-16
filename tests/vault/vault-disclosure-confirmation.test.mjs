@@ -10,24 +10,24 @@ const VAULT_REF = "v".repeat(64);
 const DEVICE_REF = "d".repeat(64);
 const OTHER_VAULT_REF = "u".repeat(64);
 
-test("disclosure confirmation nonce is single-use, scoped, and expires", () => {
+test("disclosure confirmation nonce is single-use, scoped, and expires", async () => {
   resetDisclosureConfirmationsForTests();
 
-  const issued = issueDisclosureConfirmationNonce({
+  const issued = await issueDisclosureConfirmationNonce({
     vaultRefHash: VAULT_REF,
     deviceRefHash: DEVICE_REF,
   });
   assert.equal(typeof issued.confirmationNonce, "string");
   assert.equal(Date.parse(issued.expiresAt) > Date.now(), true);
 
-  const consumed = consumeDisclosureConfirmationNonce({
+  const consumed = await consumeDisclosureConfirmationNonce({
     nonce: issued.confirmationNonce,
     vaultRefHash: VAULT_REF,
     deviceRefHash: DEVICE_REF,
   });
   assert.equal(consumed.ok, true);
 
-  const replay = consumeDisclosureConfirmationNonce({
+  const replay = await consumeDisclosureConfirmationNonce({
     nonce: issued.confirmationNonce,
     vaultRefHash: VAULT_REF,
     deviceRefHash: DEVICE_REF,
@@ -35,11 +35,11 @@ test("disclosure confirmation nonce is single-use, scoped, and expires", () => {
   assert.equal(replay.ok, false);
   assert.equal(replay.code, "CONFIRMATION_NONCE_INVALID");
 
-  const fresh = issueDisclosureConfirmationNonce({
+  const fresh = await issueDisclosureConfirmationNonce({
     vaultRefHash: VAULT_REF,
     deviceRefHash: DEVICE_REF,
   });
-  const mismatch = consumeDisclosureConfirmationNonce({
+  const mismatch = await consumeDisclosureConfirmationNonce({
     nonce: fresh.confirmationNonce,
     vaultRefHash: OTHER_VAULT_REF,
     deviceRefHash: DEVICE_REF,
@@ -48,12 +48,12 @@ test("disclosure confirmation nonce is single-use, scoped, and expires", () => {
   assert.equal(mismatch.code, "CONFIRMATION_NONCE_SCOPE_MISMATCH");
 
   resetDisclosureConfirmationsForTests();
-  const expired = issueDisclosureConfirmationNonce({
+  const expired = await issueDisclosureConfirmationNonce({
     vaultRefHash: VAULT_REF,
     deviceRefHash: DEVICE_REF,
     nowMs: Date.now() - 10 * 60 * 1000,
   });
-  const expiredConsume = consumeDisclosureConfirmationNonce({
+  const expiredConsume = await consumeDisclosureConfirmationNonce({
     nonce: expired.confirmationNonce,
     vaultRefHash: VAULT_REF,
     deviceRefHash: DEVICE_REF,

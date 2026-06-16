@@ -9,13 +9,14 @@ export function getGuideRateLimitKey(req) {
   return `guide:ip:${getVaultRequestClientIp(req)}`;
 }
 
-export function checkGuideRateLimit(req, now = Date.now()) {
+export async function checkGuideRateLimit(req, now = Date.now()) {
   const key = getGuideRateLimitKey(req);
 
-  const burst = checkRateLimit({
+  const burst = await checkRateLimit({
     key: `${key}:burst`,
     limit: GUIDE_BURST_LIMIT,
     windowMs: GUIDE_BURST_WINDOW_MS,
+    scope: "guide",
     now,
   });
 
@@ -27,10 +28,11 @@ export function checkGuideRateLimit(req, now = Date.now()) {
     };
   }
 
-  const hourly = checkRateLimit({
+  const hourly = await checkRateLimit({
     key,
     limit: GUIDE_IP_LIMIT,
     windowMs: GUIDE_IP_WINDOW_MS,
+    scope: "guide",
     now,
   });
 

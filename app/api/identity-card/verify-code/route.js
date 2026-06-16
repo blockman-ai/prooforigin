@@ -50,7 +50,7 @@ export async function POST(req) {
     }
 
     const rateKey = getClientRateLimitKey(req, `verify-code:${cardId}`);
-    const rate = checkRateLimit(rateKey, 12, 60_000);
+    const rate = await checkRateLimit(rateKey, 12, 60_000);
     if (!rate.allowed) {
       recordTrustVerifySentinelCounter(TRUST_VERIFY_SENTINEL_COUNTERS.RATE_LIMITED);
       return NextResponse.json(

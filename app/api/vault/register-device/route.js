@@ -59,10 +59,11 @@ export async function POST(req) {
     }
 
     const clientIp = getVaultRequestClientIp(req);
-    const ipLimit = checkRateLimit({
+    const ipLimit = await checkRateLimit({
       key: `vault-register:ip:${clientIp}`,
       limit: VAULT_REGISTRATION_IP_LIMIT,
       windowMs: VAULT_REGISTRATION_IP_WINDOW_MS,
+      scope: "vault_register",
     });
 
     if (!ipLimit.allowed) {
@@ -86,10 +87,11 @@ export async function POST(req) {
       );
     }
 
-    const deviceLimit = checkRateLimit({
+    const deviceLimit = await checkRateLimit({
       key: `vault-register:device:${vaultDeviceId}`,
       limit: VAULT_REGISTRATION_DEVICE_LIMIT,
       windowMs: VAULT_REGISTRATION_DEVICE_WINDOW_MS,
+      scope: "vault_register",
     });
 
     if (!deviceLimit.allowed) {

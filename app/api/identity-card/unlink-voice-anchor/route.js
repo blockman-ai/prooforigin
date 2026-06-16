@@ -55,7 +55,7 @@ export async function POST(req) {
     }
 
     const rateKey = getClientRateLimitKey(req, `unlink-voice:${cardId}`);
-    const rate = checkRateLimit(rateKey, 8, 60_000);
+    const rate = await checkRateLimit(rateKey, 8, 60_000);
     if (!rate.allowed) {
       recordTrustVoiceLinkSentinelCounter(TRUST_VOICE_LINK_SENTINEL_COUNTERS.RATE_LIMITED);
       return NextResponse.json(

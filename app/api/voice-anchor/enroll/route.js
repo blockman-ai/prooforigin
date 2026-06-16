@@ -13,13 +13,50 @@ import {
   getSupabaseAdmin,
   isSupabaseAdminConfigured,
 } from "../../../lib/supabaseAdmin";
+import { checkRateLimit, getVaultRequestClientIp } from "../../../lib/vaultRateLimit";
 
 export const dynamic = "force-dynamic";
 
 const TABLE = "voice_anchor_enrollments";
 
+function rateLimitResponse(retryAfterMs) {
+  const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Too many voice anchor requests. Try again shortly.",
+      retry_after_ms: retryAfterMs,
+    },
+    {
+      status: 429,
+      headers: { "Retry-After": String(retryAfterSeconds) },
+    }
+  );
+}
+
 export async function POST(req) {
   try {
+    const ip = getVaultRequestClientIp(req);
+    const rate = await checkRateLimit({
+      key: `voice-anchor:enroll:${ip}`,
+      limit: 8,
+      windowMs: 60_000,
+      scope: "voice_anchor",
+    });
+    if (!rate.allowed) {
+      return rateLimitResponse(rate.retryAfterMs);
+    }
+
+    if (!isSupabaseAdminConfigured()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Voice anchor enrollment requires Supabase configuration.",
+        },
+        { status: 503 }
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get("file");
     const contactEmail = String(formData.get("contact_email") || "").trim();
@@ -90,63 +127,42 @@ export async function POST(req) {
     const enrollmentTokenHash = hashEnrollmentToken(enrollmentToken);
     const enrolledAt = new Date().toISOString();
 
-    if (isSupabaseAdminConfigured()) {
-      try {
-        const supabase = getSupabaseAdmin();
-        const { data, error } = await supabase
-          .from(TABLE)
-          .insert({
-            enrollment_token_hash: enrollmentTokenHash,
-            fingerprint_hash: fingerprintHash,
-            mime_type: mimeType,
-            byte_size: buffer.length,
-            duration_ms: durationMs,
-            contact_email: contactEmail || null,
-            metadata: {
-              version: VOICE_ANCHOR_VERSION,
-              file_name: file.name || null,
-            },
-          })
-          .select("id, fingerprint_hash, enrolled_at")
-          .single();
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from(TABLE)
+      .insert({
+        enrollment_token_hash: enrollmentTokenHash,
+        fingerprint_hash: fingerprintHash,
+        mime_type: mimeType,
+        byte_size: buffer.length,
+        duration_ms: durationMs,
+        contact_email: contactEmail || null,
+        metadata: {
+          version: VOICE_ANCHOR_VERSION,
+          file_name: file.name || null,
+        },
+      })
+      .select("id, fingerprint_hash, enrolled_at")
+      .single();
 
-        if (error) throw error;
-
-        return NextResponse.json({
-          success: true,
-          stored: true,
-          enrollment_id: data.id,
-          enrollment_token: enrollmentToken,
-          fingerprint_hash: data.fingerprint_hash,
-          enrolled_at: data.enrolled_at,
-          message: "Voice anchor saved. Raw audio was not stored.",
-        });
-      } catch (dbError) {
-        return NextResponse.json({
-          success: true,
-          stored: false,
-          enrollment_token: enrollmentToken,
-          fingerprint_hash: fingerprintHash,
-          enrolled_at: enrolledAt,
-          warning:
-            dbError.message ||
-            "Database unavailable. Fingerprint computed in demo mode only.",
-          message:
-            "Fingerprint computed — not saved. Run docs/sql/voice_anchor_enrollments.sql in Supabase.",
-        });
-      }
+    if (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message || "Voice anchor enrollment could not be stored.",
+        },
+        { status: 502 }
+      );
     }
 
     return NextResponse.json({
       success: true,
-      stored: false,
+      stored: true,
+      enrollment_id: data.id,
       enrollment_token: enrollmentToken,
-      fingerprint_hash: fingerprintHash,
-      enrolled_at: enrolledAt,
-      warning:
-        "Supabase service role is not configured. Fingerprint computed in demo mode only.",
-      message:
-        "Fingerprint computed — not saved to database. Configure Supabase to persist enrollments.",
+      fingerprint_hash: data.fingerprint_hash,
+      enrolled_at: data.enrolled_at || enrolledAt,
+      message: "Voice anchor saved. Raw audio was not stored.",
     });
   } catch (error) {
     return NextResponse.json(
@@ -161,6 +177,17 @@ export async function POST(req) {
 
 export async function DELETE(req) {
   try {
+    const ip = getVaultRequestClientIp(req);
+    const rate = await checkRateLimit({
+      key: `voice-anchor:delete:${ip}`,
+      limit: 8,
+      windowMs: 60_000,
+      scope: "voice_anchor",
+    });
+    if (!rate.allowed) {
+      return rateLimitResponse(rate.retryAfterMs);
+    }
+
     const body = await req.json().catch(() => ({}));
     const enrollmentId = String(body.enrollment_id || "").trim();
     const enrollmentToken = String(body.enrollment_token || "").trim();
@@ -176,12 +203,13 @@ export async function DELETE(req) {
     }
 
     if (!isSupabaseAdminConfigured()) {
-      return NextResponse.json({
-        success: true,
-        stored: false,
-        message:
-          "Demo mode — nothing was stored server-side. Clear this browser session locally.",
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Voice anchor deletion requires Supabase configuration.",
+        },
+        { status: 503 }
+      );
     }
 
     const supabase = getSupabaseAdmin();

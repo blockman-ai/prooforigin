@@ -89,7 +89,7 @@ function resetState() {
 
 test("disclosure create succeeds with owner authority and fresh confirmation", async () => {
   resetState();
-  const confirmation = issueDisclosureConfirmationNonce({
+  const confirmation = await issueDisclosureConfirmationNonce({
     vaultRefHash: state.authority.vaultRefHash,
     deviceRefHash: state.authority.deviceRefHash,
   });

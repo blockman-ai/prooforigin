@@ -14,6 +14,10 @@ import {
 } from "../../../lib/identityCard";
 import { appendStateEvent } from "../../../lib/identityCardState";
 import {
+  checkRateLimit,
+  getClientRateLimitKey,
+} from "../../../lib/identityCardRateLimit";
+import {
   getSupabaseAdmin,
   isSupabaseAdminConfigured,
 } from "../../../lib/supabaseAdmin";
@@ -24,6 +28,19 @@ const TABLE = "identity_cards";
 
 export async function POST(req) {
   try {
+    const rateKey = getClientRateLimitKey(req, "create");
+    const rate = await checkRateLimit(rateKey, 8, 60_000);
+    if (!rate.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Too many trust pass creation attempts. Try again shortly.",
+          retry_after_ms: rate.retryAfterMs,
+        },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const displayName = String(body.display_name || "").trim();
     const username = String(body.username || "").trim();
@@ -107,82 +124,76 @@ export async function POST(req) {
       rotation_seconds: tierMeta.rotation_seconds,
     };
 
-    if (isSupabaseAdminConfigured()) {
-      if (dtsConfigError) {
-        return NextResponse.json(
-          { success: false, error: dtsConfigError },
-          { status: 503 }
-        );
-      }
-
-      try {
-        const supabase = getSupabaseAdmin();
-        const { error } = await supabase.from(TABLE).insert({
-          id: cardId,
-          secret_token_hash: secretTokenHash,
-          secret_ciphertext,
-          secret_nonce,
-          public_display_hash: publicDisplayHash,
-          display_name: displayName,
-          username: username || null,
-          purpose: purpose || null,
-          expiration_key: expirationKey,
-          issued_at: issuedAt.toISOString(),
-          expires_at: expiresAt.toISOString(),
-          trust_state: "active",
-          identity_card_version: IDENTITY_CARD_VERSION,
-          metadata: buildFutureMetadata({
-            version: IDENTITY_CARD_VERSION,
-            trust_tier: tierMeta.trust_tier,
-            rotation_seconds: tierMeta.rotation_seconds,
-          }),
-        });
-
-        if (error) throw error;
-
-        await appendStateEvent(supabase, {
-          cardId,
-          eventType: "created",
-          trustState: "active",
-          card: {
-            id: cardId,
-            display_name: displayName,
-            username,
-            purpose,
-            issued_at: issuedAt.toISOString(),
-            expires_at: expiresAt.toISOString(),
-            identity_card_version: IDENTITY_CARD_VERSION,
-          },
-          metadata: { source: "create" },
-        });
-
-        return NextResponse.json({
-          success: true,
-          stored: true,
-          card,
-          message: "Online trust pass saved with server-verifiable trust code.",
-        });
-      } catch (dbError) {
-        return NextResponse.json({
-          success: true,
-          stored: false,
-          card,
-          warning:
-            dbError.message ||
-            "Database unavailable. Card created locally only.",
-          message:
-            "Card created in this browser. Run docs/sql/identity_cards_dts_foundation.sql in Supabase.",
-        });
-      }
+    if (!isSupabaseAdminConfigured()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Trust pass creation requires Supabase configuration.",
+        },
+        { status: 503 }
+      );
     }
+
+    if (dtsConfigError) {
+      return NextResponse.json(
+        { success: false, error: dtsConfigError },
+        { status: 503 }
+      );
+    }
+
+    const supabase = getSupabaseAdmin();
+    const { error } = await supabase.from(TABLE).insert({
+      id: cardId,
+      secret_token_hash: secretTokenHash,
+      secret_ciphertext,
+      secret_nonce,
+      public_display_hash: publicDisplayHash,
+      display_name: displayName,
+      username: username || null,
+      purpose: purpose || null,
+      expiration_key: expirationKey,
+      issued_at: issuedAt.toISOString(),
+      expires_at: expiresAt.toISOString(),
+      trust_state: "active",
+      identity_card_version: IDENTITY_CARD_VERSION,
+      metadata: buildFutureMetadata({
+        version: IDENTITY_CARD_VERSION,
+        trust_tier: tierMeta.trust_tier,
+        rotation_seconds: tierMeta.rotation_seconds,
+      }),
+    });
+
+    if (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message || "Trust pass could not be stored.",
+        },
+        { status: 502 }
+      );
+    }
+
+    await appendStateEvent(supabase, {
+      cardId,
+      eventType: "created",
+      trustState: "active",
+      card: {
+        id: cardId,
+        display_name: displayName,
+        username,
+        purpose,
+        issued_at: issuedAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        identity_card_version: IDENTITY_CARD_VERSION,
+      },
+      metadata: { source: "create" },
+    });
 
     return NextResponse.json({
       success: true,
-      stored: false,
+      stored: true,
       card,
-      warning:
-        "Supabase service role is not configured. Card stored in this browser only.",
-      message: "Online trust pass created locally.",
+      message: "Online trust pass saved with server-verifiable trust code.",
     });
   } catch (error) {
     return NextResponse.json(

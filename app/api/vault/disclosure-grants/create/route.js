@@ -39,10 +39,11 @@ export async function POST(req) {
     }
 
     const input = validateCreateVerifyDisclosureGrantInput(bodyText);
-    const confirmation = consumeDisclosureConfirmationNonce({
+    const confirmation = await consumeDisclosureConfirmationNonce({
       nonce: input.confirmationNonce,
       vaultRefHash: authority.vaultRefHash,
       deviceRefHash: authority.deviceRefHash,
+      purpose: "disclosure",
     });
     if (!confirmation.ok) {
       return NextResponse.json(

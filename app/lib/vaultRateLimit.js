@@ -1,3 +1,5 @@
+import { createVaultAdminClient, isVaultAdminConfigured } from "./vaultAdmin.js";
+
 const buckets = new Map();
 
 export const VAULT_REGISTRATION_IP_LIMIT = 20;
@@ -9,7 +11,17 @@ function pruneBucket(entries, now, windowMs) {
   return entries.filter((entry) => now - entry.at < windowMs);
 }
 
-export function checkRateLimit({ key, limit, windowMs, now = Date.now() }) {
+function shouldUseMemoryRateLimit() {
+  if (process.env.PROOFORIGIN_RATE_LIMIT_MEMORY === "1") {
+    return process.env.NODE_ENV !== "production";
+  }
+  if (process.env.NODE_ENV !== "production" && process.env.PROOFORIGIN_RATE_LIMIT_DB !== "1") {
+    return true;
+  }
+  return !isVaultAdminConfigured() && process.env.NODE_ENV !== "production";
+}
+
+function checkRateLimitMemory({ key, limit, windowMs, now = Date.now() }) {
   if (!key || !Number.isFinite(limit) || limit <= 0 || !Number.isFinite(windowMs)) {
     return { allowed: true, remaining: limit, retryAfterMs: 0 };
   }
@@ -32,6 +44,66 @@ export function checkRateLimit({ key, limit, windowMs, now = Date.now() }) {
     remaining: Math.max(0, limit - active.length),
     retryAfterMs: 0,
   };
+}
+
+export async function checkRateLimit({
+  key,
+  limit,
+  windowMs,
+  scope = "general",
+  now = Date.now(),
+}) {
+  if (shouldUseMemoryRateLimit()) {
+    return checkRateLimitMemory({ key, limit, windowMs, now });
+  }
+
+  if (!isVaultAdminConfigured()) {
+    return {
+      allowed: false,
+      remaining: 0,
+      retryAfterMs: windowMs || 60_000,
+      error: { message: "rate_limit_store_unavailable" },
+    };
+  }
+
+  try {
+    const supabase = createVaultAdminClient();
+    const { data, error } = await supabase.rpc("prooforigin_check_rate_limit_atomic", {
+      p_bucket_key: key,
+      p_scope: scope,
+      p_limit: limit,
+      p_window_ms: windowMs,
+      p_now: new Date(now).toISOString(),
+    });
+
+    if (error) {
+      if (process.env.NODE_ENV !== "production") {
+        return checkRateLimitMemory({ key, limit, windowMs, now });
+      }
+      return {
+        allowed: false,
+        remaining: 0,
+        retryAfterMs: windowMs || 60_000,
+        error,
+      };
+    }
+
+    return {
+      allowed: Boolean(data?.allowed),
+      remaining: Number(data?.remaining || 0),
+      retryAfterMs: Number(data?.retry_after_ms || data?.retryAfterMs || 0),
+    };
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      return checkRateLimitMemory({ key, limit, windowMs, now });
+    }
+    return {
+      allowed: false,
+      remaining: 0,
+      retryAfterMs: windowMs || 60_000,
+      error,
+    };
+  }
 }
 
 export function getVaultRequestClientIp(req) {

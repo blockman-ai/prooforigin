@@ -79,7 +79,7 @@ export async function GET(req, { params }) {
   try {
     const grantHandle = String(params?.grant_handle || "").trim();
     const publicHandleHash = buildPublicHandleHash(grantHandle);
-  const rateLimit = checkDisclosureVerifyRateLimit(req, publicHandleHash);
+  const rateLimit = await checkDisclosureVerifyRateLimit(req, publicHandleHash);
   if (!rateLimit.allowed) {
     recordVaultDisclosureSentinelCounter(
       VAULT_DISCLOSURE_SENTINEL_COUNTERS.RATE_LIMITED_TOTAL
@@ -90,7 +90,7 @@ export async function GET(req, { params }) {
   const { grant, error } = await getDisclosureGrantRecordByHandleHash(publicHandleHash);
 
   if (error || !grant) {
-    recordDisclosureRecipientFailure(req, publicHandleHash);
+    await recordDisclosureRecipientFailure(req, publicHandleHash);
     recordVaultDisclosureSentinelCounter(
       VAULT_DISCLOSURE_SENTINEL_COUNTERS.FAILED_VERIFY_TOTAL
     );
@@ -118,7 +118,7 @@ export async function GET(req, { params }) {
 
   const sessionToken = req.headers.get(DISCLOSURE_SESSION_HEADER)?.trim() || "";
   if (!sessionToken) {
-    recordDisclosureRecipientFailure(req, publicHandleHash);
+    await recordDisclosureRecipientFailure(req, publicHandleHash);
     recordVaultDisclosureSentinelCounter(
       VAULT_DISCLOSURE_SENTINEL_COUNTERS.FAILED_VERIFY_TOTAL
     );
@@ -140,7 +140,7 @@ export async function GET(req, { params }) {
     session.status !== DISCLOSURE_ACCESS_SESSION_STATUS_ACTIVE ||
     session.recipient_binding_hash !== grant.recipient_binding_hash
   ) {
-    recordDisclosureRecipientFailure(req, publicHandleHash);
+    await recordDisclosureRecipientFailure(req, publicHandleHash);
     recordVaultDisclosureSentinelCounter(
       VAULT_DISCLOSURE_SENTINEL_COUNTERS.FAILED_VERIFY_TOTAL
     );
@@ -216,7 +216,7 @@ export async function GET(req, { params }) {
       VAULT_DISCLOSURE_SENTINEL_COUNTERS.FAILED_VERIFY_TOTAL
     );
     if (params?.grant_handle) {
-      recordDisclosureRecipientFailure(
+      await recordDisclosureRecipientFailure(
         req,
         buildPublicHandleHash(String(params.grant_handle).trim())
       );

@@ -1,6 +1,7 @@
 import crypto from "crypto";
 
 export const DISCLOSURE_GRANT_TYPE_VERIFY_ONLY = "verify_only";
+export const DISCLOSURE_GRANT_TYPE_SCOPED_VERIFY = "scoped_verify";
 export const DISCLOSURE_GRANT_STATUS_ACTIVE = "active";
 export const DISCLOSURE_GRANT_STATUS_REVOKED = "revoked";
 export const DISCLOSURE_GRANT_STATUS_EXPIRED = "expired";
@@ -24,6 +25,8 @@ export const DISCLOSURE_GRANT_EVENT_TYPES = Object.freeze({
   REVOKED: "grant.revoked",
   EXPIRED: "grant.expired",
   ACCESS_DENIED: "access.denied",
+  ACCESS_RECEIPTED: "access.receipted",
+  CUSTODY_BLOCKED: "custody.blocked",
 });
 
 export const DISCLOSURE_ACTOR_TYPES = Object.freeze({
@@ -389,6 +392,8 @@ export function serializeOwnerDisclosureGrant(grant, { publicHandle = null } = {
   if (!grant) return null;
   return {
     grant_id: grant.grant_id,
+    policy_ref: grant.policy_ref || null,
+    scope_type: grant.scope_type || null,
     grant_type: grant.grant_type,
     status: grant.status,
     purpose_label: grant.purpose_label,
