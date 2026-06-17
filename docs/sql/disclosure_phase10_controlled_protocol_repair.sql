@@ -261,29 +261,25 @@ begin
   where session_id = p_session_id
   returning * into v_session;
 
-  v_receipt_hash := encode(
-    digest(
-      concat_ws(
-        chr(10),
-        'prooforigin-disclosure-receipt-v1',
-        p_receipt_id::text,
-        p_grant_id::text,
-        p_policy_ref::text,
-        p_session_id::text,
-        v_event.event_id::text,
-        p_scope_type,
-        p_scope_ref_hash,
-        p_recipient_binding_hash,
-        p_policy_snapshot_hash,
-        p_condition_profile_hash,
-        p_custody_snapshot_hash,
-        p_disclosure_digest,
-        'success',
-        to_char(p_timestamp at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
-      )::bytea,
-      'sha256'
-    ),
-    'hex'
+  v_receipt_hash := public.prooforigin_sha256_hex(
+    concat_ws(
+      chr(10),
+      'prooforigin-disclosure-receipt-v1',
+      p_receipt_id::text,
+      p_grant_id::text,
+      p_policy_ref::text,
+      p_session_id::text,
+      v_event.event_id::text,
+      p_scope_type,
+      p_scope_ref_hash,
+      p_recipient_binding_hash,
+      p_policy_snapshot_hash,
+      p_condition_profile_hash,
+      p_custody_snapshot_hash,
+      p_disclosure_digest,
+      'success',
+      to_char(p_timestamp at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+    )
   );
 
   insert into public.disclosure_receipts (

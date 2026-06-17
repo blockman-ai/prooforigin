@@ -17,6 +17,14 @@ test("disclosure receipt SQL uses JS-reproducible canonical separators and times
   assert.doesNotMatch(SQL, /concat_ws\(\s*'\\n'/i);
 });
 
+test("disclosure receipt SQL hashes UTF-8 input via prooforigin_sha256_hex", () => {
+  assert.match(
+    SQL,
+    /v_receipt_hash\s*:=\s*public\.prooforigin_sha256_hex\(\s*concat_ws\(/i
+  );
+  assert.doesNotMatch(SQL, /concat_ws\([\s\S]*?\)::bytea,\s*'sha256'/i);
+});
+
 test("disclosure receipt hash normalizes database timestamps to UTC milliseconds", () => {
   const common = {
     receiptId: "55555555-5555-4555-8555-555555555555",
