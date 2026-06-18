@@ -1066,11 +1066,11 @@ export default function VaultPage() {
 
       narrow
 
-      badge="Private Vault • V0.2"
+      badge="Account & Security"
 
-      title="ProofOrigin Private Vault"
+      title="Account & Security"
 
-      subtitle="Your encrypted trust assets."
+      subtitle="Your devices, recovery, and keys protect your collection."
 
       className="vault-page trust-cred-page"
 
@@ -1096,9 +1096,9 @@ export default function VaultPage() {
 
             <div>
 
-              <p className="vault-shell__eyebrow">ProofOrigin Private Vault</p>
+              <p className="vault-shell__eyebrow">ProofOrigin Account</p>
 
-              <h2 className="vault-shell__title">Luxury trust custody</h2>
+              <h2 className="vault-shell__title">Protect your collection</h2>
 
             </div>
 
@@ -1175,11 +1175,11 @@ export default function VaultPage() {
                 </div>
               )}
 
-              <section className="vault-genesis-card" aria-label="Vault Genesis">
+              <section className="vault-genesis-card" aria-label="Account security record">
 
                 <div className="vault-genesis-card__header">
 
-                  <h3 className="vault-genesis-card__title">Vault Genesis</h3>
+                  <h3 className="vault-genesis-card__title">Account security record</h3>
 
                   <span className="vault-genesis-card__status">Sealed</span>
 
@@ -1187,9 +1187,9 @@ export default function VaultPage() {
 
                 <p className="vault-genesis-card__lead">
 
-                  Your vault has been sealed. Future encrypted documents will build from this
+                  Your account security is sealed. Devices, recovery, and private evidence stay
 
-                  genesis proof.
+                  protected while public certificates stay easy to share.
 
                 </p>
 
@@ -1197,17 +1197,9 @@ export default function VaultPage() {
 
                   <div>
 
-                    <dt>Vault status</dt>
+                    <dt>Account status</dt>
 
                     <dd className="vault-genesis-card__value--emphasis">Sealed</dd>
-
-                  </div>
-
-                  <div>
-
-                    <dt>Vault ID</dt>
-
-                    <dd className="vault-genesis-card__mono">{formatVaultIdDisplay(genesis?.vault_id)}</dd>
 
                   </div>
 
@@ -1216,18 +1208,6 @@ export default function VaultPage() {
                     <dt>Created</dt>
 
                     <dd>{formatVaultCreatedAt(genesis?.vault_created_at)}</dd>
-
-                  </div>
-
-                  <div>
-
-                    <dt>Genesis hash</dt>
-
-                    <dd className="vault-genesis-card__mono" title={genesis?.vault_genesis_hash || undefined}>
-
-                      {formatGenesisHashPreview(genesis?.vault_genesis_hash)}
-
-                    </dd>
 
                   </div>
 
@@ -1248,6 +1228,22 @@ export default function VaultPage() {
                   </div>
 
                 </dl>
+
+                <details className="asset-technical-details">
+                  <summary>Show Technical Details</summary>
+                  <dl className="vault-genesis-card__grid">
+                    <div>
+                      <dt>Account ID</dt>
+                      <dd className="vault-genesis-card__mono">{formatVaultIdDisplay(genesis?.vault_id)}</dd>
+                    </div>
+                    <div>
+                      <dt>Security record hash</dt>
+                      <dd className="vault-genesis-card__mono" title={genesis?.vault_genesis_hash || undefined}>
+                        {formatGenesisHashPreview(genesis?.vault_genesis_hash)}
+                      </dd>
+                    </div>
+                  </dl>
+                </details>
 
                 <div className="protocol-actions vault-genesis-card__actions">
 
@@ -1363,9 +1359,8 @@ export default function VaultPage() {
 
               <p className="vault-bootstrap-panel__lead">
 
-                Choose whether to create a new vault or restore access from a saved Recovery Kit.
-
-                No vault identity is created until you continue.
+                Choose whether to create a new account security record or restore access from a
+                saved Recovery Kit. No account identity is created until you continue.
 
               </p>
 
@@ -1373,7 +1368,7 @@ export default function VaultPage() {
 
                 <button type="button" className="primary" onClick={handleChooseCreateVault}>
 
-                  Create New Vault
+                  Create Account
 
                 </button>
 
@@ -1396,9 +1391,9 @@ export default function VaultPage() {
 
               <p className="vault-bootstrap-panel__lead">
 
-                Use the restore wizard with your recovery kit file and 12-word phrase. No vault identity,
+                Use the restore wizard with your recovery kit file and 12-word phrase. No account
 
-                genesis record, or encryption keys are created until restore completes successfully.
+                security record or encryption keys are created until restore completes successfully.
 
               </p>
 
@@ -1426,9 +1421,9 @@ export default function VaultPage() {
 
               <p className="vault-locked-panel__lead">
 
-                Your vault opens locked by default. Unlock with a PIN to enter the premium custody
+                Account & Security opens locked by default. Unlock with a PIN to manage devices,
 
-                shell and store one encrypted document.
+                recovery, and private evidence for your collection.
 
               </p>
 
@@ -1438,7 +1433,7 @@ export default function VaultPage() {
 
                 <button type="button" className="primary" onClick={openUnlockPanel}>
 
-                  Unlock Vault
+                  Unlock Account
 
                 </button>
 
@@ -1462,11 +1457,11 @@ export default function VaultPage() {
 
                 <ul className="vault-learn-more">
 
-                  <li>One encrypted document slot — encrypted on your device before upload.</li>
+                  <li>One private evidence slot — encrypted on your device before upload.</li>
 
                   <li>PIN is stored as a hash only. Plaintext PIN is never saved.</li>
 
-                  <li>Vanish Mode locks the vault after 30 seconds idle or when you leave the tab.</li>
+                  <li>Vanish Mode locks Account & Security after 30 seconds idle or when you leave the tab.</li>
 
                   <li>This is private personal storage — not legal ID verification.</li>
 
@@ -1510,7 +1505,7 @@ export default function VaultPage() {
 
                 <h3 id="vault-unlock-title" className="vault-modal__title">
 
-                  {isSetupMode ? "Create Vault PIN" : "Unlock Vault"}
+                  {isSetupMode ? "Create Account PIN" : "Unlock Account"}
 
                 </h3>
 
@@ -1520,7 +1515,7 @@ export default function VaultPage() {
 
                     ? `Choose a ${VAULT_PIN_MIN_LENGTH}-digit PIN or longer.`
 
-                    : "Enter your vault PIN to continue."}
+                    : "Enter your account PIN to continue."}
 
                 </p>
 
@@ -1578,7 +1573,7 @@ export default function VaultPage() {
 
               <label className="dataset-field">
 
-                <span className="dataset-field__label">Vault PIN</span>
+                <span className="dataset-field__label">Account PIN</span>
 
                 <input
 
@@ -1658,7 +1653,7 @@ export default function VaultPage() {
 
                 <button type="submit" className="primary" disabled={busy}>
 
-                  {busy ? "Working…" : isSetupMode ? "Save PIN & Unlock" : "Unlock Vault"}
+                  {busy ? "Working…" : isSetupMode ? "Save PIN & Unlock" : "Unlock Account"}
 
                 </button>
 

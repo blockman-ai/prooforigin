@@ -53,7 +53,7 @@ function VerifyReceiptContent() {
 
         if (verification.phase === DISCLOSURE_RECEIPT_VERIFY_PHASE.INVALID) {
           setErrorMessage(
-            verification.payload?.error || "receipt_id and receipt_hash are required."
+            verification.payload?.error || "Receipt ID and receipt code are required."
           );
         }
       } catch {
@@ -73,9 +73,9 @@ function VerifyReceiptContent() {
     <PageShell
       narrow
       heroAlign="left"
-      badge="Receipt Verification"
-      title="Verify a disclosure receipt"
-      subtitle="Confirm a ProofOrigin disclosure receipt is authentic and untampered using the receipt ID and hash from your receipt card."
+      badge="Check Proof"
+      title="Check a ProofOrigin receipt"
+      subtitle="Confirm a ProofOrigin receipt is authentic using the receipt ID and receipt code from your card."
     >
       <GlassPanel title="Enter receipt details">
         <form className="dts-verify-form trust-verify-form disclosure-receipt-verify-form" onSubmit={onSubmit}>
@@ -94,13 +94,13 @@ function VerifyReceiptContent() {
           </label>
 
           <label className="dataset-field" htmlFor="receipt-hash">
-            <span className="dataset-field__label">Receipt hash</span>
+            <span className="dataset-field__label">Receipt code</span>
             <input
               id="receipt-hash"
               className="dataset-field__input trust-verify-form__code"
               value={receiptHash}
               onChange={(event) => setReceiptHash(event.target.value.trim().toLowerCase())}
-              placeholder="64-character SHA-256 hex"
+              placeholder="64-character receipt code"
               autoComplete="off"
               spellCheck={false}
               required
@@ -114,8 +114,8 @@ function VerifyReceiptContent() {
               disabled={phase === DISCLOSURE_RECEIPT_VERIFY_PHASE.VERIFYING}
             >
               {phase === DISCLOSURE_RECEIPT_VERIFY_PHASE.VERIFYING
-                ? "Verifying…"
-                : "Verify receipt"}
+                ? "Checking…"
+                : "Check receipt"}
             </button>
           </div>
         </form>
@@ -148,7 +148,7 @@ function VerifyReceiptContent() {
       {showTechnicalDetails && (
         <GlassPanel title="Technical details">
           <details className="disclosure-receipt-verify-details">
-            <summary>Show receipt fields</summary>
+            <summary>Show Technical Details</summary>
             <div className="proof-grid">
               <ProofField label="Receipt ID" value={result.receipt.receipt_id} mono />
               <ProofField label="Receipt hash" value={result.receipt.receipt_hash} mono />
@@ -200,9 +200,9 @@ export default function VerifyReceiptPage() {
         <PageShell
           narrow
           heroAlign="left"
-          badge="Receipt Verification"
-          title="Verify a disclosure receipt"
-          subtitle="Loading verification form…"
+          badge="Check Proof"
+          title="Check a ProofOrigin receipt"
+          subtitle="Loading proof check…"
         />
       }
     >

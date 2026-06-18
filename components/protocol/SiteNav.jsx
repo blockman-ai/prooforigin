@@ -4,17 +4,17 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useState } from "react";
 
 const LINKS = [
-  { href: "/assets", label: "Assets" },
-  { href: "/vault", label: "Vault" },
-  { href: "/custody-map", label: "Custody" },
-  { href: "/verify/receipt", label: "Verify" },
-  { href: "/use-cases", label: "Use Cases" },
+  { href: "/assets", label: "Collection" },
+  { href: "/assets/register", label: "Register" },
+  { href: "/assets/transfers", label: "Transfers" },
+  { href: "/vault", label: "Account" },
+  { href: "/verify/receipt", label: "Check Proof" },
 ];
 
 const MOBILE_LINKS = [
   { href: "/", label: "Home" },
   ...LINKS,
-  { href: "/vault", label: "Open Vault", cta: true },
+  { href: "/assets/register", label: "Register Asset", cta: true },
 ];
 
 export default function SiteNav() {
@@ -67,8 +67,8 @@ export default function SiteNav() {
           ))}
         </div>
 
-        <Link href="/vault" className="site-nav__cta">
-          Open Vault
+        <Link href="/assets/register" className="site-nav__cta">
+          Register Asset
         </Link>
 
         <button

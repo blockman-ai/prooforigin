@@ -3,52 +3,52 @@ import PageShell from "../components/protocol/PageShell";
 
 const PLATFORM_FLOW = [
   {
-    label: "Identity",
-    description: "Trust Pass and optional identity signals establish who controls the experience.",
+    label: "Register",
+    description: "Create a certificate for a PSA card, memorabilia, artwork, document, or other asset.",
   },
   {
-    label: "Ownership",
-    description: "Verified vault authority proves the owner, device, and intent before sensitive actions.",
+    label: "Certificate",
+    description: "Share a public certificate that shows provenance, custody, and protected-since history.",
   },
   {
-    label: "Custody",
-    description: "The vault tracks what exists, where it lives, and which devices can access it.",
+    label: "Track",
+    description: "Use the custody timeline to understand what happened, when, and who accepted each handoff.",
   },
   {
-    label: "Disclosure",
-    description: "Owner-approved grants reveal only a specific proof, claim, or limited representation.",
+    label: "Transfer",
+    description: "Move custody to another owner with a receipt-backed, two-party acceptance flow.",
   },
   {
-    label: "Sentinel",
-    description: "Metadata-only monitoring watches custody risk without inspecting documents.",
+    label: "Protect",
+    description: "Account & Security keeps owner keys, devices, and recovery controls out of the public story.",
   },
 ];
 
 const CUSTODY_FEATURES = [
   {
-    title: "Custody Map",
-    description: "A clear view of devices, documents, protection status, and what needs attention.",
+    title: "Certificate",
+    description: "A public page for each asset with provenance, current custody, and a plain-English trust summary.",
   },
   {
     title: "Custody Timeline",
-    description: "Readable history for ownership, transfers, cleanup, retirement, and recent activity.",
+    description: "Readable ownership history for registration, verification, transfers, sharing, and retirement.",
   },
 ];
 
 const SENTINEL_POINTS = [
-  "Watches custody state, access patterns, and attention signals.",
-  "Uses metadata and event history, not document inspection.",
-  "Surfaces review-needed states before trust drift becomes invisible.",
+  "PSA cards, memorabilia, artwork, and documents get a shareable certificate.",
+  "Transfers update the ownership history without exposing private identities.",
+  "Technical evidence remains available without overwhelming the first view.",
 ];
 
 const START_ACTIONS = [
   {
-    title: "Open Vault",
-    href: "/vault",
+    title: "Register an asset",
+    href: "/assets/register",
   },
   {
-    title: "View Trust Pass",
-    href: "/identity-card",
+    title: "Open your collection",
+    href: "/assets",
   },
 ];
 
@@ -56,25 +56,25 @@ export default function Home() {
   return (
     <PageShell
       className="home-page"
-      badge="Zero-Knowledge Trust Platform • Beta"
-      title="Prove ownership. Control custody. Disclose safely."
-      subtitle="ProofOrigin is a zero-knowledge trust platform for identity, custody, and controlled disclosure."
+      badge="Asset Provenance • Beta"
+      title="Prove what you own. Share proof in one link."
+      subtitle="ProofOrigin verifies provenance, custody, and ownership history for digital and physical assets."
     >
       <div className="hero-cta-row">
-        <a href="/vault" className="primary hero-cta-row__primary">
-          Open Vault
+        <a href="/assets/register" className="primary hero-cta-row__primary">
+          Register Asset
         </a>
-        <a href="/identity-card" className="secondary">
-          View Trust Pass
+        <a href="/verify/receipt" className="secondary">
+          Check Proof
         </a>
       </div>
 
       <section className="platform-flow" aria-label="ProofOrigin platform flow">
         <header className="home-section__header">
-          <h2 className="home-section__title">The trust platform</h2>
+          <h2 className="home-section__title">The asset trust layer</h2>
           <p className="home-section__lead">
-            ProofOrigin connects identity, ownership, custody, disclosure, and Sentinel into one
-            private trust layer.
+            Start with a registered asset, then let the certificate and custody timeline explain
+            the history to anyone you share it with.
           </p>
         </header>
         <div className="platform-flow__rail">
@@ -93,12 +93,11 @@ export default function Home() {
       <section id="custody" className="home-custody-section" aria-label="Custody Map and Timeline">
         <GlassPanel
           className="home-panel home-custody-section__panel"
-          title="What you own, where it lives, and what changed."
+          title="Certificates and custody history, not another storage dashboard."
         >
           <p className="home-custody-section__copy">
-            Custody Map turns the vault into a trust surface: your devices, documents, protection
-            status, and attention items in one readable place. Custody Timeline shows the history
-            behind that trust, including ownership verification, transfers, cleanup, and retirement.
+            ProofOrigin turns each asset into a certificate with a custody timeline: registration,
+            verification, transfers, and ownership history in one readable place.
           </p>
           <div className="home-custody-section__grid">
             {CUSTODY_FEATURES.map((feature) => (
@@ -109,18 +108,18 @@ export default function Home() {
             ))}
           </div>
           <div className="protocol-actions home-custody-section__actions">
-            <a href="/custody-map" className="secondary">
-              Open Custody Map
+            <a href="/assets" className="secondary">
+              Open Collection
             </a>
           </div>
         </GlassPanel>
       </section>
 
-      <section id="sentinel" className="home-sentinel-section" aria-label="Sentinel monitoring">
-        <GlassPanel className="home-panel" title="Sentinel monitors trust without reading documents.">
+      <section id="asset-story" className="home-sentinel-section" aria-label="Asset story">
+        <GlassPanel className="home-panel" title="Built for assets people already care about.">
           <p className="home-sentinel-section__copy">
-            Sentinel watches metadata, custody state, and event patterns. It does not inspect your
-            documents, labels, vault keys, recovery material, or private content.
+            The first experience is simple: register the asset, share the certificate, and let the
+            custody timeline show what changed over time.
           </p>
           <ul className="home-sentinel-section__list">
             {SENTINEL_POINTS.map((point) => (
@@ -131,16 +130,15 @@ export default function Home() {
       </section>
 
       <section
-        id="disclosure"
+        id="sharing"
         className="home-disclosure-section"
-        aria-label="Controlled Disclosure"
+        aria-label="Private sharing"
       >
-        <GlassPanel className="home-panel" title="Controlled Disclosure">
-          <p className="home-disclosure-section__eyebrow">Coming Soon</p>
+        <GlassPanel className="home-panel" title="Share proof without oversharing.">
+          <p className="home-disclosure-section__eyebrow">Private by design</p>
           <p className="home-disclosure-section__copy">
-            Verify claims without transferring ownership. Controlled Disclosure will let owners
-            create time-bound, auditable grants that reveal only the proof or claim needed, not the
-            whole vault and not custody.
+            Public certificates show the asset story. Account & Security keeps keys, recovery,
+            private evidence, and advanced details away from the primary public experience.
           </p>
         </GlassPanel>
       </section>
@@ -148,9 +146,8 @@ export default function Home() {
       <section className="home-beta-notice" aria-label="Beta notice">
         <GlassPanel className="home-panel" title="Beta boundaries">
           <p className="home-beta-notice__copy">
-            ProofOrigin is trust infrastructure in careful beta. It is not a government ID or
-            absolute truth verification. If you lose your device and recovery kit, we cannot
-            restore access. That is intentional zero-knowledge design.
+            ProofOrigin records provenance and custody signals. It is not an appraisal, insurance
+            valuation, government ID, or legal title transfer.
           </p>
         </GlassPanel>
       </section>

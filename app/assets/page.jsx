@@ -10,7 +10,6 @@ import {
   formatAssetTimestamp,
   formatAssetTypeLabel,
   listRegisteredAssets,
-  truncateAssetHash,
 } from "../lib/assetRegistryClient";
 
 function assetStatusBadgeVariant(status) {
@@ -70,20 +69,20 @@ export default function AssetRegistryPage() {
 
   return (
     <PageShell
-      badge="Asset Registry"
-      title="Prove what you own. Share proof in one link."
-      subtitle="Register PSA cards, photos, art, watches, documents, and memorabilia with a public verification page backed by provenance and custody history."
+      badge="Collection"
+      title="My Collection"
+      subtitle="Register assets, open certificates, review transfers, and track custody history from one place."
     >
       <div className="protocol-actions">
         <Link href="/assets/register" className="primary">
-          Register asset
+          Register Asset
         </Link>
         <Link href="/assets/transfers" className="secondary">
-          Incoming transfers
+          Transfers
         </Link>
       </div>
 
-      <GlassPanel title="Your collection">
+      <GlassPanel title="Registered assets">
         {loading && <p>Loading registered assets…</p>}
         {!loading && error && <p className="form-error">{error}</p>}
         {!loading && !error && (
@@ -97,8 +96,8 @@ export default function AssetRegistryPage() {
               <div className="asset-empty-state">
                 <h3>Start with one asset</h3>
                 <p>
-                  Register a PSA card, document, photo, watch, or artwork. ProofOrigin creates a
-                  protected-since timestamp, fingerprint, custody event, and verification page.
+                  Register a PSA card, document, memorabilia, or artwork. ProofOrigin creates a
+                  certificate with provenance, protected-since history, and a custody timeline.
                 </p>
                 <Link href="/assets/register" className="primary">
                   Register your first asset
@@ -128,9 +127,6 @@ export default function AssetRegistryPage() {
                       <p className="asset-card__proof">
                         Protected since {formatAssetTimestamp(asset.created_at)}
                       </p>
-                      <p className="asset-card__hash">
-                        Fingerprint {truncateAssetHash(asset.asset_fingerprint)}
-                      </p>
                     </div>
                     <div className="asset-card__actions">
                       <Link href={`/assets/${asset.asset_id}`} className="secondary">
@@ -138,7 +134,7 @@ export default function AssetRegistryPage() {
                       </Link>
                       {asset.verification_url && (
                         <a href={asset.verification_url} className="secondary" target="_blank" rel="noreferrer">
-                          Verification page
+                          Certificate
                         </a>
                       )}
                     </div>

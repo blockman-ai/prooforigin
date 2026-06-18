@@ -28,6 +28,51 @@ function assetStatusBadgeVariant(status) {
   return "neutral";
 }
 
+function timelineTone(eventType) {
+  if (eventType === "registered") return "registered";
+  if (eventType === "transfer_accepted" || eventType === "custody_transfer") return "transfer";
+  if (eventType === "transfer_initiated") return "pending";
+  if (
+    eventType === "transfer_declined" ||
+    eventType === "transfer_expired" ||
+    eventType === "transfer_revoked" ||
+    eventType === "retired"
+  ) {
+    return "warning";
+  }
+  return "neutral";
+}
+
+function timelineMarker(eventType) {
+  if (eventType === "registered") return "R";
+  if (eventType === "transfer_accepted" || eventType === "custody_transfer") return "T";
+  if (eventType === "transfer_initiated") return "O";
+  if (eventType === "verified") return "V";
+  return "•";
+}
+
+function timelineLabel(eventType) {
+  if (eventType === "registered") return "Registered";
+  if (eventType === "transfer_accepted" || eventType === "custody_transfer") return "Transferred";
+  if (eventType === "transfer_initiated") return "Transfer Offered";
+  return formatAssetEventLabel(eventType);
+}
+
+function timelineDescription(eventType) {
+  if (eventType === "registered") return "Certificate created and asset protected in ProofOrigin.";
+  if (eventType === "transfer_initiated") return "Current custodian offered this asset to a recipient.";
+  if (eventType === "transfer_accepted" || eventType === "custody_transfer") {
+    return "Custody moved to a new owner and the ownership history was updated.";
+  }
+  if (eventType === "verified") return "Certificate status was confirmed.";
+  return describeAssetEvent(eventType);
+}
+
+function ownershipLabel(entry, index) {
+  if (entry.is_current) return "Current Custodian";
+  return `Owner ${index + 1}`;
+}
+
 function defaultTransferExpiry() {
   const date = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   return date.toISOString().slice(0, 16);
@@ -156,23 +201,23 @@ export default function AssetDetailPage() {
   return (
     <PageShell
       narrow
-      badge="Asset Registry"
+      badge="Collection"
       title={asset?.display_name || "Asset detail"}
-      subtitle="Provenance record, custody timeline, and verification link."
+      subtitle="Certificate, custody timeline, transfers, and provenance summary."
     >
       {loading && <GlassPanel title="Loading"><p>Loading asset…</p></GlassPanel>}
       {!loading && error && (
         <GlassPanel title="Unable to load asset">
           <p className="form-error">{error}</p>
           <div className="protocol-actions">
-            <Link href="/assets" className="secondary">Back to registry</Link>
+            <Link href="/assets" className="secondary">Back to Collection</Link>
           </div>
         </GlassPanel>
       )}
 
       {!loading && !error && asset && (
         <>
-          <GlassPanel title="Asset proof">
+          <GlassPanel title="Asset certificate">
             <div className="asset-proof-hero">
               <div className="asset-proof-hero__image">
                 {asset.primary_image_url ? (
@@ -190,35 +235,77 @@ export default function AssetDetailPage() {
                 </div>
                 <h2>{asset.display_name || formatAssetTypeLabel(asset.asset_type)}</h2>
                 <p>{asset.public_summary || "This asset has a ProofOrigin provenance record and custody timeline."}</p>
-                <div className="protocol-actions">
-                  {asset.verification_url && (
-                    <a href={asset.verification_url} className="primary" target="_blank" rel="noreferrer">
-                      Open public proof page
-                    </a>
-                  )}
-                  <Link href="/assets" className="secondary">Back to registry</Link>
-                </div>
               </div>
             </div>
           </GlassPanel>
 
-          <div className="asset-trust-grid">
-            <GlassPanel title="What this proves">
-              <ul className="asset-trust-list">
-                <li>This asset was registered in ProofOrigin by a verified vault owner.</li>
-                <li>The public image and claims are linked to a tamper-evident fingerprint.</li>
-                <li>The custody timeline records lifecycle events from registration onward.</li>
-              </ul>
-            </GlassPanel>
-            <GlassPanel title="What this does not prove">
-              <ul className="asset-trust-list">
-                <li>It is not an appraisal, insurance valuation, or government ownership record.</li>
-                <li>It does not guarantee third-party authenticity unless external evidence is added.</li>
-                <li>Private serials and descriptors are hashed, not shown publicly.</li>
-              </ul>
-            </GlassPanel>
-          </div>
+          <GlassPanel title="Custody Timeline" className="asset-flagship-panel">
+            {timeline.length === 0 ? (
+              <p>No custody events recorded yet.</p>
+            ) : (
+              <ol className="asset-timeline-stepper">
+                {timeline.map((event) => (
+                  <li
+                    key={event.event_id}
+                    className={`asset-timeline-stepper__item asset-timeline-stepper__item--${timelineTone(
+                      event.event_type
+                    )}`}
+                  >
+                    <span className="asset-timeline-stepper__marker" aria-hidden="true">
+                      {timelineMarker(event.event_type)}
+                    </span>
+                    <div className="asset-timeline-stepper__content">
+                      <div className="asset-timeline-stepper__head">
+                        <strong>{timelineLabel(event.event_type)}</strong>
+                        <span>{formatAssetTimestamp(event.created_at)}</span>
+                      </div>
+                      <p>{timelineDescription(event.event_type)}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </GlassPanel>
 
+          {ownershipChain.length > 0 && (
+            <GlassPanel title="Ownership History">
+              <ol className="asset-chain-list asset-chain-list--path">
+                {ownershipChain.map((entry, index) => (
+                  <li key={entry.claim_version} className={entry.is_current ? "is-current" : ""}>
+                    <div className="asset-chain-node">
+                      <strong>{ownershipLabel(entry, index)}</strong>
+                    </div>
+                    <div className="asset-chain-meta">
+                      <span>{entry.verified_transfer ? "Transfer accepted" : "Registered owner"}</span>
+                      {entry.is_current && <span className="asset-chain-current">Current Custodian</span>}
+                      <span>{formatAssetTimestamp(entry.created_at)}</span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </GlassPanel>
+          )}
+
+          <GlassPanel title="Actions">
+            <div className="protocol-actions">
+              <a href="#transfer-asset" className="primary">
+                Transfer
+              </a>
+              {asset.verification_url && (
+                <>
+                  <a href={asset.verification_url} className="secondary" target="_blank" rel="noreferrer">
+                    View Certificate
+                  </a>
+                  <a href={asset.verification_url} className="secondary" target="_blank" rel="noreferrer">
+                    Share Certificate
+                  </a>
+                </>
+              )}
+              <Link href="/assets" className="secondary">Back to Collection</Link>
+            </div>
+          </GlassPanel>
+
+          <span id="transfer-asset" className="asset-section-anchor" aria-hidden="true" />
           <GlassPanel title="Transfer asset">
             <p className="asset-help">
               Offer this asset to another ProofOrigin owner. Share the one-time transfer link and the
@@ -294,7 +381,7 @@ export default function AssetDetailPage() {
                     type="text"
                     value={transferForm.transfer_message}
                     maxLength={500}
-                    placeholder="Stored as a hash only"
+                    placeholder="Private note for the recipient"
                     onChange={(e) =>
                       setTransferForm((prev) => ({ ...prev, transfer_message: e.target.value }))
                     }
@@ -324,88 +411,35 @@ export default function AssetDetailPage() {
             )}
           </GlassPanel>
 
-          {ownershipChain.length > 0 && (
-            <GlassPanel title="Ownership chain">
-              <ol className="asset-chain-list">
-                {ownershipChain.map((entry) => (
-                  <li key={entry.claim_version} className={entry.is_current ? "is-current" : ""}>
-                    <div className="asset-chain-node">
-                      <strong>{entry.owner_label}</strong>
-                      <code>{entry.owner_ref}</code>
-                    </div>
-                    <div className="asset-chain-meta">
-                      <span>{entry.verified_transfer ? "Verified transfer (2-party)" : "Registered owner"}</span>
-                      {entry.is_current && <span className="asset-chain-current">Current owner</span>}
-                      <span>{formatAssetTimestamp(entry.created_at)}</span>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </GlassPanel>
-          )}
-
-          {transfers.length > 0 && (
-            <GlassPanel title="Transfer history">
-              <ol className="asset-timeline-list">
-                {transfers.map((transfer) => (
-                  <li key={transfer.transfer_id}>
-                    <div>
-                      <strong>{formatTransferStatusLabel(transfer.status)}</strong>
-                      <span>{formatAssetTimestamp(transfer.created_at)}</span>
-                    </div>
-                    <p>
-                      {transferTermsLabel(transfer.transfer_terms)}
-                      {transfer.transfer_receipt_id ? " · receipt issued" : ""}
-                    </p>
-                  </li>
-                ))}
-              </ol>
-            </GlassPanel>
-          )}
-
-          <GlassPanel title="Custody timeline">
-            {timeline.length === 0 ? (
-              <p>No custody events recorded yet.</p>
+          <GlassPanel title="Provenance summary">
+            {provenance ? (
+              <p className="asset-help">
+                This certificate is backed by a private provenance record created on{" "}
+                {formatAssetTimestamp(provenance.created_at)}.
+              </p>
             ) : (
-              <ol className="asset-timeline-list">
-                {timeline.map((event) => (
-                  <li key={event.event_id}>
-                    <div>
-                      <strong>{formatAssetEventLabel(event.event_type)}</strong>
-                      <span>{formatAssetTimestamp(event.created_at)}</span>
-                    </div>
-                    <p>{describeAssetEvent(event.event_type)}</p>
-                  </li>
-                ))}
-              </ol>
+              <p>No provenance record found.</p>
             )}
           </GlassPanel>
 
           <GlassPanel title="Technical details">
             <details className="asset-technical-details">
-              <summary>Show fingerprints and hashes</summary>
+              <summary>Show Technical Details</summary>
               <div className="proof-grid">
                 <ProofField label="Asset ID" value={asset.asset_id} />
                 <ProofField label="Asset fingerprint" value={asset.asset_fingerprint} />
                 <ProofField label="Provenance record hash" value={asset.provenance_record_hash} />
                 <ProofField label="Image hash" value={asset.primary_image_hash || "—"} />
                 <ProofField label="Verification URL" value={asset.verification_url} />
+                <ProofField label="Provenance record ID" value={provenance?.provenance_record_id || "—"} />
+                <ProofField label="Evidence bundle hash" value={provenance?.evidence_bundle_hash || "—"} />
+                <ProofField label="Owner claim hash" value={provenance?.owner_claim_hash || "—"} />
+                <ProofField
+                  label="Custody event hashes"
+                  value={timeline.map((event) => event.event_hash).filter(Boolean).join("\n") || "—"}
+                />
               </div>
             </details>
-          </GlassPanel>
-
-          <GlassPanel title="Provenance record">
-            {provenance ? (
-              <div className="proof-grid">
-                <ProofField label="Provenance record ID" value={provenance.provenance_record_id} />
-                <ProofField label="Provenance record hash" value={provenance.provenance_record_hash} />
-                <ProofField label="Evidence bundle hash" value={provenance.evidence_bundle_hash || "—"} />
-                <ProofField label="Owner claim hash" value={provenance.owner_claim_hash || "—"} />
-                <ProofField label="Created" value={formatAssetTimestamp(provenance.created_at)} />
-              </div>
-            ) : (
-              <p>No provenance record found.</p>
-            )}
           </GlassPanel>
         </>
       )}

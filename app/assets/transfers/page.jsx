@@ -83,7 +83,7 @@ export default function IncomingTransfersPage() {
       if (!result.ok || !result.data?.success) {
         throw new Error(result.data?.error || "Unable to accept this transfer.");
       }
-      setNotice("Transfer accepted. Custody now reflects your vault and a transfer receipt was issued.");
+      setNotice("Transfer accepted. Custody now reflects your collection and a transfer receipt was issued.");
       setPreview(null);
       setHandle("");
       setSecret("");
@@ -121,9 +121,9 @@ export default function IncomingTransfersPage() {
   return (
     <PageShell
       narrow
-      badge="Asset Transfers"
-      title="Incoming transfers"
-      subtitle="Accept an asset another ProofOrigin owner is handing off to you."
+      badge="Transfers"
+      title="Incoming Transfers"
+      subtitle="Review assets offered to you and accept custody when you are ready."
     >
       {notice && (
         <StatusCard title="Done" variant="success">
@@ -131,9 +131,9 @@ export default function IncomingTransfersPage() {
         </StatusCard>
       )}
 
-      <GlassPanel title="Open a transfer offer">
+      <GlassPanel title="Review a transfer offer">
         <p className="asset-help">
-          Paste the transfer link (or handle) you received and the recipient secret shared with you.
+          Paste the transfer link and recipient secret the sender shared with you.
         </p>
         <form className="asset-transfer-form" onSubmit={onPreview}>
           <label>
@@ -166,7 +166,7 @@ export default function IncomingTransfersPage() {
       </GlassPanel>
 
       {preview && previewTransfer && (
-        <GlassPanel title="Transfer offer">
+        <GlassPanel title="Asset offered to you">
           <div className="asset-proof-hero">
             <div className="asset-proof-hero__image">
               {previewAsset?.primary_image_url ? (
@@ -183,7 +183,7 @@ export default function IncomingTransfersPage() {
                 <span>Expires {formatAssetTimestamp(previewTransfer.expires_at)}</span>
               </div>
               <h2>{previewAsset?.display_name || previewAsset?.asset_type_label || "Registered asset"}</h2>
-              <p>{previewAsset?.public_summary || "An asset is being transferred to you."}</p>
+              <p>{previewAsset?.public_summary || "Someone is offering to transfer this asset to you."}</p>
               <p className="asset-help">{transferTermsLabel(previewTransfer.transfer_terms)}</p>
               {previewPending && !previewExpired ? (
                 <div className="protocol-actions">
@@ -204,7 +204,7 @@ export default function IncomingTransfersPage() {
         </GlassPanel>
       )}
 
-      <GlassPanel title="Assets transferred to you">
+      <GlassPanel title="Received assets">
         {received.length === 0 ? (
           <p>No accepted transfers yet.</p>
         ) : (
@@ -221,7 +221,7 @@ export default function IncomingTransfersPage() {
                     <>
                       {" · "}
                       <a href={transfer.asset.verification_url} target="_blank" rel="noreferrer">
-                        public proof
+                        certificate
                       </a>
                     </>
                   ) : null}
@@ -231,7 +231,7 @@ export default function IncomingTransfersPage() {
           </ol>
         )}
         <div className="protocol-actions">
-          <Link href="/assets" className="secondary">Back to collection</Link>
+          <Link href="/assets" className="secondary">Back to Collection</Link>
         </div>
       </GlassPanel>
     </PageShell>
