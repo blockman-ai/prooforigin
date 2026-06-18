@@ -7,7 +7,11 @@ import {
 import { getVaultDevice } from "./vaultDevice.js";
 import { signVaultOwnershipChallenge } from "./vaultOwnershipKey.js";
 import { buildVaultOwnershipChallengeMessage } from "./vaultOwnershipVerification.js";
-import { getOrCreateLocalVaultOwnershipMaterial } from "./vaultOwnershipClient.js";
+import {
+  clearOwnershipRegistrationClientState,
+  ensureVaultOwnershipRegistered,
+  getOrCreateLocalVaultOwnershipMaterial,
+} from "./vaultOwnershipClient.js";
 
 export { ASSET_TYPES, formatAssetStatusLabel, formatAssetTypeLabel };
 
@@ -53,11 +57,43 @@ export async function getRegisteredAsset(assetId) {
 }
 
 export async function registerAsset(payload) {
-  return vaultSignedFetch({
+  let ownership = await ensureVaultOwnershipRegistered();
+  if (!ownership.ready) {
+    return {
+      ok: false,
+      status: 403,
+      data: {
+        success: false,
+        code: "OWNERSHIP_VERIFICATION_REQUIRED",
+        error: ownership.error || "Vault ownership verification is required before asset registration.",
+      },
+    };
+  }
+
+  let result = await vaultSignedFetch({
     method: "POST",
     path: "/api/assets/register",
     body: JSON.stringify(payload),
   });
+
+  if (
+    result.status === 403 &&
+    result.data?.code === "OWNERSHIP_VERIFICATION_REQUIRED"
+  ) {
+    // Stale local ownership marker can skip the server ceremony; clear and retry once.
+    clearOwnershipRegistrationClientState();
+    ownership = await ensureVaultOwnershipRegistered({ force: true });
+    if (!ownership.ready) {
+      return result;
+    }
+    result = await vaultSignedFetch({
+      method: "POST",
+      path: "/api/assets/register",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  return result;
 }
 
 export async function hashClientAssetDescriptor(value) {

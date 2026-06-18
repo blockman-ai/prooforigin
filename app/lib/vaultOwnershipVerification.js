@@ -14,6 +14,21 @@ function normalizeRequiredString(value, name) {
   return value.trim();
 }
 
+// Postgres timestamptz may round-trip as +00:00 while the challenge API returns .000Z.
+// Canonicalize both sides to the same ISO string before signing or verifying.
+function normalizeChallengeTimestamp(value, name) {
+  const raw = normalizeRequiredString(value, name);
+  const parsed = Date.parse(raw);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`${name} is invalid.`);
+  }
+  return new Date(parsed).toISOString();
+}
+
+export function hashOwnershipChallengePayload(message) {
+  return crypto.createHash("sha256").update(String(message || "")).digest("hex");
+}
+
 export function buildVaultOwnershipChallengeMessage({
   challengeId,
   challengeType = VAULT_OWNERSHIP_CHALLENGE_TYPE_MIGRATION_AUTHORITY_VERIFY,
@@ -24,7 +39,7 @@ export function buildVaultOwnershipChallengeMessage({
   expiresAt,
   version = VAULT_OWNERSHIP_CHALLENGE_VERSION,
 }) {
-  const normalizedChallengeId = normalizeRequiredString(challengeId, "challenge_id");
+  const normalizedChallengeId = normalizeRequiredString(challengeId, "challenge_id").toLowerCase();
   const normalizedChallengeType = normalizeRequiredString(challengeType, "challenge_type");
   const normalizedVaultId = normalizeRequiredString(vaultId, "vault_id").toLowerCase();
   const normalizedVaultDeviceId = normalizeRequiredString(
@@ -32,8 +47,8 @@ export function buildVaultOwnershipChallengeMessage({
     "vault_device_id"
   ).toLowerCase();
   const normalizedNonce = normalizeRequiredString(challengeNonce, "challenge_nonce");
-  const normalizedIssuedAt = normalizeRequiredString(issuedAt, "issued_at");
-  const normalizedExpiresAt = normalizeRequiredString(expiresAt, "expires_at");
+  const normalizedIssuedAt = normalizeChallengeTimestamp(issuedAt, "issued_at");
+  const normalizedExpiresAt = normalizeChallengeTimestamp(expiresAt, "expires_at");
   const normalizedVersion = normalizeRequiredString(version, "version");
 
   return [

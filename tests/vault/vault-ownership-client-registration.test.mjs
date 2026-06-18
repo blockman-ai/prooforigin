@@ -81,44 +81,53 @@ test("ownership client treats duplicate registration as no-op and skips repeat c
 
   let requestCount = 0;
   let firstPayload = null;
-  const first = await registerVaultOwnershipKeyWithServer({
-    requestOwnershipRegisterChallenge: async () => ({
-      ok: true,
-      status: 200,
-      data: {
-        success: true,
-        challenge_id: "22222222-2222-4222-8222-222222222222",
-        challenge: {
-          version: "prooforigin-vault-ownership-challenge-v1",
-          challenge_type: "ownership_key_register",
-          vault_id: VAULT_ID,
-          vault_device_id: DEVICE_ID,
-          challenge_nonce: "ZmFrZS1ub25jZS0xMjM0",
-          issued_at: "2026-06-14T17:00:00.000Z",
-          expires_at: "2099-06-14T17:05:00.000Z",
+  await assert.rejects(
+    () =>
+      registerVaultOwnershipKeyWithServer({
+        requestOwnershipRegisterChallenge: async () => ({
+          ok: true,
+          status: 200,
+          data: {
+            success: true,
+            challenge_id: "22222222-2222-4222-8222-222222222222",
+            challenge: {
+              version: "prooforigin-vault-ownership-challenge-v1",
+              challenge_type: "ownership_key_register",
+              vault_id: VAULT_ID,
+              vault_device_id: DEVICE_ID,
+              challenge_nonce: "ZmFrZS1ub25jZS0xMjM0",
+              issued_at: "2026-06-14T17:00:00.000Z",
+              expires_at: "2099-06-14T17:05:00.000Z",
+            },
+          },
+        }),
+        requestOwnershipRegistration: async (payload) => {
+          requestCount += 1;
+          firstPayload = payload;
+          return {
+            ok: false,
+            status: 409,
+            data: { code: "OWNERSHIP_KEY_ALREADY_REGISTERED" },
+          };
         },
-      },
-    }),
-    requestOwnershipRegistration: async (payload) => {
-      requestCount += 1;
-      firstPayload = payload;
-      return {
-        ok: false,
-        status: 409,
-        data: { code: "OWNERSHIP_KEY_ALREADY_REGISTERED" },
-      };
-    },
-  });
+      }),
+    /already registered/i
+  );
 
-  assert.equal(first.success, true);
-  assert.equal(first.already_registered, true);
   assert.equal(requestCount, 1);
   assert.equal(firstPayload.challenge_id, "22222222-2222-4222-8222-222222222222");
   assert.equal(firstPayload.ownership_public_key_jwk.d, undefined);
+  assert.equal(storage.has(VAULT_OWNERSHIP_REGISTRATION_STORAGE_KEY), false);
 
-  const storedMarker = JSON.parse(storage.get(VAULT_OWNERSHIP_REGISTRATION_STORAGE_KEY));
-  assert.equal(storedMarker.vault_id, VAULT_ID);
-  assert.equal(storedMarker.registered, true);
+  storage.set(
+    VAULT_OWNERSHIP_REGISTRATION_STORAGE_KEY,
+    JSON.stringify({
+      vault_id: VAULT_ID,
+      registered: true,
+      public_key_fingerprint: "f".repeat(64),
+      source: "server_duplicate_noop",
+    })
+  );
 
   const second = await registerVaultOwnershipKeyWithServer({
     requestOwnershipRegistration: async () => {

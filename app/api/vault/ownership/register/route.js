@@ -343,6 +343,8 @@ export async function POST(req) {
       version: challengePayload.version,
     });
 
+    const signatureHash = crypto.createHash("sha256").update(signature).digest("hex");
+
     let signatureValid = false;
     try {
       signatureValid = await verifyOwnershipSignature({
@@ -352,6 +354,18 @@ export async function POST(req) {
       });
     } catch {
       signatureValid = false;
+    }
+
+    if (process.env.OWNERSHIP_REGISTRATION_DEBUG === "1") {
+      console.info("[ownership-registration:server-verify]", {
+        vault_id: vaultId,
+        device_id: auth.vault_device_id,
+        challenge_id: challengeId,
+        verification_result: signatureValid,
+        signature_hash: signatureHash,
+        payload_hash: crypto.createHash("sha256").update(message).digest("hex"),
+        failure_reason: signatureValid ? null : "OWNERSHIP_SIGNATURE_INVALID",
+      });
     }
 
     if (!signatureValid) {
@@ -406,7 +420,6 @@ export async function POST(req) {
     }
 
     const verifiedAt = new Date().toISOString();
-    const signatureHash = crypto.createHash("sha256").update(signature).digest("hex");
     const { verification: consumedChallenge, error: consumeError } =
       await verifyVaultOwnershipChallenge({
         verificationId: verification.id,

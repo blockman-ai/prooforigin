@@ -17,12 +17,18 @@ import {
   markVaultRecoveryKitOwnershipKeyBoundary,
   readVaultRecoveryKitConfirmation,
 } from "./vaultRecoveryStatus.js";
-import { buildVaultOwnershipChallengeMessage } from "./vaultOwnershipVerification.js";
+import { buildVaultOwnershipChallengeMessage, hashOwnershipChallengePayload } from "./vaultOwnershipVerification.js";
 
 const OWNERSHIP_REGISTER_PATH = "/api/vault/ownership/register";
 const OWNERSHIP_REGISTER_CHALLENGE_PATH = "/api/vault/ownership/register/challenge";
 const OWNERSHIP_CHALLENGE_PATH = "/api/vault/ownership/challenge";
 const OWNERSHIP_VERIFY_PATH = "/api/vault/ownership/verify";
+const OWNERSHIP_REGISTRATION_DEBUG = process.env.NEXT_PUBLIC_OWNERSHIP_REGISTRATION_DEBUG === "1";
+
+function debugOwnershipRegistration(scope, payload) {
+  if (!OWNERSHIP_REGISTRATION_DEBUG) return;
+  console.info(`[ownership-registration:${scope}]`, payload);
+}
 export const VAULT_OWNERSHIP_REGISTRATION_STORAGE_KEY =
   "prooforigin_vault_ownership_registration_v1";
 export const VAULT_OWNERSHIP_REGISTRATION_DEFERRED_STORAGE_KEY =
@@ -104,12 +110,23 @@ function markLocalOwnershipRegistrationDeferred({ vaultId, reason }) {
   return record;
 }
 
+export function clearLocalOwnershipRegistrationMarker() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.removeItem(VAULT_OWNERSHIP_REGISTRATION_STORAGE_KEY);
+}
+
 export function clearVaultOwnershipRegistrationDeferred() {
   if (typeof window === "undefined") {
     return;
   }
-
   window.localStorage.removeItem(VAULT_OWNERSHIP_REGISTRATION_DEFERRED_STORAGE_KEY);
+}
+
+export function clearOwnershipRegistrationClientState() {
+  clearLocalOwnershipRegistrationMarker();
+  clearVaultOwnershipRegistrationDeferred();
 }
 
 export function getVaultOwnershipRecoveryBoundary() {
@@ -186,6 +203,7 @@ export async function getOrCreateLocalVaultOwnershipMaterial() {
 export async function registerVaultOwnershipKeyWithServer({
   requestOwnershipRegistration,
   requestOwnershipRegisterChallenge,
+  skipLocalCache = false,
 } = {}) {
   const genesis = await ensureVaultGenesis();
   const device = getVaultDevice();
@@ -193,33 +211,35 @@ export async function registerVaultOwnershipKeyWithServer({
     throw new Error("Vault device is not initialized.");
   }
 
-  const localRegistration = readLocalOwnershipRegistration(genesis.vault_id);
-  if (localRegistration) {
-    return {
-      success: true,
-      vault_id: genesis.vault_id,
-      vault_device_id: device.vault_device_id,
-      ownership_key_registered: true,
-      already_registered: true,
-      skipped_network: true,
-      needs_recovery_kit_refresh: shouldPromptRecoveryKitRefreshAfterOwnershipKey(),
-      private_key_sent_to_server: false,
-    };
-  }
+  if (!skipLocalCache) {
+    const localRegistration = readLocalOwnershipRegistration(genesis.vault_id);
+    if (localRegistration) {
+      return {
+        success: true,
+        vault_id: genesis.vault_id,
+        vault_device_id: device.vault_device_id,
+        ownership_key_registered: true,
+        already_registered: true,
+        skipped_network: true,
+        needs_recovery_kit_refresh: shouldPromptRecoveryKitRefreshAfterOwnershipKey(),
+        private_key_sent_to_server: false,
+      };
+    }
 
-  const deferredRegistration = readLocalOwnershipRegistrationDeferred(genesis.vault_id);
-  if (deferredRegistration) {
-    return {
-      success: true,
-      vault_id: genesis.vault_id,
-      vault_device_id: device.vault_device_id,
-      ownership_key_registered: false,
-      deferred: true,
-      skipped_network: true,
-      reason: deferredRegistration.reason,
-      needs_recovery_kit_refresh: shouldPromptRecoveryKitRefreshAfterOwnershipKey(),
-      private_key_sent_to_server: false,
-    };
+    const deferredRegistration = readLocalOwnershipRegistrationDeferred(genesis.vault_id);
+    if (deferredRegistration) {
+      return {
+        success: true,
+        vault_id: genesis.vault_id,
+        vault_device_id: device.vault_device_id,
+        ownership_key_registered: false,
+        deferred: true,
+        skipped_network: true,
+        reason: deferredRegistration.reason,
+        needs_recovery_kit_refresh: shouldPromptRecoveryKitRefreshAfterOwnershipKey(),
+        private_key_sent_to_server: false,
+      };
+    }
   }
 
   const ownership = await getOrCreateLocalVaultOwnershipMaterial();
@@ -273,6 +293,16 @@ export async function registerVaultOwnershipKeyWithServer({
     challenge: message,
   });
 
+  debugOwnershipRegistration("client-sign", {
+    vault_id: genesis.vault_id,
+    device_id: device.vault_device_id,
+    challenge_id: challengeId,
+    challenge_hash: hashOwnershipChallengePayload(message),
+    payload_hash: hashOwnershipChallengePayload(message),
+    public_key_fingerprint: ownership.fingerprint,
+    created_new_key: ownership.created_new_key === true,
+  });
+
   const body = {
     vault_id: genesis.vault_id,
     ownership_public_key_jwk: ownership.publicJwk,
@@ -320,21 +350,35 @@ export async function registerVaultOwnershipKeyWithServer({
     result.status === 409 &&
     result.data?.code === "OWNERSHIP_KEY_ALREADY_REGISTERED"
   ) {
-    markLocalOwnershipRegistration({
-      vaultId: genesis.vault_id,
-      publicKeyFingerprint: ownership.fingerprint,
-      source: "server_duplicate_noop",
-    });
+    // Vault key already exists server-side. Establish a verified device record using the
+    // migration verify ceremony instead of marking local registration without proof.
+    try {
+      const verifyResult = await verifyVaultOwnershipForMigrationAuthority();
+      if (verifyResult.success) {
+        markLocalOwnershipRegistration({
+          vaultId: genesis.vault_id,
+          publicKeyFingerprint: ownership.fingerprint,
+          source: "server_existing_verified",
+        });
+        clearVaultOwnershipRegistrationDeferred();
+        return {
+          success: true,
+          vault_id: genesis.vault_id,
+          vault_device_id: device.vault_device_id,
+          ownership_key_registered: true,
+          already_registered: true,
+          verified_existing: true,
+          needs_recovery_kit_refresh: shouldPromptRecoveryKitRefreshAfterOwnershipKey(),
+          private_key_sent_to_server: false,
+        };
+      }
+    } catch {
+      // Fall through to explicit error below.
+    }
 
-    return {
-      success: true,
-      vault_id: genesis.vault_id,
-      vault_device_id: device.vault_device_id,
-      ownership_key_registered: true,
-      already_registered: true,
-      needs_recovery_kit_refresh: shouldPromptRecoveryKitRefreshAfterOwnershipKey(),
-      private_key_sent_to_server: false,
-    };
+    throw new Error(
+      "Vault ownership key is already registered, but this device key does not match. Restore the original ownership key from your recovery kit."
+    );
   }
 
   if (
@@ -509,6 +553,40 @@ export async function ensureVaultOwnershipReadyForMigrationBoundary({
   return registerVaultOwnershipKeyWithServer({
     requestOwnershipRegistration,
   });
+}
+
+// Ensures the server has a verified ownership record for this device before asset actions.
+export async function ensureVaultOwnershipRegistered({ force = false } = {}) {
+  const unlockKeys = getVaultSessionUnlockKeys();
+  if (!(unlockKeys.masterVaultKey instanceof Uint8Array)) {
+    return {
+      ready: false,
+      error: "Unlock your vault before registering assets.",
+    };
+  }
+
+  try {
+    const result = await registerVaultOwnershipKeyWithServer({ skipLocalCache: force });
+    if (result.deferred) {
+      return {
+        ready: false,
+        error: "Vault ownership registration is required before asset registration.",
+        deferred: true,
+      };
+    }
+    if (!result.ownership_key_registered) {
+      return {
+        ready: false,
+        error: "Vault ownership registration did not complete.",
+      };
+    }
+    return { ready: true, result };
+  } catch (error) {
+    return {
+      ready: false,
+      error: error?.message || "Vault ownership registration failed.",
+    };
+  }
 }
 
 export function resetVaultOwnershipClientForTests() {
