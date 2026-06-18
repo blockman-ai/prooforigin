@@ -4,6 +4,7 @@ export const VAULT_OWNERSHIP_CHALLENGE_VERSION = "prooforigin-vault-ownership-ch
 export const VAULT_OWNERSHIP_CHALLENGE_TYPE_MIGRATION_AUTHORITY_VERIFY =
   "migration_authority_verify";
 export const VAULT_OWNERSHIP_CHALLENGE_TYPE_OWNERSHIP_KEY_REGISTER = "ownership_key_register";
+export const VAULT_OWNERSHIP_CHALLENGE_TYPE_ASSET_TRANSFER_ACCEPT = "asset_transfer_accept";
 export const VAULT_OWNERSHIP_CHALLENGE_TTL_SECONDS = 5 * 60;
 
 function normalizeRequiredString(value, name) {
