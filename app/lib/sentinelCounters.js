@@ -108,6 +108,19 @@ export const SENTINEL_OPERATIONAL_COUNTER_KEYS = new Set([
   "vault.ownership.verify.device_mismatch_total",
   "vault.ownership.verify.action_mismatch_total",
   "vault.ownership.verify.error_total",
+  "vault.ownership.register.request_total",
+  "vault.ownership.register.success_total",
+  "vault.ownership.register.expired_total",
+  "vault.ownership.register.replay_rejected_total",
+  "vault.ownership.register.signature_failed_total",
+  "vault.ownership.register.vault_mismatch_total",
+  "vault.ownership.register.device_mismatch_total",
+  "vault.ownership.register.action_mismatch_total",
+  "vault.ownership.register.error_total",
+  "vault.ownership.register.challenge.request_total",
+  "vault.ownership.register.challenge.created_total",
+  "vault.ownership.register.challenge.already_registered_total",
+  "vault.ownership.register.challenge.error_total",
 ]);
 
 const COUNTER_KEY_PATTERN = /^[a-z0-9]+(?:[._][a-z0-9]+)*$/;

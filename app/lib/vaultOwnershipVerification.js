@@ -1,6 +1,9 @@
+import crypto from "crypto";
+
 export const VAULT_OWNERSHIP_CHALLENGE_VERSION = "prooforigin-vault-ownership-challenge-v1";
 export const VAULT_OWNERSHIP_CHALLENGE_TYPE_MIGRATION_AUTHORITY_VERIFY =
   "migration_authority_verify";
+export const VAULT_OWNERSHIP_CHALLENGE_TYPE_OWNERSHIP_KEY_REGISTER = "ownership_key_register";
 export const VAULT_OWNERSHIP_CHALLENGE_TTL_SECONDS = 5 * 60;
 
 function normalizeRequiredString(value, name) {
@@ -42,4 +45,42 @@ export function buildVaultOwnershipChallengeMessage({
     `issued_at=${normalizedIssuedAt}`,
     `expires_at=${normalizedExpiresAt}`,
   ].join("|");
+}
+
+export function hashOwnershipChallengeNonce(challengeNonce) {
+  return crypto.createHash("sha256").update(String(challengeNonce || "")).digest("hex");
+}
+
+export function parseOwnershipSignatureBase64(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    throw new Error("signature is required.");
+  }
+  return Buffer.from(normalized, "base64");
+}
+
+export async function verifyOwnershipSignature({ publicKeyJwk, message, signatureBase64 }) {
+  const verifyKey = await crypto.webcrypto.subtle.importKey(
+    "jwk",
+    publicKeyJwk,
+    {
+      name: "ECDSA",
+      namedCurve: "P-256",
+    },
+    false,
+    ["verify"]
+  );
+
+  const signatureBytes = parseOwnershipSignatureBase64(signatureBase64);
+  const messageBytes = new TextEncoder().encode(message);
+
+  return crypto.webcrypto.subtle.verify(
+    {
+      name: "ECDSA",
+      hash: "SHA-256",
+    },
+    verifyKey,
+    signatureBytes,
+    messageBytes
+  );
 }

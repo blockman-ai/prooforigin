@@ -17,10 +17,10 @@ import {
   markVaultRecoveryKitOwnershipKeyBoundary,
   readVaultRecoveryKitConfirmation,
 } from "./vaultRecoveryStatus.js";
-import { sha256Hex } from "./vaultCrypto.js";
 import { buildVaultOwnershipChallengeMessage } from "./vaultOwnershipVerification.js";
 
 const OWNERSHIP_REGISTER_PATH = "/api/vault/ownership/register";
+const OWNERSHIP_REGISTER_CHALLENGE_PATH = "/api/vault/ownership/register/challenge";
 const OWNERSHIP_CHALLENGE_PATH = "/api/vault/ownership/challenge";
 const OWNERSHIP_VERIFY_PATH = "/api/vault/ownership/verify";
 export const VAULT_OWNERSHIP_REGISTRATION_STORAGE_KEY =
@@ -185,6 +185,7 @@ export async function getOrCreateLocalVaultOwnershipMaterial() {
 
 export async function registerVaultOwnershipKeyWithServer({
   requestOwnershipRegistration,
+  requestOwnershipRegisterChallenge,
 } = {}) {
   const genesis = await ensureVaultGenesis();
   const device = getVaultDevice();
@@ -222,22 +223,73 @@ export async function registerVaultOwnershipKeyWithServer({
   }
 
   const ownership = await getOrCreateLocalVaultOwnershipMaterial();
-  const challenge = `prooforigin-vault-ownership-register|vault_id=${genesis.vault_id}|vault_device_id=${device.vault_device_id}|ts=${Date.now()}`;
+
+  const requestRegisterChallenge =
+    requestOwnershipRegisterChallenge ||
+    (async (payload) => {
+      const serialized = JSON.stringify(payload);
+      const authHeaders = await createSignedVaultAuthHeaders({
+        method: "POST",
+        path: OWNERSHIP_REGISTER_CHALLENGE_PATH,
+        body: serialized,
+      });
+      const response = await fetch(OWNERSHIP_REGISTER_CHALLENGE_PATH, {
+        method: "POST",
+        headers: {
+          ...authHeaders,
+          "Content-Type": "application/json",
+        },
+        body: serialized,
+      });
+      const data = await response.json().catch(() => ({}));
+      return { ok: response.ok, status: response.status, data };
+    });
+
+  const challengeResult = await requestRegisterChallenge({ vault_id: genesis.vault_id });
+  if (!challengeResult.ok || !challengeResult.data?.success) {
+    throw new Error(
+      challengeResult.data?.error || "Unable to create ownership registration challenge."
+    );
+  }
+
+  const challenge = challengeResult.data.challenge;
+  const challengeId = String(challengeResult.data.challenge_id || "").trim().toLowerCase();
+  if (!challenge || !challengeId) {
+    throw new Error("Ownership registration challenge response is incomplete.");
+  }
+
+  const message = buildVaultOwnershipChallengeMessage({
+    challengeId,
+    challengeType: challenge.challenge_type,
+    vaultId: challenge.vault_id || genesis.vault_id,
+    vaultDeviceId: challenge.vault_device_id || device.vault_device_id,
+    challengeNonce: challenge.challenge_nonce,
+    issuedAt: challenge.issued_at,
+    expiresAt: challenge.expires_at,
+    version: challenge.version,
+  });
   const signature = await signVaultOwnershipChallenge({
     privateKey: ownership.privateKey,
-    challenge,
+    challenge: message,
   });
-  const challengeHash = await sha256Hex(challenge);
 
   const body = {
     vault_id: genesis.vault_id,
     ownership_public_key_jwk: ownership.publicJwk,
     ownership_key_algorithm: "ECDSA-P256-SHA256",
+    challenge_id: challengeId,
+    challenge_nonce: challenge.challenge_nonce,
+    signature,
+    challenge: {
+      version: challenge.version,
+      action: challenge.challenge_type,
+      challenge_type: challenge.challenge_type,
+      vault_id: challenge.vault_id,
+      vault_device_id: challenge.vault_device_id,
+      issued_at: challenge.issued_at,
+      expires_at: challenge.expires_at,
+    },
     ownership_proof: {
-      challenge,
-      challenge_hash: challengeHash,
-      signature,
-      challenge_format: "prooforigin-vault-ownership-register-v1",
       public_key_fingerprint: ownership.fingerprint,
     },
   };

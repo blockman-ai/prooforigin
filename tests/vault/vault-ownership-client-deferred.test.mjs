@@ -78,7 +78,26 @@ test("ownership client defers 403 authority responses and skips repeat unlock ca
   );
 
   let requestCount = 0;
+  const challengeResponse = {
+    ok: true,
+    status: 200,
+    data: {
+      success: true,
+      challenge_id: "22222222-2222-4222-8222-222222222222",
+      challenge: {
+        version: "prooforigin-vault-ownership-challenge-v1",
+        challenge_type: "ownership_key_register",
+        vault_id: VAULT_ID,
+        vault_device_id: DEVICE_ID,
+        challenge_nonce: "ZmFrZS1ub25jZS0xMjM0",
+        issued_at: "2026-06-14T17:00:00.000Z",
+        expires_at: "2099-06-14T17:05:00.000Z",
+      },
+    },
+  };
+
   const first = await registerVaultOwnershipKeyWithServer({
+    requestOwnershipRegisterChallenge: async () => challengeResponse,
     requestOwnershipRegistration: async () => {
       requestCount += 1;
       return {
@@ -95,6 +114,7 @@ test("ownership client defers 403 authority responses and skips repeat unlock ca
   assert.equal(requestCount, 1);
 
   const second = await registerVaultOwnershipKeyWithServer({
+    requestOwnershipRegisterChallenge: async () => challengeResponse,
     requestOwnershipRegistration: async () => {
       requestCount += 1;
       return { ok: true, status: 200, data: { success: true } };

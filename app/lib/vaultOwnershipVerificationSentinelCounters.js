@@ -14,6 +14,20 @@ export const VAULT_OWNERSHIP_VERIFICATION_SENTINEL_COUNTERS = Object.freeze({
   VERIFY_DEVICE_MISMATCH_TOTAL: "vault.ownership.verify.device_mismatch_total",
   VERIFY_ACTION_MISMATCH_TOTAL: "vault.ownership.verify.action_mismatch_total",
   VERIFY_ERROR_TOTAL: "vault.ownership.verify.error_total",
+  REGISTER_REQUEST_TOTAL: "vault.ownership.register.request_total",
+  REGISTER_SUCCESS_TOTAL: "vault.ownership.register.success_total",
+  REGISTER_EXPIRED_TOTAL: "vault.ownership.register.expired_total",
+  REGISTER_REPLAY_REJECTED_TOTAL: "vault.ownership.register.replay_rejected_total",
+  REGISTER_SIGNATURE_FAILED_TOTAL: "vault.ownership.register.signature_failed_total",
+  REGISTER_VAULT_MISMATCH_TOTAL: "vault.ownership.register.vault_mismatch_total",
+  REGISTER_DEVICE_MISMATCH_TOTAL: "vault.ownership.register.device_mismatch_total",
+  REGISTER_ACTION_MISMATCH_TOTAL: "vault.ownership.register.action_mismatch_total",
+  REGISTER_ERROR_TOTAL: "vault.ownership.register.error_total",
+  REGISTER_CHALLENGE_REQUEST_TOTAL: "vault.ownership.register.challenge.request_total",
+  REGISTER_CHALLENGE_CREATED_TOTAL: "vault.ownership.register.challenge.created_total",
+  REGISTER_CHALLENGE_ALREADY_REGISTERED_TOTAL:
+    "vault.ownership.register.challenge.already_registered_total",
+  REGISTER_CHALLENGE_ERROR_TOTAL: "vault.ownership.register.challenge.error_total",
 });
 
 let incrementImpl = incrementSentinelCounter;

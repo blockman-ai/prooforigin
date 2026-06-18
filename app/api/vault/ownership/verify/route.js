@@ -12,6 +12,7 @@ import {
 import {
   buildVaultOwnershipChallengeMessage,
   VAULT_OWNERSHIP_CHALLENGE_TYPE_MIGRATION_AUTHORITY_VERIFY,
+  verifyOwnershipSignature,
 } from "../../../../lib/vaultOwnershipVerification";
 import {
   recordVaultOwnershipVerificationSentinelCounter,
@@ -36,40 +37,6 @@ function storageNotConfiguredResponse() {
 
 function isObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function parseBase64ToBytes(value) {
-  const normalized = String(value || "").trim();
-  if (!normalized) {
-    throw new Error("signature is required.");
-  }
-  return Buffer.from(normalized, "base64");
-}
-
-async function verifyOwnershipSignature({ publicKeyJwk, message, signatureBase64 }) {
-  const verifyKey = await crypto.webcrypto.subtle.importKey(
-    "jwk",
-    publicKeyJwk,
-    {
-      name: "ECDSA",
-      namedCurve: "P-256",
-    },
-    false,
-    ["verify"]
-  );
-
-  const signatureBytes = parseBase64ToBytes(signatureBase64);
-  const messageBytes = new TextEncoder().encode(message);
-
-  return crypto.webcrypto.subtle.verify(
-    {
-      name: "ECDSA",
-      hash: "SHA-256",
-    },
-    verifyKey,
-    signatureBytes,
-    messageBytes
-  );
 }
 
 export async function POST(req) {

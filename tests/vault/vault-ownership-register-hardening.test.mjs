@@ -26,14 +26,28 @@ test("ownership register route rejects public jwk containing private members", a
       isVaultAdminConfigured: () => true,
       VAULT_OWNERSHIP_KEY_ALGORITHM: "ECDSA-P256-SHA256",
       getVaultOwnershipKey: async () => ({ ownershipKey: null, error: null }),
+      getVaultOwnershipVerificationChallengeById: async () => ({
+        verification: null,
+        error: null,
+      }),
       createVaultOwnershipKey: async () => {
         createCalled = true;
         return { ownershipKey: null, error: null };
       },
+      verifyVaultOwnershipChallenge: async () => ({ verification: null, error: null }),
       bindVaultDeviceToVault: async () => {
         bindCalled = true;
         return { registration: null, error: null };
       },
+    },
+  });
+
+  mock.module("../../app/lib/vaultOwnershipVerificationSentinelCounters.js", {
+    exports: {
+      VAULT_OWNERSHIP_VERIFICATION_SENTINEL_COUNTERS: {
+        REGISTER_REQUEST_TOTAL: "vault.ownership.register.request_total",
+      },
+      recordVaultOwnershipVerificationSentinelCounter: () => {},
     },
   });
 
@@ -52,10 +66,18 @@ test("ownership register route rejects public jwk containing private members", a
           y: "y",
           d: "private",
         },
+        challenge_id: "22222222-2222-4222-8222-222222222222",
+        challenge_nonce: "unused-nonce",
+        signature: "unused-signature",
+        challenge: {
+          version: "prooforigin-vault-ownership-challenge-v1",
+          action: "ownership_key_register",
+          challenge_type: "ownership_key_register",
+          vault_id: VAULT_ID,
+          vault_device_id: DEVICE_ID,
+        },
         ownership_proof: {
-          signature: "sig-1",
-          challenge: "challenge-1",
-          challenge_hash: "a".repeat(64),
+          public_key_fingerprint: "a".repeat(64),
         },
       }),
     })

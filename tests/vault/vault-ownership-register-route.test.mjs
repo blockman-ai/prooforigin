@@ -14,10 +14,7 @@ function buildAuthOk() {
   };
 }
 
-test("ownership register route persists key, binds device, and returns migration boundary", async (t) => {
-  let createPayload = null;
-  let bindPayload = null;
-
+test("ownership register route rejects legacy client-side challenge payloads", async (t) => {
   mock.module("../../app/lib/vaultAuth.js", {
     exports: {
       authorizeVaultRequest: async () => buildAuthOk(),
@@ -30,29 +27,27 @@ test("ownership register route persists key, binds device, and returns migration
       isVaultAdminConfigured: () => true,
       VAULT_OWNERSHIP_KEY_ALGORITHM: "ECDSA-P256-SHA256",
       getVaultOwnershipKey: async () => ({ ownershipKey: null, error: null }),
-      createVaultOwnershipKey: async (payload) => {
-        createPayload = payload;
-        return {
-          ownershipKey: { id: "own-1", vault_id: payload.vaultId },
-          error: null,
-        };
+      getVaultOwnershipVerificationChallengeById: async () => ({
+        verification: null,
+        error: null,
+      }),
+      createVaultOwnershipKey: async () => ({ ownershipKey: null, error: null }),
+      verifyVaultOwnershipChallenge: async () => ({ verification: null, error: null }),
+      bindVaultDeviceToVault: async () => ({ registration: null, error: null }),
+    },
+  });
+
+  mock.module("../../app/lib/vaultOwnershipVerificationSentinelCounters.js", {
+    exports: {
+      VAULT_OWNERSHIP_VERIFICATION_SENTINEL_COUNTERS: {
+        REGISTER_REQUEST_TOTAL: "vault.ownership.register.request_total",
+        REGISTER_ERROR_TOTAL: "vault.ownership.register.error_total",
       },
-      bindVaultDeviceToVault: async (payload) => {
-        bindPayload = payload;
-        return {
-          registration: {
-            vault_device_id: payload.vaultDeviceId,
-            vault_id: payload.vaultId,
-            vault_id_bound_at: "2026-06-14T18:00:00.000Z",
-          },
-          error: null,
-        };
-      },
+      recordVaultOwnershipVerificationSentinelCounter: () => {},
     },
   });
 
   const { POST } = await import("../../app/api/vault/ownership/register/route.js");
-
   const response = await POST(
     new Request("http://localhost/api/vault/ownership/register", {
       method: "POST",
@@ -67,30 +62,16 @@ test("ownership register route persists key, binds device, and returns migration
           y: "y",
         },
         ownership_proof: {
-          challenge: "challenge-1",
+          challenge: "legacy-client-challenge",
           challenge_hash: "a".repeat(64),
           signature: "sig-1",
-          public_key_fingerprint: "f".repeat(64),
         },
       }),
     })
   );
 
-  assert.equal(response.status, 200);
-  const json = await response.json();
-  assert.equal(json.success, true);
-  assert.equal(json.device_bound, true);
-  assert.equal(json.migration_ready_boundary.old_recovery_kits, "identity_restore_only");
-  assert.equal(
-    json.migration_ready_boundary.new_recovery_kit_required_for_migration_proof,
-    true
-  );
-
-  assert.equal(createPayload?.vaultId, VAULT_ID);
-  assert.equal(createPayload?.publicKeyJwk?.d, undefined);
-  assert.equal(bindPayload?.vaultDeviceId, DEVICE_ID);
-  assert.equal(bindPayload?.vaultId, VAULT_ID);
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /challenge_id, challenge_nonce, signature/);
 
   t.mock.restoreAll();
 });
-

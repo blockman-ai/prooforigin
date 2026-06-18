@@ -28,14 +28,28 @@ test("ownership register route rejects duplicates and does not bind again", asyn
         ownershipKey: { id: "own-existing", vault_id: VAULT_ID },
         error: null,
       }),
+      getVaultOwnershipVerificationChallengeById: async () => ({
+        verification: null,
+        error: null,
+      }),
       createVaultOwnershipKey: async () => ({
         ownershipKey: null,
         error: { code: "23505", message: "duplicate key" },
       }),
+      verifyVaultOwnershipChallenge: async () => ({ verification: null, error: null }),
       bindVaultDeviceToVault: async () => {
         bindCalled = true;
         return { registration: null, error: null };
       },
+    },
+  });
+
+  mock.module("../../app/lib/vaultOwnershipVerificationSentinelCounters.js", {
+    exports: {
+      VAULT_OWNERSHIP_VERIFICATION_SENTINEL_COUNTERS: {
+        REGISTER_REQUEST_TOTAL: "vault.ownership.register.request_total",
+      },
+      recordVaultOwnershipVerificationSentinelCounter: () => {},
     },
   });
 
@@ -48,10 +62,18 @@ test("ownership register route rejects duplicates and does not bind again", asyn
         vault_id: VAULT_ID,
         ownership_key_algorithm: "ECDSA-P256-SHA256",
         ownership_public_key_jwk: { kty: "EC", crv: "P-256", x: "x", y: "y" },
+        challenge_id: "22222222-2222-4222-8222-222222222222",
+        challenge_nonce: "unused-nonce",
+        signature: "unused-signature",
+        challenge: {
+          version: "prooforigin-vault-ownership-challenge-v1",
+          action: "ownership_key_register",
+          challenge_type: "ownership_key_register",
+          vault_id: VAULT_ID,
+          vault_device_id: DEVICE_ID,
+        },
         ownership_proof: {
-          signature: "sig-1",
-          challenge: "challenge-1",
-          challenge_hash: "a".repeat(64),
+          public_key_fingerprint: "a".repeat(64),
         },
       }),
     })
