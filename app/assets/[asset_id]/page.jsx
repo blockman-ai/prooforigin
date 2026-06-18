@@ -7,6 +7,7 @@ import GlassPanel from "../../../components/protocol/GlassPanel";
 import PageShell from "../../../components/protocol/PageShell";
 import ProofField from "../../../components/protocol/ProofField";
 import ProtocolBadge from "../../../components/protocol/ProtocolBadge";
+import AssetCertificateHero from "../../../components/assets/AssetCertificateHero";
 import {
   createAssetTransfer,
   describeAssetEvent,
@@ -217,25 +218,19 @@ export default function AssetDetailPage() {
 
       {!loading && !error && asset && (
         <>
-          <GlassPanel title="Asset certificate">
-            <div className="asset-proof-hero">
-              <div className="asset-proof-hero__image">
-                {asset.primary_image_url ? (
-                  <img src={asset.primary_image_url} alt={asset.display_name || "Registered asset"} />
-                ) : (
-                  <span>{formatAssetTypeLabel(asset.asset_type)}</span>
-                )}
-              </div>
-              <div className="asset-proof-hero__content">
-                <div className="asset-proof-hero__status">
-                  <ProtocolBadge variant={assetStatusBadgeVariant(asset.asset_status)}>
-                    {formatAssetStatusLabel(asset.asset_status)}
-                  </ProtocolBadge>
-                  <span>Protected since {formatAssetTimestamp(asset.created_at)}</span>
-                </div>
-                <h2>{asset.display_name || formatAssetTypeLabel(asset.asset_type)}</h2>
-                <p>{asset.public_summary || "This asset has a ProofOrigin provenance record and custody timeline."}</p>
-              </div>
+          <GlassPanel title="Asset certificate" className="glass-panel--premium glass-panel--museum">
+            <AssetCertificateHero
+              asset={asset}
+              statusBadgeVariant={assetStatusBadgeVariant(asset.asset_status)}
+              verificationLabel="Private owner view"
+            />
+            <div className="protocol-actions asset-certificate__owner-actions">
+              <a href={asset.verification_url} className="primary" target="_blank" rel="noreferrer">
+                Open Certificate
+              </a>
+              <Link href="/assets" className="secondary">
+                Back to Collection
+              </Link>
             </div>
           </GlassPanel>
 

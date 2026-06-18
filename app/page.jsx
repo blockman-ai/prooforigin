@@ -55,7 +55,7 @@ const START_ACTIONS = [
 export default function Home() {
   return (
     <PageShell
-      className="home-page"
+      className="home-page home-page--premium"
       badge="Asset Provenance • Beta"
       title="Prove what you own. Share proof in one link."
       subtitle="ProofOrigin verifies provenance, custody, and ownership history for digital and physical assets."

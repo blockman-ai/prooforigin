@@ -14,6 +14,7 @@ import {
   registerAsset,
 } from "../../lib/assetRegistryClient";
 import { isPhysicalAssetType } from "../../lib/assetRegistry";
+import { assetCategoryClass, getAssetCategoryIdentity } from "../../lib/assetVisualIdentity";
 
 const INITIAL_FORM = {
   asset_type: "psa_card",
@@ -26,6 +27,28 @@ const INITIAL_FORM = {
 };
 
 const MAX_IMAGE_BYTES = 550_000;
+const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const HEIC_FILE_PATTERN = /\.(heic|heif)$/i;
+
+function describeUnsupportedImage(file) {
+  const name = String(file.name || "").toLowerCase();
+  const type = String(file.type || "").toLowerCase();
+
+  if (
+    HEIC_FILE_PATTERN.test(name) ||
+    type === "image/heic" ||
+    type === "image/heif"
+  ) {
+    return "iPhone HEIC/HEIF photos are not supported yet. Save as JPG or export as PNG/WebP and try again.";
+  }
+
+  return "Use a JPG, PNG, or WebP image for the certificate preview.";
+}
+
+function describeOversizedImage(file) {
+  const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+  return `This image is ${sizeMb} MB. Certificate previews must be under 550 KB. Resize the photo on your phone or export a smaller JPG/WebP.`;
+}
 
 const REGISTRATION_STEPS = [
   { id: "type", label: "What are you registering?" },
@@ -122,10 +145,17 @@ function humanizeRegistrationError({ code, error } = {}) {
 
 function AssetTypeCard({ type, selected, onSelect }) {
   const presentation = ASSET_TYPE_PRESENTATION[type] || {};
+  const identity = getAssetCategoryIdentity(type);
   return (
     <button
       type="button"
-      className={`asset-type-card${selected ? " asset-type-card--selected" : ""}`}
+      className={`asset-type-card asset-type-card--identity ${assetCategoryClass(type)}${
+        selected ? " asset-type-card--selected" : ""
+      }`}
+      style={{
+        "--asset-accent": identity.accent,
+        "--asset-glow": identity.glow,
+      }}
       onClick={() => onSelect(type)}
       role="radio"
       aria-checked={selected}
@@ -167,28 +197,35 @@ export default function AssetRegisterPage() {
 
   async function onImageChange(event) {
     const file = event.target.files?.[0];
+    event.target.value = "";
+
     if (!file) {
       updateField("primary_image_url", "");
       updateField("primary_image_hash", "");
       return;
     }
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setError("Use a JPG, PNG, or WebP image.");
+
+    if (!SUPPORTED_IMAGE_TYPES.has(file.type)) {
+      setError(describeUnsupportedImage(file));
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
-      setError("Use an image smaller than 550 KB for the certificate preview.");
+      setError(describeOversizedImage(file));
       return;
     }
 
-    const dataUrl = await readImageAsDataUrl(file);
-    const imageHash = await hashClientAssetImage(dataUrl);
-    setForm((current) => ({
-      ...current,
-      primary_image_url: dataUrl,
-      primary_image_hash: imageHash,
-    }));
-    setError("");
+    try {
+      const dataUrl = await readImageAsDataUrl(file);
+      const imageHash = await hashClientAssetImage(dataUrl);
+      setForm((current) => ({
+        ...current,
+        primary_image_url: dataUrl,
+        primary_image_hash: imageHash,
+      }));
+      setError("");
+    } catch {
+      setError("We couldn't read that image. Try a different JPG, PNG, or WebP file.");
+    }
   }
 
   async function onSubmit(event) {
@@ -242,7 +279,7 @@ export default function AssetRegisterPage() {
       title="Register an asset and create a certificate"
       subtitle="Track custody over time and share proof in one link."
     >
-      <GlassPanel title="Registration flow">
+      <GlassPanel title="Registration flow" className="glass-panel--premium">
         <ol className="asset-register-wizard__steps" aria-label="Registration steps">
           {REGISTRATION_STEPS.map((step, index) => {
             const state =
@@ -362,7 +399,7 @@ export default function AssetRegisterPage() {
               <label className="protocol-field">
                 <span>Certificate image</span>
                 <input type="file" accept="image/png,image/jpeg,image/webp" onChange={onImageChange} />
-                <small>This image is public on the certificate. Use a preview-safe JPG, PNG, or WebP.</small>
+                <small>JPG, PNG, or WebP up to 550 KB. HEIC/HEIF iPhone photos need to be saved as JPG first.</small>
               </label>
 
               {form.primary_image_url && (

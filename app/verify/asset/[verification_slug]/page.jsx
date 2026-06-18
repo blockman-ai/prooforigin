@@ -5,8 +5,8 @@ import { useParams } from "next/navigation";
 import GlassPanel from "../../../../components/protocol/GlassPanel";
 import PageShell from "../../../../components/protocol/PageShell";
 import ProofField from "../../../../components/protocol/ProofField";
-import ProtocolBadge from "../../../../components/protocol/ProtocolBadge";
 import StatusCard from "../../../../components/protocol/StatusCard";
+import AssetCertificateHero from "../../../../components/assets/AssetCertificateHero";
 import {
   describeAssetEvent,
   fetchPublicAssetVerification,
@@ -162,35 +162,12 @@ export default function PublicAssetVerificationPage() {
 
       {!loading && asset && (
         <>
-          <GlassPanel title="ProofOrigin Certificate">
-            <div className="asset-certificate asset-certificate--flagship">
-              <div className="asset-certificate__image">
-                {asset.primary_image_url ? (
-                  <img src={asset.primary_image_url} alt={asset.display_name || "Verified asset"} />
-                ) : (
-                  <span>{formatAssetTypeLabel(asset.asset_type)}</span>
-                )}
-              </div>
-              <div className="asset-certificate__body">
-                <div className="asset-proof-hero__status">
-                  <ProtocolBadge variant="success">ProofOrigin Certificate</ProtocolBadge>
-                  <ProtocolBadge variant={assetStatusBadgeVariant(asset.asset_status)}>
-                    {formatAssetStatusLabel(asset.asset_status)}
-                  </ProtocolBadge>
-                  <span>Protected since {formatAssetTimestamp(asset.created_at)}</span>
-                </div>
-                <h2>{asset.display_name || formatAssetTypeLabel(asset.asset_type)}</h2>
-                <p>
-                  {asset.public_summary ||
-                    "This asset has a ProofOrigin provenance record and custody timeline."}
-                </p>
-                <div className="asset-certificate__facts">
-                  <span>Type: {formatAssetTypeLabel(asset.asset_type)}</span>
-                  <span>Status: {formatAssetStatusLabel(asset.asset_status)}</span>
-                  <span>{statusCard?.title || "Verification active"}</span>
-                </div>
-              </div>
-            </div>
+          <GlassPanel title="ProofOrigin Certificate" className="glass-panel--premium glass-panel--museum">
+            <AssetCertificateHero
+              asset={asset}
+              statusBadgeVariant={assetStatusBadgeVariant(asset.asset_status)}
+              verificationLabel={statusCard?.title || "Verification active"}
+            />
           </GlassPanel>
 
           <GlassPanel title="Custody Timeline" className="asset-flagship-panel">

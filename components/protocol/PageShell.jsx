@@ -12,10 +12,11 @@ export default function PageShell({
   heroAlign = "center",
 }) {
   return (
-    <div className="protocol-app">
+    <div className="protocol-app protocol-app--premium">
       <div className="protocol-app__ambient" aria-hidden="true">
         <span className="protocol-orb protocol-orb--cyan" />
         <span className="protocol-orb protocol-orb--violet" />
+        <span className="protocol-orb protocol-orb--gold" />
       </div>
 
       <SiteNav />
