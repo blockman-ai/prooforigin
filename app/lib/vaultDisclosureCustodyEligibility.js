@@ -122,7 +122,7 @@ export async function evaluateDisclosureCustodyEligibility({
     };
   }
 
-  if (document.vault_id !== vaultId) {
+  if (vaultId && document.vault_id !== vaultId) {
     return {
       eligible: false,
       reasonCode: "scope_vault_mismatch",

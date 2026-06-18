@@ -4,11 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useState } from "react";
 
 const LINKS = [
-  { href: "/identity-card", label: "Trust Pass" },
+  { href: "/assets", label: "Assets" },
   { href: "/vault", label: "Vault" },
   { href: "/custody-map", label: "Custody" },
-  { href: "/#sentinel", label: "Sentinel" },
-  { href: "/#disclosure", label: "Disclosure" },
+  { href: "/verify/receipt", label: "Verify" },
   { href: "/use-cases", label: "Use Cases" },
 ];
 
