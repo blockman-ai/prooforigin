@@ -6,6 +6,7 @@ import GlassPanel from "../../../components/protocol/GlassPanel";
 import PageShell from "../../../components/protocol/PageShell";
 import ProtocolBadge from "../../../components/protocol/ProtocolBadge";
 import StatusCard from "../../../components/protocol/StatusCard";
+import AssetImage from "../../../components/assets/AssetImage";
 import {
   acceptIncomingTransfer,
   declineIncomingTransfer,
@@ -16,6 +17,7 @@ import {
   transferStatusBadgeVariant,
   transferTermsLabel,
 } from "../../lib/assetRegistryClient";
+import { getAssetCategoryIdentity } from "../../lib/assetVisualIdentity";
 
 export default function IncomingTransfersPage() {
   const [handle, setHandle] = useState("");
@@ -115,6 +117,9 @@ export default function IncomingTransfersPage() {
 
   const previewAsset = preview?.asset || null;
   const previewTransfer = preview?.transfer || null;
+  const previewIdentity = previewAsset
+    ? getAssetCategoryIdentity(previewAsset.asset_type)
+    : null;
   const previewExpired = Boolean(preview?.expired);
   const previewPending = previewTransfer?.status === "pending";
 
@@ -170,7 +175,14 @@ export default function IncomingTransfersPage() {
           <div className="asset-proof-hero">
             <div className="asset-proof-hero__image">
               {previewAsset?.primary_image_url ? (
-                <img src={previewAsset.primary_image_url} alt={previewAsset.display_name || "Asset"} />
+                <AssetImage
+                  src={previewAsset.primary_image_url}
+                  alt={previewAsset.display_name || "Asset"}
+                  imageClassName="asset-proof-hero__photo"
+                  fallbackIcon={previewIdentity?.icon || "ASSET"}
+                  fallbackLabel={previewAsset?.asset_type_label || "Asset"}
+                  fill
+                />
               ) : (
                 <span>{previewAsset?.asset_type_label || "Asset"}</span>
               )}

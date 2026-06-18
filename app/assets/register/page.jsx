@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import GlassPanel from "../../../components/protocol/GlassPanel";
 import PageShell from "../../../components/protocol/PageShell";
 import ProtocolBadge from "../../../components/protocol/ProtocolBadge";
+import AssetImage from "../../../components/assets/AssetImage";
 import {
   ASSET_TYPE_PRESENTATION,
   formatAssetTypeLabel,
@@ -15,6 +16,11 @@ import {
 } from "../../lib/assetRegistryClient";
 import { isPhysicalAssetType } from "../../lib/assetRegistry";
 import { assetCategoryClass, getAssetCategoryIdentity } from "../../lib/assetVisualIdentity";
+import {
+  describeUnsupportedAssetImage,
+  isSupportedAssetImageType,
+  prepareAssetImageFromFile,
+} from "../../lib/assetImageInput";
 
 const INITIAL_FORM = {
   asset_type: "psa_card",
@@ -26,34 +32,10 @@ const INITIAL_FORM = {
   primary_image_hash: "",
 };
 
-const MAX_IMAGE_BYTES = 550_000;
-const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const HEIC_FILE_PATTERN = /\.(heic|heif)$/i;
-
-function describeUnsupportedImage(file) {
-  const name = String(file.name || "").toLowerCase();
-  const type = String(file.type || "").toLowerCase();
-
-  if (
-    HEIC_FILE_PATTERN.test(name) ||
-    type === "image/heic" ||
-    type === "image/heif"
-  ) {
-    return "iPhone HEIC/HEIF photos are not supported yet. Save as JPG or export as PNG/WebP and try again.";
-  }
-
-  return "Use a JPG, PNG, or WebP image for the certificate preview.";
-}
-
-function describeOversizedImage(file) {
-  const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
-  return `This image is ${sizeMb} MB. Certificate previews must be under 550 KB. Resize the photo on your phone or export a smaller JPG/WebP.`;
-}
-
 const REGISTRATION_STEPS = [
   { id: "type", label: "What are you registering?" },
   { id: "details", label: "Add details" },
-  { id: "evidence", label: "Add image/evidence" },
+  { id: "evidence", label: "Add photo & details" },
   { id: "review", label: "Review and register" },
 ];
 
@@ -80,34 +62,25 @@ const EVIDENCE_HELPER_COPY = {
 const IMAGE_GUIDANCE = {
   psa_card: {
     tone: "encouraged",
-    lead: "Add a clear photo of your card for the certificate.",
-    detail: "Graded cards look best with a front photo buyers can recognize.",
+    lead: "Add a clear photo of your card.",
+    detail: "A front photo helps collectors recognize the asset on your certificate.",
   },
   memorabilia: {
     tone: "encouraged",
-    lead: "Add a photo of the item for the certificate.",
-    detail: "Signed items, jerseys, and collectibles are easier to trust with a visual preview.",
+    lead: "Add a photo of the item.",
+    detail: "Signed items and collectibles are easier to trust with a strong photo.",
   },
   artwork: {
     tone: "encouraged",
-    lead: "Add a photo of the artwork for the certificate.",
-    detail: "A strong image helps collectors recognize the piece when you share proof.",
+    lead: "Add a photo of the artwork.",
+    detail: "A clear photo helps people recognize the piece when you share proof.",
   },
   document: {
     tone: "optional",
-    lead: "A preview image is optional but recommended.",
+    lead: "An asset photo is optional but recommended.",
     detail: "Add a cover image if you want the certificate to show more than text.",
   },
 };
-
-function readImageAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Unable to read image."));
-    reader.readAsDataURL(file);
-  });
-}
 
 function humanizeRegistrationError({ code, error } = {}) {
   const message = String(error || "").toLowerCase();
@@ -172,6 +145,7 @@ export default function AssetRegisterPage() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [stepIndex, setStepIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [imageProcessing, setImageProcessing] = useState(false);
   const [error, setError] = useState("");
 
   const currentStep = REGISTRATION_STEPS[stepIndex];
@@ -205,26 +179,26 @@ export default function AssetRegisterPage() {
       return;
     }
 
-    if (!SUPPORTED_IMAGE_TYPES.has(file.type)) {
-      setError(describeUnsupportedImage(file));
-      return;
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      setError(describeOversizedImage(file));
+    if (!isSupportedAssetImageType(file)) {
+      setError(describeUnsupportedAssetImage(file));
       return;
     }
 
+    setImageProcessing(true);
+    setError("");
+
     try {
-      const dataUrl = await readImageAsDataUrl(file);
-      const imageHash = await hashClientAssetImage(dataUrl);
+      const prepared = await prepareAssetImageFromFile(file);
+      const imageHash = await hashClientAssetImage(prepared.dataUrl);
       setForm((current) => ({
         ...current,
-        primary_image_url: dataUrl,
+        primary_image_url: prepared.dataUrl,
         primary_image_hash: imageHash,
       }));
-      setError("");
-    } catch {
-      setError("We couldn't read that image. Try a different JPG, PNG, or WebP file.");
+    } catch (err) {
+      setError(err?.message || "We couldn't prepare that photo. Try a different JPG, PNG, or WebP file.");
+    } finally {
+      setImageProcessing(false);
     }
   }
 
@@ -381,8 +355,8 @@ export default function AssetRegisterPage() {
               aria-labelledby="register-step-evidence"
             >
               <div className="asset-register-wizard__section-head">
-                <h3 id="register-step-evidence">Add image and evidence</h3>
-                <p>Add what helps prove the asset while keeping sensitive details private.</p>
+                <h3 id="register-step-evidence">Add photo and details</h3>
+                <p>Add a photo and any private details that help prove the asset.</p>
               </div>
 
               <div
@@ -392,20 +366,39 @@ export default function AssetRegisterPage() {
                     : ""
                 }`}
               >
-                <strong>{imageGuidance?.lead || "Add a certificate image if you want one."}</strong>
-                <span>{imageGuidance?.detail || "This image appears on the public certificate."}</span>
+                <strong>{imageGuidance?.lead || "Add an asset photo if you want one."}</strong>
+                <span>{imageGuidance?.detail || "This photo appears on your public certificate."}</span>
               </div>
 
               <label className="protocol-field">
-                <span>Certificate image</span>
-                <input type="file" accept="image/png,image/jpeg,image/webp" onChange={onImageChange} />
-                <small>JPG, PNG, or WebP up to 550 KB. HEIC/HEIF iPhone photos need to be saved as JPG first.</small>
+                <span>Asset photo</span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,.jpg,.jpeg,.png,.webp"
+                  onChange={onImageChange}
+                  disabled={imageProcessing}
+                />
+                <small>
+                  Most phone photos work — we resize automatically. iPhone HEIC photos should be
+                  saved as JPG first.
+                </small>
               </label>
 
-              {form.primary_image_url && (
+              {imageProcessing && (
+                <p className="protocol-help protocol-help--processing">Preparing your photo…</p>
+              )}
+
+              {form.primary_image_url && !imageProcessing && (
                 <div className="asset-image-preview">
-                  <img src={form.primary_image_url} alt="Selected asset preview" />
-                  <span>Certificate image ready</span>
+                  <AssetImage
+                    src={form.primary_image_url}
+                    alt="Selected asset preview"
+                    imageClassName="asset-image-preview__photo"
+                    fallbackIcon={getAssetCategoryIdentity(form.asset_type).icon}
+                    fallbackLabel="Photo preview unavailable"
+                    fill
+                  />
+                  <span>Asset photo ready</span>
                 </div>
               )}
 
@@ -433,7 +426,7 @@ export default function AssetRegisterPage() {
                 </>
               ) : isPhysical ? (
                 <label className="protocol-field">
-                  <span>Evidence details</span>
+                  <span>Asset details</span>
                   <input
                     type="text"
                     value={form.descriptor}
@@ -444,7 +437,7 @@ export default function AssetRegisterPage() {
                 </label>
               ) : (
                 <label className="protocol-field">
-                  <span>Evidence details</span>
+                  <span>Asset details</span>
                   <input
                     type="text"
                     value={form.descriptor}
@@ -468,9 +461,16 @@ export default function AssetRegisterPage() {
                 <div className="asset-certificate asset-certificate--flagship asset-register-review__certificate">
                   <div className="asset-certificate__image asset-proof-hero__image">
                     {form.primary_image_url ? (
-                      <img src={form.primary_image_url} alt="" />
+                      <AssetImage
+                        src={form.primary_image_url}
+                        alt=""
+                        imageClassName="asset-image-preview__photo"
+                        fallbackIcon={getAssetCategoryIdentity(form.asset_type).icon}
+                        fallbackLabel={formatAssetTypeLabel(form.asset_type)}
+                        fill
+                      />
                     ) : (
-                      <span>No image yet</span>
+                      <span>No photo yet</span>
                     )}
                   </div>
                   <div className="asset-certificate__body">
@@ -482,7 +482,8 @@ export default function AssetRegisterPage() {
                     <h2>{form.display_name.trim() || formatAssetTypeLabel(form.asset_type)}</h2>
                     <p>{form.public_summary.trim() || "No public summary added yet."}</p>
                     <p className="asset-register-review__note">
-                      Sensitive evidence is protected. Public certificate shows only safe information.
+                      Private asset details are protected. Your public certificate shows only safe
+                      information.
                     </p>
                   </div>
                 </div>
@@ -501,11 +502,11 @@ export default function AssetRegisterPage() {
                     <dd>{form.public_summary.trim() || "—"}</dd>
                   </div>
                   <div>
-                    <dt>Certificate image</dt>
+                    <dt>Asset photo</dt>
                     <dd>{form.primary_image_url ? "Added" : "Not added"}</dd>
                   </div>
                   <div>
-                    <dt>Evidence details</dt>
+                    <dt>Asset details</dt>
                     <dd>
                       {form.descriptor.trim() || form.serial_or_cert.trim()
                         ? "Protected privately"

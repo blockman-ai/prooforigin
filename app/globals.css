@@ -1630,7 +1630,7 @@ p {
 .site-footer {
   position: relative;
   z-index: 1;
-  padding: 32px clamp(16px, 4vw, 24px) 48px;
+  padding: 32px clamp(16px, 4vw, 24px) calc(48px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--po-border);
   background: rgba(3, 7, 18, 0.6);
 }
@@ -1666,7 +1666,7 @@ p {
   position: relative;
   z-index: 1;
   padding-top: clamp(28px, 6vw, 56px);
-  padding-bottom: 32px;
+  padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
 }
 
 .protocol-hero__title--gradient {
@@ -1677,7 +1677,7 @@ p {
 }
 
 .home-page.protocol-page {
-  padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(128px + env(safe-area-inset-bottom, 0px));
 }
 
 .home-page .protocol-hero {
@@ -5221,7 +5221,7 @@ p {
   }
 
   .home-page.protocol-page {
-    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(128px + env(safe-area-inset-bottom, 0px));
   }
 
   .home-page .protocol-hero__title {
@@ -7762,4 +7762,205 @@ p {
 .home-page--premium .platform-flow__item,
 .home-page--premium .feature-card {
   animation: po-rise-in 0.55s var(--po-ease-premium) both;
+}
+
+/* ── Phase 10F-6A — Registration & image pipeline foundation ── */
+
+.protocol-form {
+  display: grid;
+  gap: 16px;
+}
+
+.protocol-field {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  color: var(--po-text);
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.protocol-field > span:first-child {
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.protocol-field input:not([type="file"]),
+.protocol-field textarea,
+.protocol-field select {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 23, 42, 0.62);
+  color: #f8fafc;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.45;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.protocol-field textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.protocol-field select {
+  cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(148, 163, 184, 0.8) 50%),
+    linear-gradient(135deg, rgba(148, 163, 184, 0.8) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 36px;
+}
+
+.protocol-field input:not([type="file"]):focus-visible,
+.protocol-field textarea:focus-visible,
+.protocol-field select:focus-visible {
+  outline: none;
+  border-color: rgba(94, 196, 220, 0.48);
+  box-shadow: 0 0 0 3px rgba(94, 196, 220, 0.16);
+  background: rgba(15, 23, 42, 0.78);
+}
+
+.protocol-field input:not([type="file"])::placeholder,
+.protocol-field textarea::placeholder {
+  color: rgba(148, 163, 184, 0.72);
+}
+
+.protocol-field input[type="file"] {
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px dashed rgba(201, 162, 39, 0.32);
+  background: rgba(15, 23, 42, 0.48);
+  color: var(--po-muted);
+  font-size: 0.9rem;
+}
+
+.protocol-field input[type="file"]::file-selector-button {
+  margin-right: 12px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(201, 162, 39, 0.92), rgba(58, 114, 136, 0.95));
+  color: #f8fafc;
+  font-weight: 700;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.protocol-field input[type="file"]:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.protocol-field small {
+  color: var(--po-muted);
+  font-size: 0.84rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.protocol-help {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.34);
+  color: var(--po-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+.protocol-help--processing {
+  border-color: rgba(94, 196, 220, 0.22);
+  color: #dbeafe;
+}
+
+.asset-image-fallback {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  padding: 16px;
+  color: rgba(226, 232, 240, 0.82);
+  background:
+    radial-gradient(circle at 30% 20%, rgba(201, 162, 39, 0.14), transparent 38%),
+    linear-gradient(160deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.72));
+}
+
+.asset-image-fallback--fill {
+  min-height: 100%;
+}
+
+.asset-image-fallback__icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  border: 1px solid rgba(201, 162, 39, 0.28);
+  background: rgba(15, 23, 42, 0.72);
+  color: var(--po-champagne);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.asset-image-fallback__label {
+  max-width: 16rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--po-muted);
+  text-align: center;
+  line-height: 1.45;
+}
+
+.asset-card__photo,
+.asset-certificate__photo,
+.asset-proof-hero__photo,
+.asset-image-preview__photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.asset-image-preview {
+  overflow: hidden;
+}
+
+.asset-image-preview .asset-image-fallback,
+.asset-image-preview img,
+.asset-image-preview__photo {
+  aspect-ratio: 4 / 3;
+}
+
+@media (max-width: 760px) {
+  .protocol-field input:not([type="file"]),
+  .protocol-field textarea,
+  .protocol-field select {
+    min-height: 52px;
+  }
+
+  .protocol-page {
+    padding-bottom: calc(128px + env(safe-area-inset-bottom, 0px));
+  }
 }

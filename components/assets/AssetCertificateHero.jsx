@@ -1,4 +1,7 @@
+"use client";
+
 import ProtocolBadge from "../protocol/ProtocolBadge";
+import AssetImage from "./AssetImage";
 import {
   assetCategoryClass,
   getAssetCategoryIdentity,
@@ -31,7 +34,14 @@ export default function AssetCertificateHero({
         <div className="asset-certificate__mat">
           <div className="asset-certificate__image">
             {asset.primary_image_url ? (
-              <img src={asset.primary_image_url} alt={asset.display_name || "Verified asset"} />
+              <AssetImage
+                src={asset.primary_image_url}
+                alt={asset.display_name || "Verified asset"}
+                imageClassName="asset-certificate__photo"
+                fallbackIcon={identity.icon}
+                fallbackLabel={formatAssetTypeLabel(asset.asset_type)}
+                fill
+              />
             ) : (
               <div className="asset-certificate__placeholder">
                 <span className="asset-certificate__placeholder-icon">{identity.icon}</span>

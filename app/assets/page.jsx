@@ -5,6 +5,7 @@ import Link from "next/link";
 import GlassPanel from "../../components/protocol/GlassPanel";
 import PageShell from "../../components/protocol/PageShell";
 import ProtocolBadge from "../../components/protocol/ProtocolBadge";
+import AssetImage from "../../components/assets/AssetImage";
 import {
   formatAssetStatusLabel,
   formatAssetTimestamp,
@@ -156,9 +157,13 @@ export default function AssetRegistryPage() {
                       <Link href={`/assets/${asset.asset_id}`} className="asset-card__link">
                         <div className="asset-card__media">
                           {asset.primary_image_url ? (
-                            <img
+                            <AssetImage
                               src={asset.primary_image_url}
                               alt={asset.display_name || "Registered asset"}
+                              imageClassName="asset-card__photo"
+                              fallbackIcon={identity.icon}
+                              fallbackLabel={formatAssetTypeLabel(asset.asset_type)}
+                              fill
                             />
                           ) : (
                             <div className="asset-card__placeholder">
