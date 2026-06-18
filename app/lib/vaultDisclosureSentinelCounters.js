@@ -12,6 +12,10 @@ export const VAULT_DISCLOSURE_SENTINEL_COUNTERS = Object.freeze({
   CREATED_AFTER_CUSTODY_TRANSFER_TOTAL:
     "vault.disclosure.grant.created_after_custody_transfer_total",
   RATE_LIMITED_TOTAL: "vault.disclosure.access.rate_limited_total",
+  RECEIPT_VERIFY_SUCCESS_TOTAL: "vault.disclosure.receipt.verify_success_total",
+  RECEIPT_VERIFY_DENIED_TOTAL: "vault.disclosure.receipt.verify_denied_total",
+  RECEIPT_VERIFY_INTEGRITY_FAILED_TOTAL: "vault.disclosure.receipt.verify_integrity_failed_total",
+  RECEIPT_VERIFY_RATE_LIMITED_TOTAL: "vault.disclosure.receipt.verify_rate_limited_total",
 });
 
 const DAY_MS = 24 * 60 * 60 * 1000;

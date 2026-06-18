@@ -15,6 +15,11 @@ export const DISCLOSURE_VERIFY_IP_HOUR_WINDOW_MS = 60 * 60 * 1000;
 export const DISCLOSURE_VERIFY_HANDLE_BURST_LIMIT = 10;
 export const DISCLOSURE_VERIFY_HANDLE_BURST_WINDOW_MS = 60_000;
 
+export const DISCLOSURE_RECEIPT_VERIFY_IP_BURST_LIMIT = 10;
+export const DISCLOSURE_RECEIPT_VERIFY_IP_BURST_WINDOW_MS = 60_000;
+export const DISCLOSURE_RECEIPT_VERIFY_IP_HOUR_LIMIT = 60;
+export const DISCLOSURE_RECEIPT_VERIFY_IP_HOUR_WINDOW_MS = 60 * 60 * 1000;
+
 export const DISCLOSURE_FAILURE_LOCKOUT_THRESHOLD = 8;
 export const DISCLOSURE_FAILURE_LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
 export const DISCLOSURE_LOCKOUT_DURATION_MS = 30 * 60 * 1000;
@@ -232,6 +237,25 @@ export async function checkDisclosureVerifyRateLimit(req, publicHandleHash, now 
   });
   if (!handleBurst.allowed) {
     return { allowed: false, retryAfterMs: handleBurst.retryAfterMs, reason: "rate_limited" };
+  }
+
+  return { allowed: true, retryAfterMs: 0, reason: null };
+}
+
+export async function checkDisclosureReceiptVerifyRateLimit(req, now = Date.now()) {
+  const ip = getVaultRequestClientIp(req);
+
+  const ipLimits = await checkBurstAndHourly({
+    burstKey: `disclosure:receipt-verify:ip:${ip}:burst`,
+    burstLimit: DISCLOSURE_RECEIPT_VERIFY_IP_BURST_LIMIT,
+    burstWindowMs: DISCLOSURE_RECEIPT_VERIFY_IP_BURST_WINDOW_MS,
+    hourlyKey: `disclosure:receipt-verify:ip:${ip}:hour`,
+    hourlyLimit: DISCLOSURE_RECEIPT_VERIFY_IP_HOUR_LIMIT,
+    hourlyWindowMs: DISCLOSURE_RECEIPT_VERIFY_IP_HOUR_WINDOW_MS,
+    now,
+  });
+  if (!ipLimits.allowed) {
+    return { allowed: false, retryAfterMs: ipLimits.retryAfterMs, reason: "rate_limited" };
   }
 
   return { allowed: true, retryAfterMs: 0, reason: null };

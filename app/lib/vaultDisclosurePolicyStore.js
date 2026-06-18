@@ -140,6 +140,19 @@ export async function listDisclosureReceiptsByGrantRef(grantRef, { supabase = nu
   return { receipts: (data || []).map(mapReceipt), error };
 }
 
+export async function getDisclosureReceiptById(receiptId, { supabase = null } = {}) {
+  const client = supabase ?? createVaultAdminClient();
+  const { data, error } = await client
+    .from(DISCLOSURE_RECEIPTS_TABLE)
+    .select(
+      "receipt_id, grant_ref, policy_ref, session_ref, event_ref, scope_type, scope_ref_hash, recipient_binding_hash, policy_snapshot_hash, condition_profile_hash, custody_snapshot_hash, disclosure_digest, result, receipt_hash, created_at"
+    )
+    .eq("receipt_id", receiptId)
+    .maybeSingle();
+
+  return { receipt: mapReceipt(data), error };
+}
+
 export async function getLatestDisclosureReceiptForSession({
   grantRef,
   sessionRef,

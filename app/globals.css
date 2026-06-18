@@ -2419,6 +2419,29 @@ p {
   margin-top: 12px;
 }
 
+.disclosure-receipt-verify-link {
+  margin: 12px 0 0;
+  font-size: 14px;
+}
+
+.disclosure-receipt-verify-details {
+  margin-top: 4px;
+}
+
+.disclosure-receipt-verify-details summary {
+  cursor: pointer;
+  color: var(--po-muted);
+  font-size: 14px;
+}
+
+.disclosure-receipt-verify-details[open] .proof-grid {
+  margin-top: 16px;
+}
+
+.disclosure-receipt-verify-result {
+  margin-top: 20px;
+}
+
 @media (max-width: 700px) {
   .hero-cta-row {
     flex-direction: column;

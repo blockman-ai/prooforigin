@@ -22,6 +22,8 @@ import {
   runDisclosureRecipientFlow,
   truncateDisclosureHash,
 } from "../../lib/disclosureRecipientClient";
+import { buildReceiptVerifyPagePath } from "../../lib/disclosureReceiptVerifyClient";
+import Link from "next/link";
 
 const DISCLOSURE_DISCLAIMER =
   "This is a ProofOrigin owner-authorized disclosure. It verifies authorization scope, not absolute truth.";
@@ -68,6 +70,11 @@ function DisclosureReceiptCard({ receipt }) {
         </div>
         <p className="privacy-capture-disclaimer" role="note">
           {PRIVACY_CAPTURE_DISCLAIMER}
+        </p>
+        <p className="disclosure-receipt-verify-link">
+          <Link href={buildReceiptVerifyPagePath(receipt.receipt_id)}>
+            Verify independently
+          </Link>
         </p>
       </PrivacyScreenGuard>
     </GlassPanel>
